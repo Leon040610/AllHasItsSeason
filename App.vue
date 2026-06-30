@@ -1,17 +1,20 @@
 <script>
-	export default {
-		onLaunch: function() {
-			console.log('App Launch')
-		},
-		onShow: function() {
-			console.log('App Show')
-		},
-		onHide: function() {
-			console.log('App Hide')
+import { cloudEnvID } from '@/env'
+
+export default {
+	onLaunch() {
+		if (typeof wx !== 'undefined' && wx.cloud) {
+			wx.cloud.init({
+				env: cloudEnvID,
+				traceUser: true
+			})
 		}
-	}
+	},
+	onShow() {},
+	onHide() {}
+}
 </script>
 
 <style>
-	/*每个页面公共css */
+/* 每个页面公共 css */
 </style>

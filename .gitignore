@@ -1,4 +1,24 @@
 node_modules/
 unpackage/
+dist/
+miniprogram_npm/
 .hbuilderx/
 .DS_Store
+Thumbs.db
+
+# WeChat DevTools private config
+project.private.config.json
+
+# Local environment files
+.env
+.env.local
+.env.*.local
+env.js
+env.ts
+src/env.js
+src/env.ts
+config.secret.js
+
+# Cloud function local secrets
+cloudfunctions/*/local.env
+cloudfunctions/*/.env
