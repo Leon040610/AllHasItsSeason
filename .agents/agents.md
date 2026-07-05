@@ -54,21 +54,44 @@
 - **后端服务**：微信云开发 (CloudBase) - 云函数 (Node.js) + 云数据库 (NoSQL) + 云存储。
 - **核心数据集合**：`users` (用户), `items` (物品记录), `reminder_settings` (提醒设置), `drafts` (草稿)。
 
-# 七、 AI 辅助开发工作流 (Vibe Coding 核心规范)
-本项目采用 **“HTML 中转法”** 进行前端开发，你必须根据我当前的指令阶段，严格执行对应任务：
+# 七、 AI 辅助开发工作流 (多 Agent 协同)
 
-## 阶段 A：视觉还原 (当要求生成 HTML 时)
-1. 只能输出标准 HTML5 + Tailwind CSS 代码。
-2. 绝对不要使用 Vue/React 语法，不要写自定义 CSS，不要引入任何 JS 框架。
-3. 颜色使用 Tailwind 任意值语法，如 `bg-[#F9F8F6]`, `text-[#8A9A86]`。
-4. 图片占位使用 `https://placehold.co/宽x高`。
-5. **任务拆解**：每次只生成一个独立组件（如“贴纸风商品卡片”），绝不一次性生成整个长页面。
+本项目采用多 Agent 流水线作业，各阶段职责明确：
 
-## 阶段 B：框架转换 (当要求转换为 uni-app 时)
-1. **标签转换**：`div` -> `view`, `span/p/h1` -> `text`, `img` -> `image`。
-2. **样式转换**：将 Tailwind 类名拆解并转换为 `<style lang="scss" scoped>` 中的具体 `rpx` 样式。
-3. **图片处理**：`<image>` 标签必须包含 `mode="aspectFill"` 或 `mode="widthFix"` 属性。
-4. **组件替换**：遇到按钮、弹窗、列表等，必须替换为 `wot-design-uni` 的对应组件。
+## 阶段 1：Figma STITCH + 手动精修（设计稿生成）
+1. 使用 Figma STITCH 插件，基于项目 PRD 文档生成第一版前端界面设计稿（大致的布局、配色、组件结构）。
+2. 将设计稿导入 Figma，在 Figma 中手动调整细节（间距、字体、交互状态、贴纸风格等），直到视觉完美为止。
+3. 设计稿 Prompt 模板见：`STITCH_remaining_screen_prompts.md`。
+
+## 阶段 2：Gemini / AntiGravity（设计稿 → uni-app 代码）
+**这是代码生成的主力阶段。** Gemini 通过以下三重输入还原小程序界面：
+1. **Figma-Context-MCP**：连接 Figma，读取设计稿的节点树结构（布局层级、组件类型、尺寸间距等结构化数据）。
+2. **设计稿截图**：提供视觉还原的像素级参照（配色、圆角、阴影、字体等细节）。
+3. **design-tokens.tokens.json**：Design Tokens 文件，作为样式的唯一真相源。
+
+阶段 2 输出要求：
+- 生成完整的 uni-app SFC（`<template>` + `<script setup lang=”ts”>` + `<style lang=”scss” scoped>`）。
+- **标签转换**：`div` -> `view`, `span/p/h1` -> `text`, `img` -> `image`。
+- **样式转换**：读取 `tokens.json`，将 Figma 1x 硬编码 px 映射到 Token 变量并转换为 `rpx`（px x 2 = rpx）。
+- **组件替换**：按钮、弹窗、列表等必须替换为 `wot-design-uni` 对应组件。
+- **图片处理**：`<image>` 标签必须包含 `mode=”aspectFill”` 或 `mode=”widthFix”` 属性。
+- **数据驱动**：业务数据全部抽离到 `<script setup>` 中，用 `ref` / `reactive` 定义，严禁模板中写死数据。
+- **TS 接口**：必须定义核心业务接口（`Item`、`Category`、`ReminderSetting` 等）。
+- **美学合规**：颜色值必须属于低饱和自然色系，不符合的自动替换为 Token 变量。
+- **合规红线**：代码中严格遵守第二节”去 AI 化”要求，不得出现任何 AIGC 相关字眼。
+
+## 阶段 3：Codex（代码审查与精细优化）
+Codex 负责审查和修正 Gemini 输出的代码，包括：
+- 校验 uni-app 规范合规性（标签、rpx、CSS 兼容性）。
+- 性能优化与代码质量提升。
+- 贴纸手帐风商品图的 Canvas 技术链路验证。
+- 确保 `.gitignore` 正确隔离敏感文件。
+
+## 合规提醒
+所有阶段生成的代码和文案，必须严格遵守第二节”去 AI 化”红线：
+- “AI 抠图” -> “**智能抠图**”或”**一键抠图**”
+- “AI OCR” -> “**拍照识字**”或”**智能提取**”
+- 禁止出现”AI 生成”、”大模型”、”智能对话”等字眼
 
 # 八、 代码输出严格约束 (非常重要)
 1. **零废话**：除非我主动提问，否则**不要输出任何解释性文字**（如“好的”、“这是您的代码”、“请注意”），直接输出代码块。

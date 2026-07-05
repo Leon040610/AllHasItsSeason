@@ -22,3 +22,7 @@ config.secret.js
 # Cloud function local secrets
 cloudfunctions/*/local.env
 cloudfunctions/*/.env
+
+# Design assets (local only, not for remote)
+Design File/
+design-tokens.tokens.json

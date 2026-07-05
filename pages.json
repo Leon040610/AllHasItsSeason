@@ -1,17 +1,148 @@
 {
-	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+	"pages": [
+		{
+			"path": "pages/launch/index",
+			"style": {
+				"navigationBarTitleText": "万物有期",
+				"navigationStyle": "custom"
+			}
+		},
 		{
 			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "uni-app"
+				"navigationBarTitleText": "首页",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/library/index",
+			"style": {
+				"navigationBarTitleText": "物品库",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/tools/index",
+			"style": {
+				"navigationBarTitleText": "工具",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/me/index",
+			"style": {
+				"navigationBarTitleText": "我的",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/add/index",
+			"style": {
+				"navigationBarTitleText": "添加物品",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/detail/index",
+			"style": {
+				"navigationBarTitleText": "物品详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/calculator/index",
+			"style": {
+				"navigationBarTitleText": "效期计算器",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/about/index",
+			"style": {
+				"navigationBarTitleText": "关于万物有期",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/reminder/index",
+			"style": {
+				"navigationBarTitleText": "提醒设置",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/draft/index",
+			"style": {
+				"navigationBarTitleText": "草稿箱",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/data/index",
+			"style": {
+				"navigationBarTitleText": "数据管理",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/data/syncing",
+			"style": {
+				"navigationBarTitleText": "数据管理",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/data/success",
+			"style": {
+				"navigationBarTitleText": "数据管理",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/data/no-sync",
+			"style": {
+				"navigationBarTitleText": "数据管理",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/data/not-logged",
+			"style": {
+				"navigationBarTitleText": "数据管理",
+				"navigationStyle": "custom"
 			}
 		}
 	],
+	"tabBar": {
+		"custom": true,
+		"color": "#A69B8D",
+		"selectedColor": "#536251",
+		"backgroundColor": "#F4F3F1",
+		"list": [
+			{
+				"pagePath": "pages/index/index",
+				"text": "首页"
+			},
+			{
+				"pagePath": "pages/library/index",
+				"text": "物品库"
+			},
+			{
+				"pagePath": "pages/tools/index",
+				"text": "工具"
+			},
+			{
+				"pagePath": "pages/me/index",
+				"text": "我的"
+			}
+		]
+	},
 	"globalStyle": {
 		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "uni-app",
-		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
+		"navigationBarTitleText": "万物有期",
+		"navigationBarBackgroundColor": "#FAF9F7",
+		"backgroundColor": "#F9F8F6",
+		"backgroundColorTop": "#F9F8F6"
 	},
 	"uniIdRouter": {}
 }

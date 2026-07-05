@@ -74,3 +74,33 @@ $uni-color-subtitle: #555555; // 二级标题颜色
 $uni-font-size-subtitle:26px;
 $uni-color-paragraph: #3F536E; // 文章段落颜色
 $uni-font-size-paragraph:15px;
+
+/* ==========================================================================
+   万物有期 (All Has Its Season) - Design Tokens
+   ========================================================================== */
+
+/* 色彩系统 (东方极简风) */
+$color-bg: #f9f8f6; /* bg oat */
+$color-primary: #8a9a86; /* primary sage */
+$color-warn: #d98a6c; /* warning terracotta */
+$color-expired: #a69b8d; /* muted wood */
+$color-text: #333634; /* text */
+$color-text-secondary: rgba(51, 54, 52, 0.64); /* text secondary 64% */
+$color-line: rgba(51, 54, 52, 0.1); /* line 10% */
+$color-card: #ffffff; /* card */
+$color-primary-dark: #536251; /* Button dark variant derived from design */
+$color-border: rgba(231, 225, 216, 0.8);
+
+/* 阴影 */
+$shadow-card: 0 8rpx 24rpx rgba(51, 54, 52, 0.08); /* Project standard shadow */
+$shadow-card-md: 0 16rpx 48rpx rgba(51, 54, 52, 0.12);
+
+/* 圆角 */
+$radius-card: 32rpx; /* Standard card radius (16px) */
+$radius-full: 9999rpx;
+
+/* 尺寸和布局 */
+$top-height: 120rpx;
+$bottom-h: 180rpx;
+$tab-height: 110rpx;
+
