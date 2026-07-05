@@ -150,7 +150,7 @@ const item = ref<ItemDetail>({
   name: '牛奶',
   category: 'food',
   categoryLabel: '食品',
-  imageUrl: '/static/placeholder-milk.png',
+  imageUrl: '/static/icons/milk.svg',
   displayImageUrl: '',
   rotation: -1.5,
   status: 'pending',

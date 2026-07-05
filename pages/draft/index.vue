@@ -95,7 +95,7 @@ const drafts = ref<DraftItem[]>([
   {
     id: '1',
     name: '海蓝之谜面霜',
-    imageUrl: '/static/placeholder-cream2.png',
+    imageUrl: '/static/icons/La Mer Cream.svg',
     imgBg: '#F4EDE5',
     lastEditTime: '2023.10.24 14:30',
     tags: ['待确认到期日'],
@@ -111,7 +111,7 @@ const drafts = ref<DraftItem[]>([
   {
     id: '3',
     name: '植萃洗衣液',
-    imageUrl: '/static/placeholder-detergent.png',
+    imageUrl: '/static/icons/Laundry Detergent.svg',
     imgBg: '#F4F3F1',
     lastEditTime: '2023.10.23 20:15',
     tags: ['待确认到期日'],

@@ -5,7 +5,7 @@
       <view class="logo-card">
         <image
           class="logo-card__img"
-          src="/static/logo-hero.png"
+          src="/static/logo-hero.jpeg"
           mode="aspectFit"
         />
         <text class="logo-card__name">万 物 有 期</text>

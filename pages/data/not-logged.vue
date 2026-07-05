@@ -18,7 +18,7 @@
       <view class="guide-card">
         <!-- 插画区 -->
         <view class="guide-card__illus">
-          <image class="guide-card__illus-img" src="/static/illus-cloud-wave.png" mode="aspectFill" />
+          <image class="guide-card__illus-img" src="/static/icons/yuntongbu.svg" mode="aspectFill" />
           <view class="guide-card__illus-overlay">
             <image class="guide-card__illus-icon-img" src="/static/icons/yunduanbeifen.svg" mode="aspectFit" />
           </view>

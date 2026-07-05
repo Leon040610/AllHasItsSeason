@@ -13,7 +13,7 @@
 
       <!-- 品牌区 -->
       <view class="brand-section">
-        <image class="brand-section__logo" src="/static/logo-hero.png" mode="aspectFit" />
+        <image class="brand-section__logo" src="/static/logo-hero.jpeg" mode="aspectFit" />
         <text class="brand-section__name">万物有期</text>
         <text class="brand-section__version">VERSION {{ version }}</text>
         <text class="brand-section__en">ALL HAS ITS SEASON</text>

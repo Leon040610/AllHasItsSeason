@@ -17,4 +17,5 @@ export default {
 
 <style>
 /* 每个页面公共 css */
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;500;600;700&display=swap');
 </style>

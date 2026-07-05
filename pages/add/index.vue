@@ -389,7 +389,7 @@ $radius-full: 9999rpx;
   background: $color-bg-light;
   border-radius: $radius-card;
   overflow: hidden;
-  box-shadow: 0 4rpx 16rpx rgba(0,0,0,0.05);
+  box-shadow: $shadow-card;
 }
 
 .img-preview {
@@ -501,7 +501,7 @@ $radius-full: 9999rpx;
   align-items: center;
   justify-content: center;
   gap: 12rpx;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+  box-shadow: $shadow-card;
 
   &__icon-img {
     width: 28rpx;
@@ -688,7 +688,7 @@ $radius-full: 9999rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 8rpx 32rpx rgba(83, 98, 81, 0.3);
+  box-shadow: 0 16rpx 48rpx rgba(83, 98, 81, 0.3);
 
   &--disabled {
     background: #E3E2E0;

@@ -85,7 +85,7 @@
         <!-- 空状态 -->
         <view v-else class="empty-state">
           <view class="empty-state__illus">
-            <image class="empty-state__img" src="/static/illus-leaf.png" mode="aspectFit" />
+            <image class="empty-state__img" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
           </view>
           <text class="empty-state__title">万物皆有时，此刻且从容</text>
           <text class="empty-state__sub">开始收纳你的第一件好物吧</text>
@@ -174,7 +174,7 @@ const allItems = ref<Item[]>([
     name: '海蓝之谜面霜',
     category: 'beauty',
     categoryLabel: '美妆',
-    imageUrl: '/static/placeholder-cream2.png',
+    imageUrl: '/static/icons/La Mer Cream.svg',
     status: 'near_expire',
     daysLeft: 12,
     expireDate: '2026-07-17',
@@ -184,7 +184,7 @@ const allItems = ref<Item[]>([
     name: '布洛芬缓释胶囊',
     category: 'medicine',
     categoryLabel: '药品',
-    imageUrl: '/static/placeholder-medicine.png',
+    imageUrl: '/static/icons/Ibuprofen.svg',
     status: 'pending',
     daysLeft: 180,
     expireDate: '2027-01-01',
@@ -194,7 +194,7 @@ const allItems = ref<Item[]>([
     name: '蓝月亮洗衣液',
     category: 'daily',
     categoryLabel: '日化',
-    imageUrl: '/static/placeholder-detergent.png',
+    imageUrl: '/static/icons/Laundry Detergent.svg',
     status: 'using',
     daysLeft: 90,
     expireDate: '2026-10-05',
@@ -204,7 +204,7 @@ const allItems = ref<Item[]>([
     name: '全麦吐司面包',
     category: 'food',
     categoryLabel: '食品',
-    imageUrl: '/static/placeholder-bread.png',
+    imageUrl: '/static/icons/bread.svg',
     status: 'expired',
     daysLeft: -1,
     expireDate: '2026-07-04',

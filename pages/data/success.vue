@@ -17,7 +17,7 @@
       <view class="status-area">
         <view class="status-icon-outer">
           <view class="status-icon-circle">
-            <image class="status-icon-check-img" src="/static/icons/tongbuchengong.svg" mode="aspectFit" />
+            <image class="status-icon-check-img" src="/static/icons/duigou.svg" mode="aspectFit" />
           </view>
         </view>
         <text class="status-title">同步成功</text>
@@ -32,14 +32,14 @@
       <view class="stat-list">
         <view class="stat-card">
           <view class="stat-card__icon-wrap">
-            <image class="stat-card__icon-img" src="/static/icons/wupinku.svg" mode="aspectFit" />
+            <image class="stat-card__icon-img" src="/static/icons/yiluruwupin.svg" mode="aspectFit" />
           </view>
           <text class="stat-card__label">已录入物品</text>
           <text class="stat-card__value">{{ syncResult.itemCount }}件</text>
         </view>
         <view class="stat-card">
           <view class="stat-card__icon-wrap">
-            <image class="stat-card__icon-img" src="/static/icons/lijitongbuyunduan.svg" mode="aspectFit" />
+            <image class="stat-card__icon-img" src="/static/icons/jieshengkongjian.svg" mode="aspectFit" />
           </view>
           <text class="stat-card__label">节省空间</text>
           <text class="stat-card__value">{{ syncResult.savedSpace }}MB</text>
