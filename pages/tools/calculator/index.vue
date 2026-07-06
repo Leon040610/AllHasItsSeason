@@ -3,17 +3,16 @@
     <!-- 顶部 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="top-bar__back-icon-img" src="@/static/icons/calculator-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="@/static/icons/calculator-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">效期计算器</text>
       </view>
       <view class="top-bar__placeholder" />
     </view>
 
     <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
-
       <!-- 页面标题 -->
       <view class="page-header">
         <text class="page-header__title">效期计算器</text>
@@ -24,7 +23,7 @@
       <view class="input-card">
         <!-- 生产日期 -->
         <view class="input-row">
-          <image class="input-row__icon-img" src="/static/icons/shengchanriqi.svg" mode="aspectFit" />
+          <image class="input-row__icon-img" src="@/static/icons/calculator-shengchanriqi.svg" mode="aspectFit" />
           <text class="input-row__label">生产日期</text>
         </view>
         <picker
@@ -38,13 +37,12 @@
             <text class="input-field__text" :class="{ 'input-field__text--placeholder': !form.produceDate }">
               {{ form.produceDate || '请选择日期' }}
             </text>
-            <image class="input-field__calendar" src="/static/icons/shengchanriqi.svg" mode="aspectFit" />
           </view>
         </picker>
 
         <!-- 保质期 -->
         <view class="input-row" style="margin-top: 32rpx;">
-          <image class="input-row__icon-img" src="/static/icons/baozhiqi.svg" mode="aspectFit" />
+          <image class="input-row__icon-img" src="@/static/icons/calculator-baozhiqi.svg" mode="aspectFit" />
           <text class="input-row__label">保质期</text>
         </view>
         <view class="shelf-row">
@@ -72,45 +70,28 @@
       <!-- 结果卡片 -->
       <view class="result-card" v-if="result.expireDate">
         <view class="result-card__bg-decor" />
-        <view class="result-header">
-          <image class="result-header__icon-img" src="/static/icons/yujidaoqiri.svg" mode="aspectFit" />
-          <text class="result-header__label">预计到期日</text>
+        
+        <view class="result-top">
+          <image class="result-top__icon" src="@/static/icons/calculator-yujidaoqiri.svg" mode="aspectFit" />
+          <view class="result-top__text-wrap">
+            <text class="result-top__label">预计到期日</text>
+            <text class="result-top__date">{{ result.expireDateLabel }}</text>
+          </view>
         </view>
-        <text class="result-date">{{ result.expireDateLabel }}</text>
+        
         <view class="result-reminder">
-          <image class="result-reminder__icon-img" src="/static/icons/tixing.svg" mode="aspectFit" />
+          <image class="result-reminder__icon-img" src="@/static/icons/calculator-tixing.svg" mode="aspectFit" />
           <text class="result-reminder__text">小管家会在前 {{ result.reminderDays }} 天提醒你</text>
         </view>
+        
         <view class="result-save-btn" @tap="onSaveAsItem">
-          <image class="result-save-btn__icon-img" src="/static/icons/duigou.svg" mode="aspectFit" />
+          <image class="result-save-btn__icon-img" src="@/static/icons/calculator-baocun.svg" mode="aspectFit" />
           <text class="result-save-btn__text">保存为物品</text>
         </view>
       </view>
 
       <view class="safe-bottom" />
     </scroll-view>
-
-    <!-- 底部 TabBar -->
-    <view class="tab-bar">
-      <view class="tab-bar__item" @tap="onTabTap('index')">
-        <image class="tab-bar__icon-img" src="/static/icons/shouye.svg" mode="aspectFit" />
-        <text class="tab-bar__label">首页</text>
-      </view>
-      <view class="tab-bar__item" @tap="onTabTap('library')">
-        <image class="tab-bar__icon-img" src="/static/icons/wupinku.svg" mode="aspectFit" />
-        <text class="tab-bar__label">物品库</text>
-      </view>
-      <view class="tab-bar__item tab-bar__item--active">
-        <view class="tab-bar__active-bg">
-          <image class="tab-bar__icon-img tab-bar__icon-img--active" src="/static/icons/gongju-dianji.svg" mode="aspectFit" />
-        </view>
-        <text class="tab-bar__label tab-bar__label--active">工具</text>
-      </view>
-      <view class="tab-bar__item" @tap="onTabTap('me')">
-        <image class="tab-bar__icon-img" src="/static/icons/wode.svg" mode="aspectFit" />
-        <text class="tab-bar__label">我的</text>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -191,15 +172,6 @@ function onSaveAsItem() {
     url: `/pages/add/index?mode=manual&expireDate=${result.expireDate}`,
   })
 }
-
-function onTabTap(tab: string) {
-  const tabMap: Record<string, string> = {
-    index: '/pages/index/index',
-    library: '/pages/library/index',
-    me: '/pages/me/index',
-  }
-  uni.switchTab({ url: tabMap[tab] })
-}
 </script>
 
 <style lang="scss" scoped>
@@ -212,12 +184,10 @@ $color-text: #333634;
 $color-text-secondary: rgba(51, 54, 52, 0.64);
 $color-warn: #D98A6C;
 $color-expired: #A69B8D;
-$color-line: rgba(51, 54, 52, 0.1);
-$shadow-card: 0 8rpx 48rpx rgba(51, 54, 52, 0.08);
-$shadow-card-md: 0 12rpx 32rpx rgba(51, 54, 52, 0.12);
+$color-line: rgba(51, 54, 52, 0.08);
+$shadow-card: 0 16rpx 48rpx rgba(51, 54, 52, 0.08);
 $radius-card: 32rpx;
 $radius-full: 9999rpx;
-$tab-height: 168rpx;
 $top-height: 120rpx;
 
 .page {
@@ -239,33 +209,37 @@ $top-height: 120rpx;
   background: #FAF9F7;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: space-between; // 保证左右两边推开，中间部分自动居中
   padding-left: 24rpx;
   padding-right: 24rpx;
-  border-bottom: 2rpx solid $color-line;
+  border-bottom: 2rpx solid rgba(51, 54, 52, 0.08);
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__back {
     width: 88rpx;
     height: 88rpx;
     display: flex;
     align-items: center;
-    justify-content: center;
+    justify-content: flex-start;
   }
 
-  &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
+  &__back-icon-img {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__center {
+    flex: 1;
     display: flex;
     align-items: center;
+    justify-content: center;
+    height: 88rpx;
     gap: 12rpx;
   }
 
   &__leaf {
-    width: 30rpx;
-    height: 30rpx;
+    width: 32rpx;
+    height: 32rpx;
   }
 
   &__title {
@@ -276,14 +250,14 @@ $top-height: 120rpx;
   }
 
   &__placeholder {
-    width: 88rpx;
+    width: 88rpx; // 占位符，保证 __center 在 flex 中绝对居中
   }
 }
 
 .scroll-body {
   flex: 1;
-  padding-top: $top-height;
-  padding-bottom: $tab-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
+  padding-bottom: calc(40rpx + env(safe-area-inset-bottom));
   height: 100vh;
   box-sizing: border-box;
 }
@@ -302,6 +276,7 @@ $top-height: 120rpx;
   }
 
   &__sub {
+    font-family: 'Noto Serif SC', serif;
     font-size: 28rpx;
     color: $color-text-secondary;
     display: block;
@@ -316,6 +291,7 @@ $top-height: 120rpx;
   border-radius: $radius-card;
   box-shadow: $shadow-card;
   padding: 40rpx;
+  border: 2rpx solid #E7E1D8;
 }
 
 .input-row {
@@ -327,10 +303,10 @@ $top-height: 120rpx;
   &__icon-img {
     width: 32rpx;
     height: 32rpx;
-    opacity: 0.6;
   }
 
   &__label {
+    font-family: 'Noto Serif SC', serif;
     font-size: 28rpx;
     color: $color-text-secondary;
   }
@@ -344,7 +320,7 @@ $top-height: 120rpx;
 .input-field {
   width: 100%;
   height: 88rpx;
-  border: 2rpx dashed $color-line;
+  border: 2rpx dashed #E7E1D8;
   border-radius: 16rpx;
   display: flex;
   align-items: center;
@@ -364,13 +340,6 @@ $top-height: 120rpx;
       font-weight: 400;
     }
   }
-
-  &__calendar {
-    width: 40rpx;
-    height: 40rpx;
-    flex-shrink: 0;
-    opacity: 0.5;
-  }
 }
 
 .shelf-row {
@@ -381,7 +350,7 @@ $top-height: 120rpx;
 .shelf-input-wrap {
   flex: 1;
   height: 88rpx;
-  border: 2rpx dashed $color-line;
+  border: 2rpx dashed #E7E1D8;
   border-radius: 16rpx;
   display: flex;
   align-items: center;
@@ -399,7 +368,7 @@ $top-height: 120rpx;
 .unit-select {
   width: 160rpx;
   height: 88rpx;
-  border: 2rpx dashed $color-line;
+  border: 2rpx dashed #E7E1D8;
   border-radius: 16rpx;
   display: flex;
   align-items: center;
@@ -407,11 +376,13 @@ $top-height: 120rpx;
   gap: 12rpx;
 
   &__value {
+    font-family: 'Noto Serif SC', serif;
     font-size: 34rpx;
     color: $color-text;
   }
 
   &__arrow {
+    font-family: 'Noto Serif SC', serif;
     font-size: 22rpx;
     color: $color-text-secondary;
   }
@@ -422,12 +393,13 @@ $top-height: 120rpx;
   width: 100%;
   height: 88rpx;
   border-radius: $radius-full;
-  border: 2rpx solid $color-line;
+  border: 2rpx solid #333634; // 黑色实线描边
   display: flex;
   align-items: center;
   justify-content: center;
 
   &__text {
+    font-family: 'Noto Serif SC', serif;
     font-size: 32rpx;
     color: $color-text;
   }
@@ -438,53 +410,66 @@ $top-height: 120rpx;
   margin: 32rpx 48rpx 0;
   background: $color-card;
   border-radius: $radius-card;
-  box-shadow: $shadow-card-md;
+  box-shadow: $shadow-card;
   padding: 40rpx;
   position: relative;
   overflow: hidden;
+  border: 2rpx solid #E7E1D8;
 
   &__bg-decor {
     position: absolute;
-    top: -40rpx;
-    right: -40rpx;
-    width: 200rpx;
-    height: 200rpx;
-    border-radius: $radius-full;
-    background: radial-gradient(circle, rgba(217, 138, 108, 0.15) 0%, transparent 70%);
+    top: -60rpx;
+    right: -60rpx;
+    width: 280rpx;
+    height: 280rpx;
+    background: rgba(249, 154, 118, 0.45); // #F99A76 45%
+    border-radius: 9999rpx;
+    filter: blur(60rpx);
+    z-index: 1;
   }
 }
 
-.result-header {
+.result-top {
   display: flex;
-  align-items: center;
-  gap: 16rpx;
-  margin-bottom: 16rpx;
+  align-items: flex-start;
+  gap: 24rpx;
+  margin-bottom: 24rpx;
+  position: relative;
+  z-index: 2;
 
-  &__icon-img {
-    width: 40rpx;
-    height: 40rpx;
+  &__icon {
+    width: 80rpx;
+    height: 80rpx;
+    margin-top: 8rpx;
+  }
+
+  &__text-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 8rpx;
   }
 
   &__label {
+    font-family: 'Noto Serif SC', serif;
     font-size: 28rpx;
     color: $color-text-secondary;
   }
-}
 
-.result-date {
-  font-family: 'Noto Serif SC', serif;
-  font-size: 56rpx;
-  font-weight: 400;
-  color: $color-text;
-  display: block;
-  margin-bottom: 32rpx;
+  &__date {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 48rpx;
+    font-weight: 400;
+    color: $color-text;
+  }
 }
 
 .result-reminder {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 12rpx;
   margin-bottom: 40rpx;
+  position: relative;
+  z-index: 2;
 
   &__icon-img {
     width: 28rpx;
@@ -492,7 +477,8 @@ $top-height: 120rpx;
   }
 
   &__text {
-    font-size: 28rpx;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 26rpx;
     color: $color-text-secondary;
   }
 }
@@ -507,6 +493,8 @@ $top-height: 120rpx;
   justify-content: center;
   gap: 16rpx;
   box-shadow: 0 8rpx 32rpx rgba(83, 98, 81, 0.3);
+  position: relative;
+  z-index: 2;
 
   &__icon-img {
     width: 32rpx;
@@ -523,62 +511,5 @@ $top-height: 120rpx;
 
 .safe-bottom {
   height: 40rpx;
-}
-
-/* TabBar */
-.tab-bar {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: $tab-height;
-  background: #F4F3F1;
-  border-radius: 24rpx 24rpx 0 0;
-  display: flex;
-  align-items: flex-start;
-  padding-top: 20rpx;
-  z-index: 100;
-
-  &__item {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6rpx;
-    padding: 16rpx 0;
-    color: $color-expired;
-  }
-
-  &__active-bg {
-    width: 80rpx;
-    height: 80rpx;
-    border-radius: $radius-full;
-    background: $color-primary;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  &__icon-img {
-    width: 48rpx;
-    height: 48rpx;
-    opacity: 0.8;
-
-    &--active {
-      width: 48rpx;
-      height: 48rpx;
-      opacity: 1;
-    }
-  }
-
-  &__label {
-    font-size: 22rpx;
-    color: $color-expired;
-
-    &--active {
-      color: $color-primary-dark;
-      font-weight: 700;
-    }
-  }
 }
 </style>

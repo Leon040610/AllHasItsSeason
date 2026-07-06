@@ -3,7 +3,7 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__brand">
-        <image class="top-bar__icon" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__icon" src="@/static/icons/tools-topIcon.svg" mode="aspectFit" />
         <text class="top-bar__title">工具</text>
       </view>
     </view>
@@ -11,21 +11,21 @@
     <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
       <view class="tool-list">
         <!-- 效期计算器 -->
-        <view class="tool-card" @tap="onCalculator">
+        <view class="tool-card tool-card--calculator" @tap="onCalculator">
           <view class="tool-card__icon-wrap tool-card__icon-wrap--active">
-            <image class="tool-card__icon-img" src="/static/icons/xiaoqijisuanqi.svg" mode="aspectFit" />
+            <image class="tool-card__icon-img" src="@/static/icons/tools-xiaoqijisuanqi.svg" mode="aspectFit" />
           </view>
           <view class="tool-card__info">
             <text class="tool-card__name">效期计算器</text>
             <text class="tool-card__desc">帮你算出准确的到期日</text>
           </view>
-          <text class="tool-card__arrow">›</text>
+          <image class="tool-card__arrow-img" src="@/static/icons/tools-xiayiye.svg" mode="aspectFit" />
         </view>
 
         <!-- 更多工具（即将推出） -->
         <view class="tool-card tool-card--disabled">
           <view class="tool-card__icon-wrap tool-card__icon-wrap--muted">
-            <image class="tool-card__icon-img" src="/static/icons/gengduogongju.svg" mode="aspectFit" />
+            <image class="tool-card__icon-img" src="@/static/icons/tools-gengduogongju.svg" mode="aspectFit" />
           </view>
           <view class="tool-card__info">
             <text class="tool-card__name tool-card__name--muted">更多工具</text>
@@ -40,21 +40,27 @@
     <!-- 底部 TabBar -->
     <view class="tab-bar">
       <view class="tab-bar__item" @tap="onTabTap('index')">
-        <image class="tab-bar__icon-img" src="/static/icons/shouye.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="@/static/icons/tools-shouye.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">首页</text>
       </view>
       <view class="tab-bar__item" @tap="onTabTap('library')">
-        <image class="tab-bar__icon-img" src="/static/icons/wupinku.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="@/static/icons/tools-wupinku.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">物品库</text>
       </view>
       <view class="tab-bar__item tab-bar__item--active">
-        <view class="tab-bar__active-bg">
-          <image class="tab-bar__icon-img tab-bar__icon-img--active" src="/static/icons/gongju-dianji.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap tab-bar__icon-wrap--active">
+          <image class="tab-bar__icon-img" src="@/static/icons/tools-gongju-dianji.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label tab-bar__label--active">工具</text>
       </view>
       <view class="tab-bar__item" @tap="onTabTap('me')">
-        <image class="tab-bar__icon-img" src="/static/icons/wode.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="@/static/icons/tools-wode.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">我的</text>
       </view>
     </view>
@@ -63,7 +69,7 @@
 
 <script setup lang="ts">
 function onCalculator() {
-  uni.navigateTo({ url: '/pages/calculator/index' })
+  uni.navigateTo({ url: '/pages/tools/calculator/index' })
 }
 
 function onTabTap(tab: string) {
@@ -84,11 +90,10 @@ $color-primary-dark: #536251;
 $color-text: #333634;
 $color-text-secondary: rgba(51, 54, 52, 0.64);
 $color-expired: #A69B8D;
-$color-line: rgba(51, 54, 52, 0.1);
-$shadow-card: 0 8rpx 48rpx rgba(51, 54, 52, 0.08);
+$color-line: rgba(51, 54, 52, 0.08);
+$shadow-card: 0 16rpx 48rpx rgba(51, 54, 52, 0.08);
 $radius-card: 32rpx;
 $radius-full: 9999rpx;
-$tab-height: 168rpx;
 $top-height: 120rpx;
 
 .page {
@@ -111,7 +116,8 @@ $top-height: 120rpx;
   display: flex;
   align-items: center;
   padding-left: 48rpx;
-  border-bottom: 2rpx solid $color-line;
+  border-bottom: 2rpx solid rgba(51, 54, 52, 0.08);
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__brand {
     display: flex;
@@ -134,8 +140,8 @@ $top-height: 120rpx;
 
 .scroll-body {
   flex: 1;
-  padding-top: $top-height;
-  padding-bottom: $tab-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
+  padding-bottom: calc(132rpx + env(safe-area-inset-bottom) + 32rpx);
   height: 100vh;
   box-sizing: border-box;
 }
@@ -155,10 +161,29 @@ $top-height: 120rpx;
   display: flex;
   align-items: center;
   gap: 32rpx;
+  border: 2rpx solid #E7E1D8;
+
+  &--calculator {
+    position: relative;
+    overflow: hidden;
+
+    &::after {
+      content: '';
+      position: absolute;
+      top: -60rpx;
+      right: -60rpx;
+      width: 280rpx;
+      height: 280rpx;
+      background: rgba(223, 255, 238, 0.55); // #DFFFEE 不透明度 55%
+      border-radius: 9999rpx;
+      filter: blur(50rpx);
+      z-index: 1;
+    }
+  }
 
   &--disabled {
     opacity: 0.6;
-    border: 2rpx dashed $color-line;
+    border: 2rpx dashed #E7E1D8;
     box-shadow: none;
   }
 
@@ -170,6 +195,8 @@ $top-height: 120rpx;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    position: relative;
+    z-index: 2;
 
     &--active {
       background: $color-primary;
@@ -190,6 +217,8 @@ $top-height: 120rpx;
     display: flex;
     flex-direction: column;
     gap: 8rpx;
+    position: relative;
+    z-index: 2;
   }
 
   &__name {
@@ -208,9 +237,12 @@ $top-height: 120rpx;
     color: $color-text-secondary;
   }
 
-  &__arrow {
-    font-size: 40rpx;
-    color: $color-text-secondary;
+  &__arrow-img {
+    width: 32rpx;
+    height: 32rpx;
+    opacity: 0.6;
+    position: relative;
+    z-index: 2;
   }
 }
 
@@ -224,12 +256,14 @@ $top-height: 120rpx;
   left: 0;
   right: 0;
   bottom: 0;
-  height: $tab-height;
+  height: calc(132rpx + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   background: #F4F3F1;
   border-radius: 24rpx 24rpx 0 0;
   display: flex;
   align-items: flex-start;
-  padding-top: 20rpx;
+  padding-top: 16rpx;
+  box-sizing: border-box;
   z-index: 100;
 
   &__item {
@@ -238,33 +272,34 @@ $top-height: 120rpx;
     flex-direction: column;
     align-items: center;
     gap: 6rpx;
-    padding: 16rpx 0;
-    color: $color-expired;
+    padding: 8rpx 0;
   }
 
-  &__active-bg {
-    width: 80rpx;
-    height: 80rpx;
-    border-radius: $radius-full;
-    background: $color-primary;
+  &__icon-wrap {
+    width: 68rpx;
+    height: 68rpx;
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  &__icon-img {
-    width: 48rpx;
-    height: 48rpx;
-    opacity: 0.8;
+    border-radius: 50%;
+    transition: none;
 
     &--active {
-      width: 48rpx;
-      height: 48rpx;
-      opacity: 1;
+      background: #8A9A86;
     }
   }
 
+  &__icon-img {
+    width: 44rpx !important;
+    height: 44rpx !important;
+    flex-shrink: 0;
+    opacity: 0.8;
+    transform: scale(1) !important;
+    transition: none;
+  }
+
   &__label {
+    font-family: 'Noto Serif SC', serif;
     font-size: 22rpx;
     color: $color-expired;
 

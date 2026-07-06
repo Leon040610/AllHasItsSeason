@@ -49,6 +49,10 @@
 - **底栏导航设计规范 (TabBar)**：
   - **统一尺寸包装**：每个底栏项的图标统一外包一层 `tab-bar__icon-wrap` 盒子（高宽固定为 `68rpx * 68rpx`，以 flex 完美居中对齐，`border-radius: 50%`）。
   - **点击状态**：激活态时图标不缩小，统一保持 `44rpx`；容器使用 `tab-bar__icon-wrap--active` 附加实心底色 `#8A9A86`，从而保证图标绝对居中，无物理偏心与闪烁感；激活态文字 `tab-bar__label--active` 设为 `font-weight: 700;` 确保加粗。
+- **顶栏设计规范 (TopBar)**：
+  - **通用样式**：高度固定为 `120rpx`（附加 `padding-top: var(--status-bar-height, 44rpx)` 避让状态栏），需统一加上底部分隔线 `border-bottom: 2rpx solid rgba(51, 54, 52, 0.08);` 和弥散阴影 `box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);` 增强层次感。
+  - **一级页面顶栏**：纯左对齐品牌结构。图标大小统一为 `40rpx * 40rpx`，跟随字号 `40rpx` (`font-weight: 700`) 的标题，并排居中对齐。
+  - **二级页面顶栏**：三段式 Flex 布局。左侧后退图标需缩小至 `36rpx * 36rpx`；中间居中排列 `32rpx` 的小叶子图标与 `36rpx` (`font-weight: 700`) 标题；右侧必须预留与左侧等宽（如 `88rpx`）的占位块，确保中间标题区域在 Flex 体系中绝对水平垂直居中，严禁使用 `position: absolute; bottom: 0` 强行定位。
 
 # 六、 技术架构与选型
 - **前端框架**：**uni-app (Vue 3 + `<script setup>` + TypeScript)**。

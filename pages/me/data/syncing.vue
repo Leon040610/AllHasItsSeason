@@ -110,7 +110,7 @@ onMounted(() => {
       syncProgress.value += 2
     } else {
       clearInterval(timer!)
-      uni.redirectTo({ url: '/pages/data/success' })
+      uni.redirectTo({ url: '/pages/me/data/success' })
     }
   }, 200)
 })
@@ -140,7 +140,7 @@ function onCancelSync() {
             syncProgress.value += 2
           } else {
             clearInterval(timer!)
-            uni.redirectTo({ url: '/pages/data/success' })
+            uni.redirectTo({ url: '/pages/me/data/success' })
           }
         }, 200)
       }

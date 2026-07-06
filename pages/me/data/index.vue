@@ -99,7 +99,7 @@ function onBack() {
 }
 
 function onSyncCloud() {
-  uni.navigateTo({ url: '/pages/data/syncing' })
+  uni.navigateTo({ url: '/pages/me/data/syncing' })
 }
 
 function onExportData() {
@@ -107,7 +107,7 @@ function onExportData() {
 }
 
 function onRestoreDraft() {
-  uni.navigateTo({ url: '/pages/draft/index' })
+  uni.navigateTo({ url: '/pages/me/draft/index' })
 }
 
 function onClearCache() {

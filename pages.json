@@ -50,63 +50,63 @@
 			}
 		},
 		{
-			"path": "pages/calculator/index",
+			"path": "pages/tools/calculator/index",
 			"style": {
 				"navigationBarTitleText": "效期计算器",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/about/index",
+			"path": "pages/me/about/index",
 			"style": {
 				"navigationBarTitleText": "关于万物有期",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/reminder/index",
+			"path": "pages/me/reminder/index",
 			"style": {
 				"navigationBarTitleText": "提醒设置",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/draft/index",
+			"path": "pages/me/draft/index",
 			"style": {
 				"navigationBarTitleText": "草稿箱",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/data/index",
+			"path": "pages/me/data/index",
 			"style": {
 				"navigationBarTitleText": "数据管理",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/data/syncing",
+			"path": "pages/me/data/syncing",
 			"style": {
 				"navigationBarTitleText": "数据管理",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/data/success",
+			"path": "pages/me/data/success",
 			"style": {
 				"navigationBarTitleText": "数据管理",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/data/no-sync",
+			"path": "pages/me/data/no-sync",
 			"style": {
 				"navigationBarTitleText": "数据管理",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/data/not-logged",
+			"path": "pages/me/data/not-logged",
 			"style": {
 				"navigationBarTitleText": "数据管理",
 				"navigationStyle": "custom"

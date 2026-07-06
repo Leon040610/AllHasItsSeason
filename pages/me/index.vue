@@ -131,20 +131,26 @@
     <!-- 底部 TabBar -->
     <view class="tab-bar">
       <view class="tab-bar__item" @tap="onTabTap('index')">
-        <image class="tab-bar__icon-img" src="/static/icons/shouye.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="/static/icons/calculator-shouye.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">首页</text>
       </view>
       <view class="tab-bar__item" @tap="onTabTap('library')">
-        <image class="tab-bar__icon-img" src="/static/icons/wupinku.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="/static/icons/calculator-wupinku.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">物品库</text>
       </view>
       <view class="tab-bar__item" @tap="onTabTap('tools')">
-        <image class="tab-bar__icon-img" src="/static/icons/gongju.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="/static/icons/calculator-gongju.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">工具</text>
       </view>
       <view class="tab-bar__item tab-bar__item--active">
-        <view class="tab-bar__active-bg">
-          <image class="tab-bar__icon-img tab-bar__icon-img--active" src="/static/icons/wode-dianji.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap tab-bar__icon-wrap--active">
+          <image class="tab-bar__icon-img" src="/static/icons/calculator-wode-dianji.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label tab-bar__label--active">我的</text>
       </view>
@@ -178,7 +184,7 @@ function onWxLogin() {
 }
 
 function onReminderSettings() {
-  uni.navigateTo({ url: '/pages/reminder/index' })
+  uni.navigateTo({ url: '/pages/me/reminder/index' })
 }
 
 function onDefaultDays() {
@@ -192,18 +198,18 @@ function onDefaultDays() {
 
 function onDataManagement() {
   if (user.isLoggedIn) {
-    uni.navigateTo({ url: '/pages/data/index' })
+    uni.navigateTo({ url: '/pages/me/data/index' })
   } else {
-    uni.navigateTo({ url: '/pages/data/not-logged' })
+    uni.navigateTo({ url: '/pages/me/data/not-logged' })
   }
 }
 
 function onDraftBox() {
-  uni.navigateTo({ url: '/pages/draft/index' })
+  uni.navigateTo({ url: '/pages/me/draft/index' })
 }
 
 function onAbout() {
-  uni.navigateTo({ url: '/pages/about/index' })
+  uni.navigateTo({ url: '/pages/me/about/index' })
 }
 
 function onContact() {
@@ -527,12 +533,14 @@ $top-height: 120rpx;
   left: 0;
   right: 0;
   bottom: 0;
-  height: $tab-height;
+  height: calc(132rpx + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   background: #F4F3F1;
   border-radius: 24rpx 24rpx 0 0;
   display: flex;
   align-items: flex-start;
-  padding-top: 20rpx;
+  padding-top: 16rpx;
+  box-sizing: border-box;
   z-index: 100;
 
   &__item {
@@ -541,30 +549,30 @@ $top-height: 120rpx;
     flex-direction: column;
     align-items: center;
     gap: 6rpx;
-    padding: 16rpx 0;
-    color: $color-expired;
+    padding: 8rpx 0;
   }
 
-  &__active-bg {
-    width: 80rpx;
-    height: 80rpx;
-    border-radius: $radius-full;
-    background: $color-primary;
+  &__icon-wrap {
+    width: 68rpx;
+    height: 68rpx;
     display: flex;
     align-items: center;
     justify-content: center;
+    border-radius: 50%;
+    transition: none;
+
+    &--active {
+      background: #8A9A86;
+    }
   }
 
   &__icon-img {
-    width: 48rpx;
-    height: 48rpx;
+    width: 44rpx !important;
+    height: 44rpx !important;
+    flex-shrink: 0;
     opacity: 0.8;
-
-    &--active {
-      width: 48rpx;
-      height: 48rpx;
-      opacity: 1;
-    }
+    transform: scale(1) !important;
+    transition: none;
   }
 
   &__label {

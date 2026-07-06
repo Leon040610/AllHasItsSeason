@@ -63,7 +63,7 @@ function onBack() {
 }
 
 function onEnableSync() {
-  uni.navigateTo({ url: '/pages/data/syncing' })
+  uni.navigateTo({ url: '/pages/me/data/syncing' })
 }
 </script>
 
