@@ -3,17 +3,17 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__brand">
-        <image class="top-bar__icon" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__icon" src="/static/icons/library-topIcon.svg" mode="aspectFit" />
         <text class="top-bar__title">物品库</text>
       </view>
     </view>
 
-    <view class="scroll-wrap" :style="{ paddingTop: topHeight + 'rpx' }">
+    <view class="scroll-wrap">
       <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
 
         <!-- 搜索栏 -->
         <view class="search-bar" @tap="onSearchFocus">
-          <image class="search-bar__icon-img" src="/static/icons/sousuo.svg" mode="aspectFit" />
+          <image class="search-bar__icon-img" src="/static/icons/library-sousuo.svg" mode="aspectFit" />
           <text class="search-bar__placeholder" v-if="!searchKeyword">搜索物品名称</text>
           <text class="search-bar__text" v-else>{{ searchKeyword }}</text>
         </view>
@@ -62,17 +62,21 @@
                 :src="item.displayImageUrl || item.imageUrl"
                 mode="aspectFill"
               />
-              <view class="item-card__tag">
+              <view class="item-card__tag" :style="{ background: getCategoryBg(item.category) }">
                 <text class="item-card__tag-text">{{ item.categoryLabel }}</text>
               </view>
             </view>
             <view class="item-card__info">
-              <text class="item-card__name">{{ item.name }}</text>
+              <text
+                class="item-card__name"
+                :class="{ 'item-card__name--expired': item.status === 'expired' }"
+              >{{ item.name }}</text>
               <view class="item-card__status-row">
-                <text
-                  class="item-card__status-dot"
-                  :class="getStatusClass(item.status)"
-                >•</text>
+                <image
+                  class="item-card__status-icon"
+                  :src="getStatusIconPath(item.status)"
+                  mode="aspectFit"
+                />
                 <text
                   class="item-card__status-text"
                   :class="getStatusClass(item.status)"
@@ -84,9 +88,7 @@
 
         <!-- 空状态 -->
         <view v-else class="empty-state">
-          <view class="empty-state__illus">
-            <image class="empty-state__img" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
-          </view>
+          <image class="empty-state__img" src="/static/icons/library-empty-image.png" mode="aspectFit" />
           <text class="empty-state__title">万物皆有时，此刻且从容</text>
           <text class="empty-state__sub">开始收纳你的第一件好物吧</text>
           <view class="empty-state__btn" @tap="onAdd">
@@ -100,27 +102,33 @@
 
     <!-- FAB -->
     <view class="fab" @tap="onAdd">
-      <image class="fab__icon-img" src="/static/icons/add.svg" mode="aspectFit" />
+      <image class="fab__icon-img" src="/static/icons/library-add.svg" mode="aspectFit" />
     </view>
 
     <!-- 底部 TabBar -->
     <view class="tab-bar">
       <view class="tab-bar__item" @tap="onTabTap('index')">
-        <image class="tab-bar__icon-img" src="/static/icons/shouye.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="/static/icons/library-shouye.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">首页</text>
       </view>
       <view class="tab-bar__item tab-bar__item--active">
-        <view class="tab-bar__active-bg">
-          <image class="tab-bar__icon-img tab-bar__icon-img--active" src="/static/icons/wupinku-dianji.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap tab-bar__icon-wrap--active">
+          <image class="tab-bar__icon-img" src="/static/icons/library-wupinku-dianji.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label tab-bar__label--active">物品库</text>
       </view>
       <view class="tab-bar__item" @tap="onTabTap('tools')">
-        <image class="tab-bar__icon-img" src="/static/icons/gongju.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="/static/icons/library-gongju.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">工具</text>
       </view>
       <view class="tab-bar__item" @tap="onTabTap('me')">
-        <image class="tab-bar__icon-img" src="/static/icons/wode.svg" mode="aspectFit" />
+        <view class="tab-bar__icon-wrap">
+          <image class="tab-bar__icon-img" src="/static/icons/library-wode.svg" mode="aspectFit" />
+        </view>
         <text class="tab-bar__label">我的</text>
       </view>
     </view>
@@ -174,7 +182,7 @@ const allItems = ref<Item[]>([
     name: '海蓝之谜面霜',
     category: 'beauty',
     categoryLabel: '美妆',
-    imageUrl: '/static/icons/La Mer Cream.svg',
+    imageUrl: '/static/icons/library-La Mer Cream.svg',
     status: 'near_expire',
     daysLeft: 12,
     expireDate: '2026-07-17',
@@ -184,7 +192,7 @@ const allItems = ref<Item[]>([
     name: '布洛芬缓释胶囊',
     category: 'medicine',
     categoryLabel: '药品',
-    imageUrl: '/static/icons/Ibuprofen.svg',
+    imageUrl: '/static/icons/library-Ibuprofen.svg',
     status: 'pending',
     daysLeft: 180,
     expireDate: '2027-01-01',
@@ -194,7 +202,7 @@ const allItems = ref<Item[]>([
     name: '蓝月亮洗衣液',
     category: 'daily',
     categoryLabel: '日化',
-    imageUrl: '/static/icons/Laundry Detergent.svg',
+    imageUrl: '/static/icons/library-Laundry Detergent.svg',
     status: 'using',
     daysLeft: 90,
     expireDate: '2026-10-05',
@@ -204,7 +212,7 @@ const allItems = ref<Item[]>([
     name: '全麦吐司面包',
     category: 'food',
     categoryLabel: '食品',
-    imageUrl: '/static/icons/bread.svg',
+    imageUrl: '/static/icons/library-bread.svg',
     status: 'expired',
     daysLeft: -1,
     expireDate: '2026-07-04',
@@ -231,12 +239,6 @@ function getStatusClass(status: string) {
   return 'text-muted'
 }
 
-function getStatusIcon(status: string) {
-  if (status === 'near_expire') return '⏳'
-  if (status === 'expired') return '△'
-  return '◎'
-}
-
 function getStatusLabel(item: Item) {
   if (item.status === 'near_expire') return `还有 ${item.daysLeft} 天`
   if (item.status === 'expired') return '已过期'
@@ -254,6 +256,22 @@ function onCategoryFilter(key: string) {
 
 function onStatusFilter(key: string) {
   activeStatusKey.value = key
+}
+
+function getCategoryBg(category: string) {
+  const map: Record<string, string> = {
+    beauty: '#8A9A86',
+    medicine: '#A69B8D',
+    daily: '#536251',
+    food: '#D98A6C',
+  }
+  return map[category] || '#8A9A86'
+}
+
+function getStatusIconPath(status: string) {
+  if (status === 'near_expire') return '/static/icons/library-daojishi.svg'
+  if (status === 'expired') return '/static/icons/library-jinggao.svg'
+  return '/static/icons/library-queren.svg'
 }
 
 function onItemTap(item: Item) {
@@ -280,12 +298,12 @@ $color-card: #FFFFFF;
 $color-primary: #8A9A86;
 $color-primary-dark: #536251;
 $color-text: #333634;
+$color-text-dark: #333634;
 $color-text-secondary: rgba(51, 54, 52, 0.64);
 $color-warn: #D98A6C;
 $color-expired: #A69B8D;
 $color-line: rgba(51, 54, 52, 0.1);
-$shadow-card: 0 8rpx 48rpx rgba(51, 54, 52, 0.08);
-$shadow-card-md: 0 12rpx 32rpx rgba(51, 54, 52, 0.12);
+$shadow-card: 0 16rpx 48rpx rgba(51, 54, 52, 0.08);
 $radius-card: 32rpx;
 $radius-full: 9999rpx;
 $tab-height: 168rpx;
@@ -304,14 +322,15 @@ $top-height: 120rpx;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 999;
   height: $top-height;
   padding-top: var(--status-bar-height, 44rpx);
   background: #FAF9F7;
   display: flex;
   align-items: center;
   padding-left: 48rpx;
-  border-bottom: 2rpx solid $color-line;
+  border-bottom: 2rpx solid rgba(51, 54, 52, 0.08);
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__brand {
     display: flex;
@@ -336,7 +355,8 @@ $top-height: 120rpx;
   flex: 1;
   height: 100vh;
   box-sizing: border-box;
-  padding-bottom: $tab-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
+  padding-bottom: 160rpx;
 }
 
 .scroll-body {
@@ -362,11 +382,13 @@ $top-height: 120rpx;
   }
 
   &__placeholder {
+    font-family: 'Noto Serif SC', serif;
     font-size: 30rpx;
     color: $color-text-secondary;
   }
 
   &__text {
+    font-family: 'Noto Serif SC', serif;
     font-size: 30rpx;
     color: $color-text;
   }
@@ -397,6 +419,7 @@ $top-height: 120rpx;
   flex-shrink: 0;
 
   &__text {
+    font-family: 'Noto Serif SC', serif;
     font-size: 28rpx;
     color: $color-text-secondary;
   }
@@ -455,13 +478,19 @@ $top-height: 120rpx;
     position: absolute;
     top: 16rpx;
     right: 16rpx;
-    background: $color-primary-dark;
-    border-radius: $radius-full;
-    padding: 6rpx 18rpx;
+    height: 36rpx;
+    border-radius: 9999rpx;
+    padding: 0 16rpx;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 5;
   }
 
   &__tag-text {
-    font-size: 22rpx;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 20rpx;
+    line-height: 1;
     color: #fff;
   }
 
@@ -476,6 +505,11 @@ $top-height: 120rpx;
     color: $color-text;
     display: block;
     margin-bottom: 12rpx;
+
+    &--expired {
+      text-decoration: line-through;
+      color: $color-expired;
+    }
   }
 
   &__status-row {
@@ -484,19 +518,23 @@ $top-height: 120rpx;
     gap: 8rpx;
   }
 
-  &__status-dot {
-    font-size: 32rpx;
-    line-height: 1;
+  &__status-icon {
+    width: 24rpx;
+    height: 24rpx;
+    margin-right: 4rpx;
   }
 
   &__status-text {
+    font-family: 'Noto Serif SC', serif;
     font-size: 26rpx;
   }
 }
 
 .text-warn { color: $color-warn; }
-.text-expired { color: $color-expired; }
-.text-muted { color: $color-text-secondary; }
+.text-expired {
+  color: #BA1A1A !important;
+}
+.text-muted { color: #A69B8D !important; }
 
 /* 空状态 */
 .empty-state {
@@ -506,19 +544,11 @@ $top-height: 120rpx;
   padding: 120rpx 48rpx;
   gap: 24rpx;
 
-  &__illus {
-    width: 512rpx;
-    height: 576rpx;
-    background: rgba(231, 225, 216, 0.4);
-    border-radius: $radius-card;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
   &__img {
-    width: 320rpx;
-    height: 320rpx;
+    width: 512rpx;
+    height: 512rpx;
+    border-radius: $radius-card;
+    margin-bottom: 24rpx;
   }
 
   &__title {
@@ -530,6 +560,7 @@ $top-height: 120rpx;
   }
 
   &__sub {
+    font-family: 'Noto Serif SC', serif;
     font-size: 28rpx;
     color: $color-text-secondary;
     text-align: center;
@@ -561,7 +592,7 @@ $top-height: 120rpx;
 .fab {
   position: fixed;
   right: 48rpx;
-  bottom: calc($tab-height + 32rpx);
+  bottom: calc(132rpx + 40rpx);
   width: 112rpx;
   height: 112rpx;
   border-radius: $radius-full;
@@ -584,12 +615,14 @@ $top-height: 120rpx;
   left: 0;
   right: 0;
   bottom: 0;
-  height: $tab-height;
+  height: calc(132rpx + env(safe-area-inset-bottom));
+  padding-bottom: env(safe-area-inset-bottom);
   background: #F4F3F1;
   border-radius: 24rpx 24rpx 0 0;
   display: flex;
   align-items: flex-start;
-  padding-top: 20rpx;
+  padding-top: 16rpx;
+  box-sizing: border-box;
   z-index: 100;
 
   &__item {
@@ -598,33 +631,38 @@ $top-height: 120rpx;
     flex-direction: column;
     align-items: center;
     gap: 6rpx;
-    padding: 16rpx 0;
-    color: $color-expired;
-  }
-
-  &__active-bg {
-    width: 80rpx;
-    height: 80rpx;
-    border-radius: $radius-full;
-    background: $color-primary;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  &__icon-img {
-    width: 48rpx;
-    height: 48rpx;
-    opacity: 0.8;
+    padding: 8rpx 0;
 
     &--active {
-      width: 48rpx;
-      height: 48rpx;
-      opacity: 1;
+      .tab-bar__label { color: $color-text-dark; }
     }
   }
 
+  &__icon-wrap {
+    width: 68rpx;
+    height: 68rpx;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: none;
+
+    &--active {
+      background: #8A9A86;
+    }
+  }
+
+  &__icon-img {
+    width: 44rpx !important;
+    height: 44rpx !important;
+    flex-shrink: 0;
+    opacity: 0.8;
+    transform: scale(1) !important;
+    transition: none;
+  }
+
   &__label {
+    font-family: 'Noto Serif SC', serif;
     font-size: 22rpx;
     color: $color-expired;
 
