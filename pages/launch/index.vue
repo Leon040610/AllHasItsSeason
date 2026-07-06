@@ -1,27 +1,37 @@
 <template>
   <view class="page">
-    <!-- 中心内容：Logo + Slogan -->
+    <!-- 中心区：Logo 插画 + Slogan -->
     <view class="center-area">
-      <view class="logo-card">
-        <image
-          class="logo-card__img"
-          src="/static/logo-hero.jpeg"
-          mode="aspectFit"
-        />
-        <text class="logo-card__name">万 物 有 期</text>
-      </view>
+      <image
+        class="logo-img"
+        src="/static/logo-hero-transparent.png"
+        mode="aspectFit"
+      />
       <text class="slogan">把生活好物，轻轻收进时间里。</text>
     </view>
 
     <!-- 底部操作区 -->
     <view class="bottom-area">
+      <!-- 微信一键登录 -->
       <view class="btn-primary" @tap="onWxLogin">
-        <text class="btn-primary__icon">💬</text>
+        <image
+          class="btn-primary__icon"
+          src="/static/icons/launch-weixin.svg"
+          mode="aspectFit"
+        />
         <text class="btn-primary__text">微信一键登录</text>
       </view>
+
+      <!-- 先逛逛 -->
       <text class="btn-guest" @tap="onGuest">先逛逛</text>
+
+      <!-- 用户协议 -->
       <view class="agreement">
-        <view class="agreement__checkbox" :class="{ 'agreement__checkbox--checked': agreed }" @tap="onToggleAgreement">
+        <view
+          class="agreement__checkbox"
+          :class="{ 'agreement__checkbox--checked': agreed }"
+          @tap="onToggleAgreement"
+        >
           <text v-if="agreed" class="agreement__check">✓</text>
         </view>
         <text class="agreement__text">登录即代表同意</text>
@@ -36,7 +46,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-const agreed = ref(false)
+// 设计稿中协议默认勾选
+const agreed = ref(true)
 
 function onToggleAgreement() {
   agreed.value = !agreed.value
@@ -47,7 +58,6 @@ function onWxLogin() {
     uni.showToast({ title: '请先同意用户协议与隐私政策', icon: 'none' })
     return
   }
-  // 微信登录逻辑
   uni.switchTab({ url: '/pages/index/index' })
 }
 
@@ -56,21 +66,24 @@ function onGuest() {
 }
 
 function onUserAgreement() {
-  // 跳转用户协议
+  // 跳转用户协议页
 }
 
 function onPrivacyPolicy() {
-  // 跳转隐私政策
+  // 跳转隐私政策页
 }
 </script>
 
 <style lang="scss" scoped>
-$color-bg: #F9F8F6;
-$color-primary-dark: #536251;
-$color-text: #333634;
-$color-text-secondary: rgba(51, 54, 52, 0.64);
-$radius-full: 9999rpx;
+// ── Design Tokens ──────────────────────────────────────────────────────────
+$color-bg:           #F9F8F6;   // 燕麦白
+$color-primary:      #8A9A86;   // 鼠尾草绿
+$color-primary-dark: #536251;   // 深鼠尾草（按钮/选中）
+$color-text:         #333634;   // 墨岩灰
+$color-text-slogan:  #444842;   // 设计稿 slogan 色，略深于正文
+$radius-full:        9999rpx;
 
+// ── 页面根容器 ─────────────────────────────────────────────────────────────
 .page {
   width: 100%;
   height: 100vh;
@@ -79,57 +92,45 @@ $radius-full: 9999rpx;
   flex-direction: column;
   align-items: center;
   justify-content: space-between;
+  // 设计稿：pt-96px(=192rpx) pb-32px(=64rpx) px-24px(=48rpx)
   padding: 192rpx 48rpx 64rpx;
   box-sizing: border-box;
 }
 
+// ── 中心区：Logo + Slogan ──────────────────────────────────────────────────
 .center-area {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 40rpx;
+  gap: 64rpx;
 }
 
-.logo-card {
-  width: 540rpx;
-  background: rgba(231, 225, 216, 0.35);
-  border-radius: 32rpx;
-  padding: 48rpx 32rpx 32rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 24rpx;
-
-  &__img {
-    width: 320rpx;
-    height: 240rpx;
-  }
-
-  &__name {
-    font-family: 'Noto Serif SC', serif;
-    font-size: 48rpx;
-    font-weight: 400;
-    color: $color-text;
-    letter-spacing: 12rpx;
-  }
+// 透明背景 PNG，与燕麦白页面背景完全融合
+.logo-img {
+  width: 660rpx;
+  height: 390rpx;
 }
 
+// 设计稿：font-bold 700 / 16px(=32rpx) / #444842 / letter-spacing 约 2px(=4rpx)
 .slogan {
   font-family: 'Noto Serif SC', serif;
-  font-size: 30rpx;
-  font-weight: 400;
-  color: $color-text;
-  letter-spacing: 2rpx;
+  font-size: 32rpx;
+  font-weight: 700;
+  color: $color-text-slogan;
+  letter-spacing: 4rpx;
+  text-align: center;
 }
 
+// ── 底部操作区 ─────────────────────────────────────────────────────────────
 .bottom-area {
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32rpx;
 }
 
+// ── 主按钮：微信一键登录 ────────────────────────────────────────────────────
+// 设计稿：w-342px → 100% / bg #536251 / py-16px(=32rpx) / gap-8px(=16rpx) / radius-9999px
 .btn-primary {
   width: 100%;
   height: 104rpx;
@@ -141,57 +142,82 @@ $radius-full: 9999rpx;
   gap: 16rpx;
 
   &__icon {
-    font-size: 36rpx;
+    // 设计稿：20×20px → 40×40rpx
+    width: 40rpx;
+    height: 40rpx;
   }
 
   &__text {
     font-family: 'Noto Serif SC', serif;
-    font-size: 36rpx;
-    font-weight: 700;
+    // 设计稿：font-normal 400 / 20px(=40rpx)
+    font-size: 40rpx;
+    font-weight: 400;
     color: #fff;
-    letter-spacing: 2rpx;
+    letter-spacing: 4rpx;
   }
 }
 
+// ── 次级按钮：先逛逛 ────────────────────────────────────────────────────────
+// 设计稿：font-normal / 16px(=32rpx) / #444842 / py-12px(=24rpx)
 .btn-guest {
-  font-size: 30rpx;
-  color: $color-text-secondary;
+  font-family: 'Noto Serif SC', serif;
+  font-size: 32rpx;
+  font-weight: 400;
+  color: $color-text-slogan;
+  padding: 24rpx 0;
+  text-align: center;
 }
 
+// ── 协议区 ─────────────────────────────────────────────────────────────────
+// 设计稿：opacity-70 / 整体横向排列
 .agreement {
   display: flex;
   align-items: center;
   gap: 6rpx;
+  opacity: 0.7;
+  margin-top: 16rpx;
 
+  // 复选框：设计稿 12px(=24rpx) / border-radius 3px(=6rpx) / border 1px #8a9a86 / bg white
   &__checkbox {
-    width: 32rpx;
-    height: 32rpx;
-    border-radius: 8rpx;
-    border: 2rpx solid $color-text-secondary;
+    width: 24rpx;
+    height: 24rpx;
+    border-radius: 6rpx;
+    border: 2rpx solid $color-primary;
+    background: #fff;
     display: flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
 
     &--checked {
-      background: $color-primary-dark;
-      border-color: $color-primary-dark;
+      background: #fff;
+      border-color: $color-primary;
     }
   }
 
+  // 勾号：设计稿 #8a9a86 / 12px → 约 22rpx
   &__check {
     font-size: 22rpx;
-    color: #fff;
+    color: $color-primary;
+    line-height: 1;
   }
 
+  // 协议正文：font-normal / 12px(=24rpx) / #333634
   &__text {
+    font-family: 'Noto Serif SC', serif;
     font-size: 24rpx;
-    color: $color-text-secondary;
+    font-weight: 400;
+    color: $color-text;
   }
 
+  // 协议链接：underline / 颜色同正文
   &__link {
+    font-family: 'Noto Serif SC', serif;
     font-size: 24rpx;
-    color: $color-primary-dark;
+    font-weight: 400;
+    color: $color-text;
     text-decoration: underline;
+    text-decoration-color: #c4c8bf;
   }
 }
 </style>
