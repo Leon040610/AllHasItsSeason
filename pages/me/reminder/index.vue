@@ -3,10 +3,10 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="top-bar__back-icon-img" src="/static/icons/reminder-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="/static/icons/reminder-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">提醒设置</text>
       </view>
       <view class="top-bar__placeholder" />
@@ -32,7 +32,7 @@
           <text class="settings-item__label">默认临期天数</text>
           <view class="settings-item__right">
             <text class="settings-item__value">{{ settings.defaultDays }}天</text>
-            <text class="settings-item__arrow">›</text>
+            <image class="settings-item__arrow-icon" src="/static/icons/reminder-xuanze.svg" mode="aspectFit" />
           </view>
         </view>
         <view class="settings-divider" />
@@ -42,7 +42,7 @@
           <text class="settings-item__label">提醒时间</text>
           <view class="settings-item__right">
             <text class="settings-item__value">{{ settings.reminderTime }}</text>
-            <text class="settings-item__arrow">›</text>
+            <image class="settings-item__arrow-icon" src="/static/icons/reminder-xuanze.svg" mode="aspectFit" />
           </view>
         </view>
         <view class="settings-divider" />
@@ -156,10 +156,9 @@ $top-height: 120rpx;
     justify-content: center;
   }
 
-  &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
-    font-weight: 300;
+  &__back-icon-img {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__center {
@@ -222,9 +221,10 @@ $top-height: 120rpx;
     color: $color-text-secondary;
   }
 
-  &__arrow {
-    font-size: 36rpx;
-    color: $color-text-secondary;
+  &__arrow-icon {
+    width: 32rpx;
+    height: 32rpx;
+    opacity: 0.6;
   }
 }
 
@@ -269,9 +269,11 @@ $top-height: 120rpx;
       transform: translateX(44rpx);
 
       &::after {
-        content: '✓';
-        font-size: 24rpx;
-        color: $color-primary;
+        content: '';
+        width: 24rpx;
+        height: 24rpx;
+        background: url('/static/icons/reminder-duigou.svg') no-repeat center;
+        background-size: contain;
       }
     }
   }
@@ -287,9 +289,11 @@ $top-height: 120rpx;
       transform: translateX(44rpx);
 
       &::after {
-        content: '✓';
-        font-size: 24rpx;
-        color: $color-expired;
+        content: '';
+        width: 24rpx;
+        height: 24rpx;
+        background: url('/static/icons/reminder-duigou.svg') no-repeat center;
+        background-size: contain;
       }
     }
   }

@@ -3,7 +3,7 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__brand">
-        <image class="top-bar__icon" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__icon" src="/static/icons/me-topIcon.svg" mode="aspectFit" />
         <text class="top-bar__title">我的</text>
       </view>
     </view>
@@ -20,7 +20,7 @@
             mode="aspectFill"
           />
           <view v-else class="profile-card__avatar-placeholder">
-            <image class="profile-card__avatar-icon-img" src="/static/icons/wode-dianji.svg" mode="aspectFit" />
+            <image class="profile-card__avatar-icon-img" src="/static/icons/me-denglu.svg" mode="aspectFit" />
           </view>
         </view>
         <view v-if="!user.isLoggedIn" class="profile-card__login-area">
@@ -37,24 +37,29 @@
 
       <!-- 生活提醒组 -->
       <view class="settings-group">
-        <text class="settings-group__title">生活提醒</text>
         <view class="settings-group__card">
+          <text class="settings-group__title">生活提醒</text>
+          <view class="settings-divider" />
           <view class="settings-item" @tap="onReminderSettings">
             <view class="settings-item__left">
-              <image class="settings-item__icon-img" src="/static/icons/tixingshezhi.svg" mode="aspectFit" />
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/me-tixingshezhi.svg" mode="aspectFit" />
+              </view>
               <text class="settings-item__label">提醒设置</text>
             </view>
-            <text class="settings-item__arrow">›</text>
+            <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
           </view>
           <view class="settings-divider" />
           <view class="settings-item" @tap="onDefaultDays">
             <view class="settings-item__left">
-              <image class="settings-item__icon-img" src="/static/icons/morenlinqitianshu.svg" mode="aspectFit" />
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/me-morenlinqitianshu.svg" mode="aspectFit" />
+              </view>
               <text class="settings-item__label">默认临期天数</text>
             </view>
             <view class="settings-item__right">
               <text class="settings-item__value">{{ defaultDays }}天</text>
-              <text class="settings-item__arrow">›</text>
+              <image class="settings-item__arrow-icon" src="/static/icons/me-xuanze.svg" mode="aspectFit" />
             </view>
           </view>
         </view>
@@ -62,26 +67,31 @@
 
       <!-- 数据组 -->
       <view class="settings-group">
-        <text class="settings-group__title">数据</text>
         <view class="settings-group__card">
+          <text class="settings-group__title">数据</text>
+          <view class="settings-divider" />
           <view class="settings-item" @tap="onDataManagement">
             <view class="settings-item__left">
-              <image class="settings-item__icon-img" src="/static/icons/shujuguanli.svg" mode="aspectFit" />
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/me-shujuguanli.svg" mode="aspectFit" />
+              </view>
               <text class="settings-item__label">数据管理</text>
             </view>
-            <text class="settings-item__arrow">›</text>
+            <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
           </view>
           <view class="settings-divider" />
           <view class="settings-item" @tap="onDraftBox">
             <view class="settings-item__left">
-              <image class="settings-item__icon-img" src="/static/icons/caogaoxiang.svg" mode="aspectFit" />
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/me-caogaoxiang.svg" mode="aspectFit" />
+              </view>
               <text class="settings-item__label">草稿箱</text>
             </view>
             <view class="settings-item__right">
               <view v-if="draftCount > 0" class="settings-item__badge">
                 <text class="settings-item__badge-text">{{ draftCount }}</text>
               </view>
-              <text class="settings-item__arrow">›</text>
+              <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
             </view>
           </view>
         </view>
@@ -89,11 +99,14 @@
 
       <!-- 会员权益 -->
       <view class="settings-group">
-        <text class="settings-group__title">会员权益</text>
         <view class="settings-group__card settings-group__card--membership">
+          <text class="settings-group__title">会员权益</text>
+          <view class="settings-divider" />
           <view class="settings-item settings-item--disabled">
             <view class="settings-item__left">
-              <image class="settings-item__icon-img settings-item__icon-img--muted" src="/static/icons/huiyuanquanyi.svg" mode="aspectFit" />
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img settings-item__icon-img--muted" src="/static/icons/me-huiyuanquanyi.svg" mode="aspectFit" />
+              </view>
               <text class="settings-item__label settings-item__label--muted">图片整理额度</text>
             </view>
             <text class="settings-item__coming">即将推出</text>
@@ -106,21 +119,25 @@
         <view class="settings-group__card">
           <view class="settings-item" @tap="onAbout">
             <view class="settings-item__left">
-              <image class="settings-item__icon-img" src="/static/icons/guanyuwanwuyouqi.svg" mode="aspectFit" />
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/me-guanyuwanwuyouqi.svg" mode="aspectFit" />
+              </view>
               <text class="settings-item__label">关于万物有期</text>
             </view>
-            <text class="settings-item__arrow">›</text>
+            <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
           </view>
           <view class="settings-divider" />
           <view class="settings-item" @tap="onContact">
             <view class="settings-item__left">
-              <image class="settings-item__icon-img" src="/static/icons/lianxikaifazhe.svg" mode="aspectFit" />
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/me-lianxikaifazhe.svg" mode="aspectFit" />
+              </view>
               <view class="settings-item__label-wrap">
                 <text class="settings-item__label">联系开发者</text>
                 <text class="settings-item__sublabel">万物有期，期待你的声音。bug或灵感，都欢迎~</text>
               </view>
             </view>
-            <text class="settings-item__arrow">›</text>
+            <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -132,25 +149,25 @@
     <view class="tab-bar">
       <view class="tab-bar__item" @tap="onTabTap('index')">
         <view class="tab-bar__icon-wrap">
-          <image class="tab-bar__icon-img" src="/static/icons/calculator-shouye.svg" mode="aspectFit" />
+          <image class="tab-bar__icon-img" src="/static/icons/me-shouye.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label">首页</text>
       </view>
       <view class="tab-bar__item" @tap="onTabTap('library')">
         <view class="tab-bar__icon-wrap">
-          <image class="tab-bar__icon-img" src="/static/icons/calculator-wupinku.svg" mode="aspectFit" />
+          <image class="tab-bar__icon-img" src="/static/icons/me-wupinku.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label">物品库</text>
       </view>
       <view class="tab-bar__item" @tap="onTabTap('tools')">
         <view class="tab-bar__icon-wrap">
-          <image class="tab-bar__icon-img" src="/static/icons/calculator-gongju.svg" mode="aspectFit" />
+          <image class="tab-bar__icon-img" src="/static/icons/me-gongju.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label">工具</text>
       </view>
       <view class="tab-bar__item tab-bar__item--active">
         <view class="tab-bar__icon-wrap tab-bar__icon-wrap--active">
-          <image class="tab-bar__icon-img" src="/static/icons/calculator-wode-dianji.svg" mode="aspectFit" />
+          <image class="tab-bar__icon-img" src="/static/icons/me-wode-dianji2.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label tab-bar__label--active">我的</text>
       </view>
@@ -250,6 +267,7 @@ $top-height: 120rpx;
   background: $color-bg;
   display: flex;
   flex-direction: column;
+  font-family: 'Noto Serif SC', serif;
 }
 
 .top-bar {
@@ -264,7 +282,8 @@ $top-height: 120rpx;
   display: flex;
   align-items: center;
   padding-left: 48rpx;
-  border-bottom: 2rpx solid $color-line;
+  border-bottom: 2rpx solid rgba(51, 54, 52, 0.08);
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__brand {
     display: flex;
@@ -287,7 +306,7 @@ $top-height: 120rpx;
 
 .scroll-body {
   flex: 1;
-  padding-top: $top-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
   padding-bottom: $tab-height;
   height: 100vh;
   box-sizing: border-box;
@@ -307,16 +326,36 @@ $top-height: 120rpx;
   gap: 32rpx;
   min-height: 400rpx;
   justify-content: center;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: -32rpx;
+    right: -32rpx;
+    width: 290rpx;
+    height: 290rpx;
+    border-radius: $radius-full;
+    background: #FCFAD6;
+    opacity: 0.55;
+    filter: blur(24rpx);
+    z-index: 0;
+  }
 
   &__avatar {
-    width: 160rpx;
-    height: 160rpx;
+    width: 192rpx;
+    height: 192rpx;
     border-radius: $radius-full;
     overflow: hidden;
-    background: rgba(51, 54, 52, 0.08);
+    background: #E9E8E6;
+    border: 8rpx solid #FFFFFF;
+    box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.05);
     display: flex;
     align-items: center;
     justify-content: center;
+    position: relative;
+    z-index: 1;
   }
 
   &__avatar-img {
@@ -343,6 +382,8 @@ $top-height: 120rpx;
     flex-direction: column;
     align-items: center;
     gap: 20rpx;
+    position: relative;
+    z-index: 1;
   }
 
   &__hint {
@@ -356,6 +397,8 @@ $top-height: 120rpx;
     flex-direction: column;
     align-items: center;
     gap: 8rpx;
+    position: relative;
+    z-index: 1;
   }
 
   &__nickname {
@@ -398,7 +441,7 @@ $top-height: 120rpx;
     font-weight: 700;
     color: $color-text;
     display: block;
-    margin-bottom: 16rpx;
+    padding: 32rpx 40rpx 16rpx;
   }
 
   &__card {
@@ -416,12 +459,20 @@ $top-height: 120rpx;
       &::after {
         content: '';
         position: absolute;
-        top: -30rpx;
-        right: -30rpx;
-        width: 160rpx;
-        height: 160rpx;
+        top: -16rpx;
+        right: -32rpx;
+        width: 320rpx;
+        height: 320rpx;
         border-radius: $radius-full;
-        background: radial-gradient(circle, rgba(217, 138, 108, 0.2) 0%, transparent 70%);
+        background: #FEAA8A;
+        opacity: 0.45;
+        filter: blur(40rpx);
+        z-index: 0;
+      }
+      
+      .settings-group__title, .settings-item {
+        position: relative;
+        z-index: 1;
       }
     }
   }
@@ -444,6 +495,17 @@ $top-height: 120rpx;
     align-items: center;
     gap: 24rpx;
     flex: 1;
+  }
+
+  &__icon-wrap {
+    width: 64rpx;
+    height: 64rpx;
+    border-radius: $radius-full;
+    background: #E9EDEA;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   &__icon-img {
@@ -486,20 +548,20 @@ $top-height: 120rpx;
     color: $color-text-secondary;
   }
 
-  &__arrow {
-    font-size: 36rpx;
-    color: $color-text-secondary;
+  &__arrow-icon {
+    width: 32rpx;
+    height: 32rpx;
+    opacity: 0.6;
   }
 
   &__badge {
-    min-width: 44rpx;
+    width: 44rpx;
     height: 44rpx;
     border-radius: $radius-full;
-    background: $color-primary;
+    background: #8A9A86;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 0 12rpx;
   }
 
   &__badge-text {
@@ -511,9 +573,11 @@ $top-height: 120rpx;
   &__coming {
     font-size: 26rpx;
     color: $color-text-secondary;
-    background: rgba(51, 54, 52, 0.06);
+    background: #F4F3F1; /* solid color so glow doesn't show through */
     padding: 8rpx 20rpx;
     border-radius: $radius-full;
+    position: relative;
+    z-index: 1;
   }
 }
 
@@ -573,6 +637,10 @@ $top-height: 120rpx;
     opacity: 0.8;
     transform: scale(1) !important;
     transition: none;
+  }
+
+  &__item--active &__icon-img {
+    opacity: 1;
   }
 
   &__label {

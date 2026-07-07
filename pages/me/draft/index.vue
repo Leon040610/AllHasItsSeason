@@ -3,10 +3,10 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="top-bar__back-icon-img" src="/static/icons/draft-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="/static/icons/draft-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">草稿箱</text>
       </view>
       <view class="top-bar__placeholder" />
@@ -39,7 +39,7 @@
                 mode="aspectFill"
               />
               <view v-else class="draft-card__img-empty">
-                <image class="draft-card__img-empty-icon-img" src="/static/icons/paizhao.svg" mode="aspectFit" />
+                <image class="draft-card__img-empty-icon-img" src="/static/icons/draft-weimingming.svg" mode="aspectFit" />
               </view>
             </view>
 
@@ -95,7 +95,7 @@ const drafts = ref<DraftItem[]>([
   {
     id: '1',
     name: '海蓝之谜面霜',
-    imageUrl: '/static/icons/La Mer Cream.svg',
+    imageUrl: '/static/icons/draft-cream.svg',
     imgBg: '#F4EDE5',
     lastEditTime: '2023.10.24 14:30',
     tags: ['待确认到期日'],
@@ -111,7 +111,7 @@ const drafts = ref<DraftItem[]>([
   {
     id: '3',
     name: '植萃洗衣液',
-    imageUrl: '/static/icons/Laundry Detergent.svg',
+    imageUrl: '/static/icons/draft-laundry detergent.svg',
     imgBg: '#F4F3F1',
     lastEditTime: '2023.10.23 20:15',
     tags: ['待确认到期日'],
@@ -197,10 +197,9 @@ $top-height: 120rpx;
     justify-content: center;
   }
 
-  &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
-    font-weight: 300;
+  &__back-icon-img {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__center {

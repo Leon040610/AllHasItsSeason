@@ -3,7 +3,7 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="top-bar__back-icon-img" src="/static/icons/about-fanhui.svg" mode="aspectFit" />
       </view>
       <text class="top-bar__title">关于万物有期</text>
       <view class="top-bar__placeholder" />
@@ -79,19 +79,19 @@ const version = ref('1.1.0')
 const features = ref<Feature[]>([
   {
     id: '1',
-    icon: '/static/icons/zhinengpaizhaoshibie.svg',
+    icon: '/static/icons/about-zhinengpaizhaoshibie.svg',
     name: '智能拍照识字',
     desc: '毫秒级识字，精准捕捉有效期限',
   },
   {
     id: '2',
-    icon: '/static/icons/tiezhishouzhangmeihua.svg',
+    icon: '/static/icons/about-tiezhishouzhangmeihua.svg',
     name: '贴纸手账美化',
     desc: '极简留白美学，让管理充满仪式感',
   },
   {
     id: '3',
-    icon: '/static/icons/tixing.svg',
+    icon: '/static/icons/about-linqiwenroutixing.svg',
     name: '临期温馨提醒',
     desc: '柔性通知提醒，不打扰是最后的温柔',
   },
@@ -157,10 +157,9 @@ $top-height: 120rpx;
     justify-content: center;
   }
 
-  &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
-    font-weight: 300;
+  &__back-icon-img {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__title {

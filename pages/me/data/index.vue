@@ -3,10 +3,10 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="top-bar__back-icon-img" src="/static/icons/data-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="/static/icons/data-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">数据管理</text>
       </view>
       <view class="top-bar__placeholder" />
@@ -30,7 +30,7 @@
         </view>
         <view class="overview-card__divider" />
         <view class="overview-card__sync-row">
-          <image class="overview-card__sync-icon-img" src="/static/icons/tongbuqijian.svg" mode="aspectFit" />
+          <image class="overview-card__sync-icon-img" src="/static/icons/data-success-shangcitongbu.svg" mode="aspectFit" />
           <text class="overview-card__sync-time">最近同步：{{ stats.lastSyncTime }}</text>
         </view>
       </view>
@@ -40,37 +40,37 @@
         <!-- 立即同步云端 -->
         <view class="action-card" @tap="onSyncCloud">
           <view class="action-card__icon-wrap action-card__icon-wrap--primary">
-            <image class="action-card__icon-img" src="/static/icons/lijitongbuyunduan.svg" mode="aspectFit" />
+            <image class="action-card__icon-img" src="/static/icons/data-lijitongbuyunduan.svg" mode="aspectFit" />
           </view>
           <text class="action-card__label">立即同步云端</text>
-          <text class="action-card__arrow">›</text>
+          <image class="action-card__arrow-icon" src="/static/icons/data-tiaozhuan.svg" mode="aspectFit" />
         </view>
 
         <!-- 导出数据 -->
         <view class="action-card" @tap="onExportData">
           <view class="action-card__icon-wrap action-card__icon-wrap--muted">
-            <image class="action-card__icon-img" src="/static/icons/daochushuju.svg" mode="aspectFit" />
+            <image class="action-card__icon-img" src="/static/icons/data-daochushuju.svg" mode="aspectFit" />
           </view>
           <text class="action-card__label">导出数据</text>
-          <text class="action-card__arrow">›</text>
+          <image class="action-card__arrow-icon" src="/static/icons/data-tiaozhuan.svg" mode="aspectFit" />
         </view>
 
         <!-- 恢复草稿 -->
         <view class="action-card" @tap="onRestoreDraft">
           <view class="action-card__icon-wrap action-card__icon-wrap--muted">
-            <image class="action-card__icon-img" src="/static/icons/huifucaogao.svg" mode="aspectFit" />
+            <image class="action-card__icon-img" src="/static/icons/data-huifucaogao.svg" mode="aspectFit" />
           </view>
           <text class="action-card__label">恢复草稿</text>
-          <text class="action-card__arrow">›</text>
+          <image class="action-card__arrow-icon" src="/static/icons/data-tiaozhuan.svg" mode="aspectFit" />
         </view>
 
         <!-- 清理缓存 -->
         <view class="action-card" @tap="onClearCache">
           <view class="action-card__icon-wrap action-card__icon-wrap--danger">
-            <image class="action-card__icon-img" src="/static/icons/qinglihuancun.svg" mode="aspectFit" />
+            <image class="action-card__icon-img" src="/static/icons/data-qinglihuancun.svg" mode="aspectFit" />
           </view>
           <text class="action-card__label action-card__label--danger">清理缓存</text>
-          <text class="action-card__arrow">›</text>
+          <image class="action-card__arrow-icon" src="/static/icons/data-tiaozhuan.svg" mode="aspectFit" />
         </view>
       </view>
 
@@ -174,10 +174,9 @@ $top-height: 120rpx;
     justify-content: center;
   }
 
-  &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
-    font-weight: 300;
+  &__back-icon-img {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__center {
@@ -351,9 +350,10 @@ $top-height: 120rpx;
     }
   }
 
-  &__arrow {
-    font-size: 36rpx;
-    color: $color-text-secondary;
+  &__arrow-icon {
+    width: 32rpx;
+    height: 32rpx;
+    opacity: 0.6;
   }
 }
 

@@ -647,10 +647,6 @@ $top-height: 120rpx;
     align-items: center;
     gap: 6rpx;
     padding: 8rpx 0;
-
-    &--active {
-      .tab-bar__label { color: $color-text-dark; }
-    }
   }
 
   &__icon-wrap {
