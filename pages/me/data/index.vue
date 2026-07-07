@@ -143,6 +143,7 @@ $radius-full: 9999rpx;
 $top-height: 120rpx;
 
 .page {
+  font-family: 'Noto Serif SC', serif;
   width: 100%;
   height: 100vh;
   background: $color-bg;
@@ -165,6 +166,7 @@ $top-height: 120rpx;
   padding-left: 24rpx;
   padding-right: 24rpx;
   border-bottom: 2rpx solid $color-line;
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__back {
     width: 88rpx;

@@ -6,7 +6,7 @@
         <text class="top-bar__back-icon">‹</text>
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="/static/icons/data-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">数据管理</text>
       </view>
       <view class="top-bar__placeholder" />
@@ -20,7 +20,7 @@
         <view class="sync-icon-wrap">
           <view class="sync-icon-bg-ring" />
           <view class="sync-icon-circle">
-            <image class="sync-icon-text-img" src="/static/icons/tongbu.svg" mode="aspectFit" />
+            <image class="sync-icon-text-img" src="/static/icons/data-syncing-tongbu.svg" mode="aspectFit" />
           </view>
         </view>
         <text class="sync-title">正在同步中...</text>
@@ -35,7 +35,7 @@
           <view class="progress-item progress-item--active">
             <view class="progress-item__header">
               <view class="progress-item__icon-wrap progress-item__icon-wrap--active">
-                <image class="progress-item__icon-img" src="/static/icons/yunduanbeifentongbu.svg" mode="aspectFit" />
+                <image class="progress-item__icon-img" src="/static/icons/data-syncing-yunduanbeifentongbu.svg" mode="aspectFit" />
               </view>
               <view class="progress-item__info">
                 <text class="progress-item__label">云端备份同步</text>
@@ -52,12 +52,12 @@
           <view class="progress-item">
             <view class="progress-item__header">
               <view class="progress-item__icon-wrap progress-item__icon-wrap--muted">
-                <image class="progress-item__icon-img" src="/static/icons/tupianziyuanyasuo.svg" mode="aspectFit" />
+                <image class="progress-item__icon-img" src="/static/icons/data-syncing-tupianziyuanyasuo.svg" mode="aspectFit" />
               </view>
               <view class="progress-item__info">
                 <text class="progress-item__label">图片资源压缩</text>
               </view>
-              <image class="progress-item__waiting-img" src="/static/icons/tongbuqijian.svg" mode="aspectFit" />
+              <image class="progress-item__waiting-img" src="/static/icons/data-syncing-jiazai.svg" mode="aspectFit" />
             </view>
           </view>
 
@@ -65,19 +65,19 @@
           <view class="progress-item">
             <view class="progress-item__header">
               <view class="progress-item__icon-wrap progress-item__icon-wrap--muted">
-                <image class="progress-item__icon-img" src="/static/icons/guoqijiluqingli.svg" mode="aspectFit" />
+                <image class="progress-item__icon-img" src="/static/icons/data-syncing-guoqijiluqingli.svg" mode="aspectFit" />
               </view>
               <view class="progress-item__info">
                 <text class="progress-item__label">过期记录清理</text>
               </view>
-              <image class="progress-item__waiting-img" src="/static/icons/tongbuqijian.svg" mode="aspectFit" />
+              <image class="progress-item__waiting-img" src="/static/icons/data-syncing-jiazai.svg" mode="aspectFit" />
             </view>
           </view>
         </view>
 
         <!-- 提示信息 -->
         <view class="warning-tip">
-          <image class="warning-tip__icon-img" src="/static/icons/tixing.svg" mode="aspectFit" />
+          <image class="warning-tip__icon-img" src="/static/icons/data-syncing-tongbuqijian.svg" mode="aspectFit" />
           <text class="warning-tip__text">同步期间请保持网络连接稳定，建议在 Wi-Fi 环境下操作。关闭页面可能会中断当前任务。</text>
         </view>
       </view>
@@ -88,7 +88,7 @@
     <!-- 底部操作区 -->
     <view class="bottom-actions">
       <view class="btn-confirming">
-        <image class="btn-confirming__spinner-img" src="/static/icons/querentongbuzhong1.svg" mode="aspectFit" />
+        <image class="btn-confirming__spinner-img" src="/static/icons/data-syncing-querentongbuzhong1.svg" mode="aspectFit" />
         <text class="btn-confirming__text">确认同步中</text>
       </view>
       <view class="btn-cancel" @tap="onCancelSync">
@@ -166,6 +166,7 @@ $top-height: 120rpx;
 $bottom-h: 240rpx;
 
 .page {
+  font-family: 'Noto Serif SC', serif;
   width: 100%;
   height: 100vh;
   background: $color-bg;
@@ -188,6 +189,7 @@ $bottom-h: 240rpx;
   padding-left: 24rpx;
   padding-right: 24rpx;
   border-bottom: 2rpx solid $color-line;
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__back {
     width: 88rpx;

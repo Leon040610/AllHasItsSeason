@@ -6,7 +6,7 @@
         <text class="top-bar__back-icon">‹</text>
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="/static/icons/data-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">数据管理</text>
       </view>
       <view class="top-bar__placeholder" />
@@ -16,7 +16,7 @@
       <!-- 状态图标 -->
       <view class="status-area">
         <view class="status-icon-outer">
-          <image class="status-icon-emoji-img" src="/static/icons/yunduanbeifen.svg" mode="aspectFit" />
+          <image class="status-icon-emoji-img" src="/static/icons/data-no-sync-yuntongbu.svg" mode="aspectFit" />
         </view>
         <text class="status-title">暂未开启云同步</text>
         <text class="status-desc">同步功能已关闭，您的数据目前仅保存在本地。建议开启同步以确保数据安全。</text>
@@ -26,21 +26,21 @@
       <view class="status-list">
         <view class="status-row-card">
           <view class="status-row-card__icon-wrap status-row-card__icon-wrap--safe">
-            <image class="status-row-card__icon-img" src="/static/icons/wupinku.svg" mode="aspectFit" />
+            <image class="status-row-card__icon-img" src="/static/icons/data-no-sync-bendishuju.svg" mode="aspectFit" />
           </view>
           <text class="status-row-card__label">本地数据</text>
           <view class="status-row-card__badge status-row-card__badge--safe">
-            <text class="status-row-card__badge-dot">●</text>
+            <image class="status-row-card__icon-img" src="/static/icons/data-no-sync-anquan.svg" mode="aspectFit" />
             <text class="status-row-card__badge-text">安全</text>
           </view>
         </view>
         <view class="status-row-card">
           <view class="status-row-card__icon-wrap status-row-card__icon-wrap--muted">
-            <image class="status-row-card__icon-img" src="/static/icons/yunduanbeifen.svg" mode="aspectFit" />
+            <image class="status-row-card__icon-img" src="/static/icons/data-no-sync-yunduanbeifen.svg" mode="aspectFit" />
           </view>
           <text class="status-row-card__label">云端备份</text>
           <view class="status-row-card__badge status-row-card__badge--locked">
-            <image class="status-row-card__badge-lock-img" src="/static/icons/huiyuanquanyi.svg" mode="aspectFit" />
+            <image class="status-row-card__badge-lock-img" src="/static/icons/data-no-sync-yiguanbi.svg" mode="aspectFit" />
             <text class="status-row-card__badge-text">已关闭</text>
           </view>
         </view>
@@ -82,6 +82,7 @@ $radius-full: 9999rpx;
 $top-height: 120rpx;
 
 .page {
+  font-family: 'Noto Serif SC', serif;
   width: 100%;
   height: 100vh;
   background: $color-bg;
@@ -104,6 +105,7 @@ $top-height: 120rpx;
   padding-left: 24rpx;
   padding-right: 24rpx;
   border-bottom: 2rpx solid $color-line;
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__back {
     width: 88rpx;

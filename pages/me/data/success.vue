@@ -6,7 +6,7 @@
         <text class="top-bar__back-icon">‹</text>
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="/static/icons/data-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">数据管理</text>
       </view>
       <view class="top-bar__placeholder" />
@@ -17,13 +17,13 @@
       <view class="status-area">
         <view class="status-icon-outer">
           <view class="status-icon-circle">
-            <image class="status-icon-check-img" src="/static/icons/duigou.svg" mode="aspectFit" />
+            <image class="status-icon-check-img" src="/static/icons/data-success-duigou.svg" mode="aspectFit" />
           </view>
         </view>
         <text class="status-title">同步成功</text>
         <text class="status-desc">您的数据已安全备份至云端，保持最新状态。</text>
         <view class="status-time-tag">
-          <image class="status-time-tag__icon-img" src="/static/icons/tongbuqijian.svg" mode="aspectFit" />
+          <image class="status-time-tag__icon-img" src="/static/icons/data-success-shangcitongbu.svg" mode="aspectFit" />
           <text class="status-time-tag__text">上次同步时间：{{ lastSyncLabel }}</text>
         </view>
       </view>
@@ -32,14 +32,14 @@
       <view class="stat-list">
         <view class="stat-card">
           <view class="stat-card__icon-wrap">
-            <image class="stat-card__icon-img" src="/static/icons/yiluruwupin.svg" mode="aspectFit" />
+            <image class="stat-card__icon-img" src="/static/icons/data-success-yiluruwupin.svg" mode="aspectFit" />
           </view>
           <text class="stat-card__label">已录入物品</text>
           <text class="stat-card__value">{{ syncResult.itemCount }}件</text>
         </view>
         <view class="stat-card">
           <view class="stat-card__icon-wrap">
-            <image class="stat-card__icon-img" src="/static/icons/jieshengkongjian.svg" mode="aspectFit" />
+            <image class="stat-card__icon-img" src="/static/icons/data-success-jieshengkongjian.svg" mode="aspectFit" />
           </view>
           <text class="stat-card__label">节省空间</text>
           <text class="stat-card__value">{{ syncResult.savedSpace }}MB</text>
@@ -96,6 +96,7 @@ $radius-full: 9999rpx;
 $top-height: 120rpx;
 
 .page {
+  font-family: 'Noto Serif SC', serif;
   width: 100%;
   height: 100vh;
   background: $color-bg;
@@ -118,6 +119,7 @@ $top-height: 120rpx;
   padding-left: 24rpx;
   padding-right: 24rpx;
   border-bottom: 2rpx solid $color-line;
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__back {
     width: 88rpx;

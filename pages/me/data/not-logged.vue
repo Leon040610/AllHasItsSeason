@@ -3,10 +3,10 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="settings-item__lock-img" src="/static/icons/data-not-logged-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="/static/icons/data-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">数据管理</text>
       </view>
       <view class="top-bar__placeholder" />
@@ -18,9 +18,9 @@
       <view class="guide-card">
         <!-- 插画区 -->
         <view class="guide-card__illus">
-          <image class="guide-card__illus-img" src="/static/icons/yuntongbu.svg" mode="aspectFill" />
+          <image class="guide-card__illus-img" src="/static/icons/data-not-logged-Background.svg" mode="aspectFill" />
           <view class="guide-card__illus-overlay">
-            <image class="guide-card__illus-icon-img" src="/static/icons/yunduanbeifen.svg" mode="aspectFit" />
+            <image class="guide-card__illus-icon-img" src="/static/icons/data-not-logged-yuntongbu.svg" mode="aspectFit" />
           </view>
         </view>
         <!-- 文字区 -->
@@ -39,18 +39,18 @@
         <view class="settings-group">
           <view class="settings-item" @tap="onExportLocal">
             <view class="settings-item__icon-wrap">
-              <image class="settings-item__icon-img" src="/static/icons/daochubendishuju.svg" mode="aspectFit" />
+              <image class="settings-item__icon-img" src="/static/icons/data-not-logged-daochubendishuju.svg" mode="aspectFit" />
             </view>
             <text class="settings-item__label">导出本地数据</text>
-            <text class="settings-item__arrow">›</text>
+            <image class="settings-item__lock-img" src="/static/icons/data-not-logged-xuanze.svg" mode="aspectFit" />
           </view>
           <view class="settings-divider" />
           <view class="settings-item settings-item--locked">
             <view class="settings-item__icon-wrap settings-item__icon-wrap--muted">
-              <image class="settings-item__icon-img settings-item__icon-img--muted" src="/static/icons/zidongbeifen.svg" mode="aspectFit" />
+              <image class="settings-item__icon-img settings-item__icon-img--muted" src="/static/icons/data-not-logged-zidongbeifen.svg" mode="aspectFit" />
             </view>
             <text class="settings-item__label settings-item__label--muted">自动备份 (需登录)</text>
-            <image class="settings-item__lock-img" src="/static/icons/huiyuanquanyi.svg" mode="aspectFit" />
+            <image class="settings-item__lock-img" src="/static/icons/data-not-logged-weikaiqi.svg" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -89,6 +89,7 @@ $radius-full: 9999rpx;
 $top-height: 120rpx;
 
 .page {
+  font-family: 'Noto Serif SC', serif;
   width: 100%;
   height: 100vh;
   background: $color-bg;
@@ -111,6 +112,7 @@ $top-height: 120rpx;
   padding-left: 24rpx;
   padding-right: 24rpx;
   border-bottom: 2rpx solid $color-line;
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__back {
     width: 88rpx;
