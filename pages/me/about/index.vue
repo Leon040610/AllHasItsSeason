@@ -13,7 +13,7 @@
 
       <!-- 品牌区 -->
       <view class="brand-section">
-        <image class="brand-section__logo" src="/static/logo-hero.jpeg" mode="aspectFit" />
+        <image class="brand-section__logo" src="/static/logo-hero-transparent.png" mode="aspectFit" />
         <text class="brand-section__name">万物有期</text>
         <text class="brand-section__version">VERSION {{ version }}</text>
         <text class="brand-section__en">ALL HAS ITS SEASON</text>
@@ -125,6 +125,7 @@ $radius-full: 9999rpx;
 $top-height: 120rpx;
 
 .page {
+  font-family: 'Noto Serif SC', serif;
   width: 100%;
   min-height: 100vh;
   background: $color-bg;
@@ -148,6 +149,7 @@ $top-height: 120rpx;
   padding-left: 24rpx;
   padding-right: 24rpx;
   border-bottom: 2rpx solid $color-line;
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__back {
     width: 88rpx;
@@ -166,7 +168,7 @@ $top-height: 120rpx;
     font-family: 'Noto Serif SC', serif;
     font-size: 34rpx;
     font-weight: 700;
-    color: $color-text;
+    color: $color-primary-dark;
   }
 
   &__placeholder {
@@ -176,7 +178,7 @@ $top-height: 120rpx;
 
 .scroll-body {
   flex: 1;
-  padding-top: $top-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
   height: 100vh;
   box-sizing: border-box;
 }
@@ -190,8 +192,8 @@ $top-height: 120rpx;
   gap: 8rpx;
 
   &__logo {
-    width: 240rpx;
-    height: 180rpx;
+    width: 320rpx;
+    height: 240rpx;
     margin-bottom: 16rpx;
   }
 
@@ -199,26 +201,26 @@ $top-height: 120rpx;
     font-family: 'Noto Serif SC', serif;
     font-size: 48rpx;
     font-weight: 700;
-    color: $color-text;
+    color: $color-primary-dark;
     letter-spacing: 8rpx;
   }
 
   &__version {
     font-size: 24rpx;
-    color: $color-text-tertiary;
+    color: #747871;
     letter-spacing: 4rpx;
     margin-top: 8rpx;
   }
 
   &__en {
     font-size: 24rpx;
-    color: $color-text-tertiary;
+    color: #747871;
     letter-spacing: 6rpx;
   }
 
   &__zh {
     font-size: 26rpx;
-    color: $color-text-secondary;
+    color: #747871;
   }
 }
 
@@ -229,7 +231,7 @@ $top-height: 120rpx;
   border-radius: $radius-card;
   box-shadow: $shadow-card;
   border: 2rpx solid $color-border;
-  padding: 40rpx;
+  padding: 48rpx 56rpx;
 
   &__title-row {
     display: flex;
@@ -257,6 +259,7 @@ $top-height: 120rpx;
     color: $color-text-secondary;
     line-height: 48rpx;
     text-indent: 56rpx;
+    display: block;
   }
 }
 

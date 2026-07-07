@@ -3,7 +3,7 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <image class="settings-item__lock-img" src="/static/icons/data-not-logged-fanhui.svg" mode="aspectFit" />
+        <image class="top-bar__back-icon-img" src="/static/icons/data-not-logged-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
         <image class="top-bar__leaf" src="/static/icons/data-topIcon-yezi.svg" mode="aspectFit" />
@@ -36,21 +36,24 @@
       <!-- 设置项 -->
       <view class="settings-section">
         <text class="settings-section__title">设置项</text>
-        <view class="settings-group">
-          <view class="settings-item" @tap="onExportLocal">
-            <view class="settings-item__icon-wrap">
-              <image class="settings-item__icon-img" src="/static/icons/data-not-logged-daochubendishuju.svg" mode="aspectFit" />
+        <view class="settings-list">
+          <view class="settings-group">
+            <view class="settings-item" @tap="onExportLocal">
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/data-not-logged-daochubendishuju.svg" mode="aspectFit" />
+              </view>
+              <text class="settings-item__label">导出本地数据</text>
+              <image class="settings-item__arrow-img" src="/static/icons/data-not-logged-xuanze.svg" mode="aspectFit" />
             </view>
-            <text class="settings-item__label">导出本地数据</text>
-            <image class="settings-item__lock-img" src="/static/icons/data-not-logged-xuanze.svg" mode="aspectFit" />
           </view>
-          <view class="settings-divider" />
-          <view class="settings-item settings-item--locked">
-            <view class="settings-item__icon-wrap settings-item__icon-wrap--muted">
-              <image class="settings-item__icon-img settings-item__icon-img--muted" src="/static/icons/data-not-logged-zidongbeifen.svg" mode="aspectFit" />
+          <view class="settings-group">
+            <view class="settings-item settings-item--locked">
+              <view class="settings-item__icon-wrap settings-item__icon-wrap--muted">
+                <image class="settings-item__icon-img settings-item__icon-img--muted" src="/static/icons/data-not-logged-zidongbeifen.svg" mode="aspectFit" />
+              </view>
+              <text class="settings-item__label settings-item__label--muted">自动备份 (需登录)</text>
+              <image class="settings-item__lock-img" src="/static/icons/data-not-logged-weikaiqi.svg" mode="aspectFit" />
             </view>
-            <text class="settings-item__label settings-item__label--muted">自动备份 (需登录)</text>
-            <image class="settings-item__lock-img" src="/static/icons/data-not-logged-weikaiqi.svg" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -122,10 +125,9 @@ $top-height: 120rpx;
     justify-content: center;
   }
 
-  &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
-    font-weight: 300;
+  &__back-icon-img {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__center {
@@ -153,7 +155,7 @@ $top-height: 120rpx;
 
 .scroll-body {
   flex: 1;
-  padding-top: $top-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
   height: 100vh;
   box-sizing: border-box;
 }
@@ -247,6 +249,12 @@ $top-height: 120rpx;
   }
 }
 
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  gap: 24rpx;
+}
+
 .settings-group {
   background: $color-card;
   border-radius: $radius-card;
@@ -259,7 +267,7 @@ $top-height: 120rpx;
   display: flex;
   align-items: center;
   padding: 0 40rpx;
-  height: 112rpx;
+  height: 144rpx;
   gap: 32rpx;
 
   &--locked {
@@ -303,6 +311,12 @@ $top-height: 120rpx;
   &__arrow {
     font-size: 36rpx;
     color: $color-text-secondary;
+  }
+
+  &__arrow-img {
+    width: 32rpx;
+    height: 32rpx;
+    opacity: 0.6;
   }
 
   &__lock-img {

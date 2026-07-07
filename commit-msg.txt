@@ -1,14 +1,14 @@
-refactor: 优化数据管理与提醒设置页面设计并规范化图标资源
+refactor: 精细化数据管理与我的模块子页面 UI 还原
 
-- 数据管理模块 (pages/me/data/)：
-  1. 为所有数据管理页面子页 (index, no-sync, not-logged, success, syncing) 统一配置思源宋体，并为顶栏 TopBar 增加阴影以符合规范
-  2. 整合与规范化数据管理所用的图标资源，统一重命名为 `data-` 前缀（如 `data-no-sync-yuntongbu.svg` 等），清理多余的叶子图标
-  3. 更新未登录页的插画底图与覆盖层图标 (data-not-logged-Background.svg 等)
-  4. 将未登录页的列表右侧文本箭头替换为专属 SVG 选中图标
-- 提醒设置页 (pages/me/reminder/)：
-  1. 统一页面字体为思源宋体，并为顶栏 TopBar 增加规范阴影
-  2. 优化 Switch 开关状态样式，调整滑块在开启状态下的平移距离 (50rpx)，使滑块定位更精准
-- 其它调整：
-  1. 移除已废弃的旧版冗余图标资源
+- 导航栏及高度适配优化 (各子页面)：
+  1. 为“关于”、“数据管理”各子页以及“草稿箱”统一配置顶栏返回键为 `data-not-logged-fanhui.svg` 图标，去除硬编码的文本字符
+  2. 修复滚动容器的顶部内边距，统一累加 `var(--status-bar-height, 44rpx)` 以适配刘海屏及状态栏高度
+- 数据管理 - 未登录页 (pages/me/data/not-logged.vue)：
+  1. 将设置列表拆分为独立的 `settings-group` 卡片组，并微调高度至 144rpx
+  2. 将跳转箭头替换为规范的 `data-not-logged-xuanze.svg` 图标
+- 数据管理 - 同步中页 (pages/me/data/syncing.vue)：
+  1. 优化进行中进度条样式，为其增加左侧深绿指示边条 (::before)
+- 其它细节：
+  1. 统一各子页面的全局字体为 Noto Serif SC
 
-影响范围：数据管理及提醒设置模块的 UI 视觉效果与图标资源
+影响范围：我的模块下所有二级页面的头部导航与内容排版

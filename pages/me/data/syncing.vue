@@ -3,7 +3,7 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="top-bar__back-icon-img" src="/static/icons/data-not-logged-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
         <image class="top-bar__leaf" src="/static/icons/data-topIcon-yezi.svg" mode="aspectFit" />
@@ -199,10 +199,9 @@ $bottom-h: 240rpx;
     justify-content: center;
   }
 
-  &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
-    font-weight: 300;
+  &__back-icon-img {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__center {
@@ -230,7 +229,7 @@ $bottom-h: 240rpx;
 
 .scroll-body {
   flex: 1;
-  padding-top: $top-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
   padding-bottom: $bottom-h;
   height: 100vh;
   box-sizing: border-box;
@@ -320,6 +319,18 @@ $bottom-h: 240rpx;
   &--active {
     opacity: 1;
     border: 2rpx solid rgba(138, 154, 134, 0.3);
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 12rpx;
+      background: $color-primary-dark;
+    }
   }
 
   &__header {

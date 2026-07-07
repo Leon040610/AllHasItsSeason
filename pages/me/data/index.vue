@@ -206,7 +206,7 @@ $top-height: 120rpx;
 
 .scroll-body {
   flex: 1;
-  padding-top: $top-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
   height: 100vh;
   box-sizing: border-box;
 }
@@ -224,12 +224,15 @@ $top-height: 120rpx;
 
   &__decor {
     position: absolute;
-    top: -40rpx;
-    right: -40rpx;
-    width: 200rpx;
-    height: 200rpx;
+    top: -32rpx;
+    right: -32rpx;
+    width: 280rpx;
+    height: 280rpx;
     border-radius: $radius-full;
-    background: radial-gradient(circle, rgba(138, 154, 134, 0.12) 0%, transparent 70%);
+    background: #8AFEFC;
+    opacity: 0.45;
+    filter: blur(40rpx);
+    z-index: 0;
   }
 
   &__title {
@@ -239,12 +242,16 @@ $top-height: 120rpx;
     color: $color-text;
     display: block;
     margin-bottom: 32rpx;
+    position: relative;
+    z-index: 1;
   }
 
   &__stats {
     display: flex;
-    gap: 64rpx;
+    gap: 120rpx;
     margin-bottom: 32rpx;
+    position: relative;
+    z-index: 1;
   }
 
   &__stat {
@@ -274,12 +281,16 @@ $top-height: 120rpx;
     height: 2rpx;
     background: $color-line;
     margin-bottom: 24rpx;
+    position: relative;
+    z-index: 1;
   }
 
   &__sync-row {
     display: flex;
     align-items: center;
     gap: 12rpx;
+    position: relative;
+    z-index: 1;
   }
 
   &__sync-icon-img {

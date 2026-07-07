@@ -3,7 +3,7 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="top-bar__back-icon-img" src="/static/icons/data-not-logged-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
         <image class="top-bar__leaf" src="/static/icons/data-topIcon-yezi.svg" mode="aspectFit" />
@@ -115,10 +115,9 @@ $top-height: 120rpx;
     justify-content: center;
   }
 
-  &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
-    font-weight: 300;
+  &__back-icon-img {
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__center {
@@ -146,7 +145,7 @@ $top-height: 120rpx;
 
 .content {
   flex: 1;
-  padding-top: $top-height;
+  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
   display: flex;
   flex-direction: column;
   padding-bottom: 280rpx;
