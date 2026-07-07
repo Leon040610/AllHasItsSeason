@@ -12,10 +12,21 @@
       <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
 
         <!-- 搜索栏 -->
-        <view class="search-bar" @tap="onSearchFocus">
+        <view class="search-bar" @tap="searchFocused = true">
           <image class="search-bar__icon-img" src="/static/icons/library-sousuo.svg" mode="aspectFit" />
-          <text class="search-bar__placeholder" v-if="!searchKeyword">搜索物品名称</text>
-          <text class="search-bar__text" v-else>{{ searchKeyword }}</text>
+          <text
+            v-if="!searchFocused"
+            class="search-bar__text"
+            :class="{ 'search-bar__text--placeholder': !searchKeyword }"
+          >{{ searchKeyword || '搜索物品名称' }}</text>
+          <input
+            v-else
+            class="search-bar__input"
+            v-model="searchKeyword"
+            :focus="true"
+            placeholder="搜索物品名称"
+            @blur="searchFocused = false"
+          />
         </view>
 
         <!-- 分类筛选 -->
@@ -157,6 +168,7 @@ interface Filter {
 
 const topHeight = ref(120)
 const searchKeyword = ref('')
+const searchFocused = ref(false)
 const activeCategoryKey = ref('all')
 const activeStatusKey = ref('all')
 
@@ -246,9 +258,6 @@ function getStatusLabel(item: Item) {
   return `还有 ${item.daysLeft} 天`
 }
 
-function onSearchFocus() {
-  // 搜索交互
-}
 
 function onCategoryFilter(key: string) {
   activeCategoryKey.value = key
@@ -381,16 +390,22 @@ $top-height: 120rpx;
     opacity: 0.6;
   }
 
-  &__placeholder {
-    font-family: 'Noto Serif SC', serif;
-    font-size: 30rpx;
-    color: $color-text-secondary;
-  }
-
   &__text {
+    flex: 1;
     font-family: 'Noto Serif SC', serif;
     font-size: 30rpx;
     color: $color-text;
+
+    &--placeholder {
+      color: $color-text-secondary;
+    }
+  }
+
+  &__input {
+    flex: 1;
+    font-size: 30rpx;
+    color: $color-text;
+    background: transparent;
   }
 }
 

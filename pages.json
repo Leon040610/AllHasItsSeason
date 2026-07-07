@@ -43,9 +43,23 @@
 			}
 		},
 		{
+			"path": "pages/add/recognize",
+			"style": {
+				"navigationBarTitleText": "添加物品",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/detail/index",
 			"style": {
 				"navigationBarTitleText": "物品详情",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/detail/edit/index",
+			"style": {
+				"navigationBarTitleText": "编辑信息",
 				"navigationStyle": "custom"
 			}
 		},

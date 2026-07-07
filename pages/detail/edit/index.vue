@@ -7,7 +7,7 @@
       </view>
       <view class="top-bar__center">
         <image class="top-bar__leaf" src="/static/icons/detail-topIcon-yezi.svg" mode="aspectFit" />
-        <text class="top-bar__title">物品详情</text>
+        <text class="top-bar__title">编辑信息</text>
       </view>
       <view class="top-bar__placeholder" />
     </view>
@@ -15,7 +15,7 @@
     <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
 
       <!-- Hero 图片区 -->
-      <view class="hero-section">
+      <view class="hero-section" @tap="onChooseImage">
         <view class="hero-img-wrap">
           <image
             class="hero-img"
@@ -26,20 +26,48 @@
         </view>
       </view>
 
-      <!-- 名称 -->
-      <view class="info-header">
-        <text class="info-header__name">{{ item.name }}</text>
+      <!-- 图片操作区 -->
+      <view class="img-actions">
+        <view class="img-action-btn" @tap="onReprocess">
+          <text class="img-action-btn__text">重新整理图片</text>
+        </view>
+        <view class="img-action-btn" @tap="onUseOriginal">
+          <text class="img-action-btn__text">使用原图</text>
+        </view>
+      </view>
+
+      <!-- 名称 (点击切换 input) -->
+      <view class="info-header" @tap="nameFocused = true">
+        <text
+          v-if="!nameFocused"
+          class="info-header__name"
+        >{{ item.name || '请输入物品名称' }}</text>
+        <input
+          v-else
+          class="info-header__name-input"
+          v-model="item.name"
+          :focus="true"
+          placeholder="请输入物品名称"
+          @blur="nameFocused = false"
+          style="font-family: 'Noto Serif SC', serif; font-weight: 700;"
+        />
       </view>
 
       <!-- 三列关键信息 -->
       <view class="meta-row">
-        <view class="meta-col">
+        <view class="meta-col" @tap="onPickCategory">
           <text class="meta-col__label">分类</text>
-          <text class="meta-col__value">{{ item.categoryLabel }}</text>
+          <view class="meta-col__value-row">
+            <text class="meta-col__value">{{ item.categoryLabel }}</text>
+            <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+          </view>
         </view>
-        <view class="meta-col">
+        <view class="meta-col" @tap="onPickStatus">
           <text class="meta-col__label">状态</text>
-          <text class="meta-col__value">{{ item.statusLabel }}</text>
+          <view class="meta-col__value-row">
+            <text class="meta-col__value">{{ item.statusLabel }}</text>
+            <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+          </view>
         </view>
         <view class="meta-col">
           <text class="meta-col__label">剩余时间</text>
@@ -49,38 +77,43 @@
 
       <!-- 日期信息卡片 -->
       <view class="date-card">
+        <picker mode="date" @change="onProduceDateChange">
+          <view class="date-card__row">
+            <text class="date-card__label">生产日期</text>
+            <view class="date-card__value-row">
+              <text class="date-card__value">{{ item.produceDateLabel }}</text>
+              <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+            </view>
+          </view>
+        </picker>
+        <view class="date-card__divider" />
         <view class="date-card__row">
-          <text class="date-card__label">生产日期</text>
-          <text class="date-card__value">{{ item.produceDateLabel }}</text>
+          <text class="date-card__label">保质期</text>
+          <view class="date-card__value-row">
+            <view class="shelf-input-wrap" @tap="shelfFocused = true">
+              <text
+                v-if="!shelfFocused"
+                class="shelf-input-text"
+              >{{ item.shelfLife }}</text>
+              <input
+                v-else
+                class="shelf-input"
+                type="number"
+                v-model="item.shelfLife"
+                :focus="true"
+                @blur="shelfFocused = false"
+              />
+            </view>
+            <view class="unit-select" @tap="onPickUnit">
+              <text class="date-card__value">{{ item.shelfUnit }}</text>
+              <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+            </view>
+          </view>
         </view>
         <view class="date-card__divider" />
         <view class="date-card__row">
           <text class="date-card__label">到期日</text>
-          <text class="date-card__value">{{ item.expireDateLabel }}</text>
-        </view>
-      </view>
-
-      <!-- 历史动态 -->
-      <view class="timeline-section">
-        <text class="timeline-section__title">历史动态</text>
-        <view class="timeline">
-          <view
-            v-for="(event, index) in item.timeline"
-            :key="event.id"
-            class="timeline-item"
-          >
-            <view class="timeline-item__left">
-              <view
-                class="timeline-item__dot"
-                :class="index === 0 ? 'timeline-item__dot--active' : ''"
-              />
-              <view v-if="index < item.timeline.length - 1" class="timeline-item__line" />
-            </view>
-            <view class="timeline-item__content">
-              <text class="timeline-item__date">{{ event.date }}</text>
-              <text class="timeline-item__desc">{{ event.desc }}</text>
-            </view>
-          </view>
+          <text class="date-card__value" style="color: #A69B8D">{{ computedExpireDateLabel }}</text>
         </view>
       </view>
 
@@ -90,15 +123,8 @@
     <!-- 底部操作栏 -->
     <view class="bottom-actions">
       <view class="bottom-actions__inner">
-        <view class="action-delete" @tap="onDelete">
-          <image class="action-delete__icon-img" src="/static/icons/detail-shanchu.svg" mode="aspectFit" />
-          <text class="action-delete__text">删除</text>
-        </view>
-        <view class="action-btn-outline" @tap="onMarkUsed">
-          <text class="action-btn-outline__text">已用完</text>
-        </view>
-        <view class="action-btn-primary" @tap="onEdit">
-          <text class="action-btn-primary__text">编辑信息</text>
+        <view class="action-btn-save" @tap="onSave">
+          <text class="action-btn-save__text">保存修改</text>
         </view>
       </view>
     </view>
@@ -106,13 +132,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-
-interface TimelineEvent {
-  id: string
-  date: string
-  desc: string
-}
+import { ref, computed, onMounted } from 'vue'
 
 interface ItemDetail {
   id: string
@@ -125,11 +145,12 @@ interface ItemDetail {
   status: string
   statusLabel: string
   daysLeft: number
+  shelfLife: string
+  shelfUnit: string
   produceDate: string
   produceDateLabel: string
   expireDate: string
   expireDateLabel: string
-  timeline: TimelineEvent[]
 }
 
 const item = ref<ItemDetail>({
@@ -143,15 +164,28 @@ const item = ref<ItemDetail>({
   status: 'pending',
   statusLabel: '待取用',
   daysLeft: 2,
+  shelfLife: '7',
+  shelfUnit: '天',
   produceDate: '2026-06-20',
   produceDateLabel: '2026年06月20日',
   expireDate: '2026-06-27',
   expireDateLabel: '2026年06月27日',
-  timeline: [
-    { id: '1', date: '06-25', desc: '小管家提醒' },
-    { id: '2', date: '06-23', desc: '收纳' },
-    { id: '3', date: '06-20', desc: '录入' },
-  ],
+})
+
+const nameFocused = ref(false)
+const shelfFocused = ref(false)
+const computedExpireDateLabel = computed(() => {
+  if (!item.value.produceDate || !item.value.shelfLife) return ''
+  const produce = new Date(item.value.produceDate)
+  const days = parseInt(item.value.shelfLife)
+  if (isNaN(days)) return ''
+  const unitMap: Record<string, number> = { 天: 1, 月: 30, 年: 365 }
+  const multiplier = unitMap[item.value.shelfUnit] || 1
+  produce.setDate(produce.getDate() + days * multiplier)
+  const y = produce.getFullYear()
+  const m = String(produce.getMonth() + 1).padStart(2, '0')
+  const d = String(produce.getDate()).padStart(2, '0')
+  return `${y}年${m}月${d}日`
 })
 
 onMounted(() => {
@@ -167,49 +201,73 @@ function onBack() {
   uni.navigateBack()
 }
 
+function onChooseImage() {
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['album', 'camera'],
+    success(res) {
+      item.value.imageUrl = res.tempFilePaths[0]
+      item.value.displayImageUrl = '' // clear display image if uploaded new
+      item.value.rotation = 0
+    },
+  })
+}
+
+function onPickCategory() {
+  uni.showActionSheet({
+    itemList: ['食品', '药品', '美妆', '日化', '母婴'],
+    success(res) {
+      const map = ['食品', '药品', '美妆', '日化', '母婴']
+      const keyMap = ['food', 'medicine', 'beauty', 'daily', 'baby']
+      item.value.categoryLabel = map[res.tapIndex]
+      item.value.category = keyMap[res.tapIndex]
+    },
+  })
+}
+
+function onPickStatus() {
+  uni.showActionSheet({
+    itemList: ['待取用', '使用中', '已用完'],
+    success(res) {
+      const map = ['待取用', '使用中', '已用完']
+      const keyMap = ['pending', 'using', 'done']
+      item.value.statusLabel = map[res.tapIndex]
+      item.value.status = keyMap[res.tapIndex]
+    },
+  })
+}
+
+function onProduceDateChange(e: any) {
+  const dateStr = e.detail.value
+  item.value.produceDate = dateStr
+  const [y, m, d] = dateStr.split('-')
+  item.value.produceDateLabel = `${y}年${m}月${d}日`
+}
+
+function onPickUnit() {
+  uni.showActionSheet({
+    itemList: ['天', '月', '年'],
+    success(res) {
+      item.value.shelfUnit = ['天', '月', '年'][res.tapIndex]
+    },
+  })
+}
+
 function onReprocess() {
-  // 重新整理图片
+  uni.showToast({ title: '开始智能抠图...', icon: 'none' })
+  setTimeout(() => {
+    item.value.rotation = (Math.random() * 4 - 2)
+  }, 1000)
 }
 
 function onUseOriginal() {
   item.value.rotation = 0
 }
 
-function onEdit() {
-  uni.navigateTo({ url: `/pages/detail/edit/index?id=${item.value.id}` })
-}
-
-function onMarkUsed() {
-  uni.showModal({
-    title: '确认已用完？',
-    content: '小管家会将此物品标记为已完成使命～',
-    confirmText: '确认',
-    cancelText: '取消',
-    success(res) {
-      if (res.confirm) {
-        item.value.status = 'done'
-        item.value.statusLabel = '已用完'
-        uni.showToast({ title: '已记录，好物完成使命！', icon: 'none' })
-        setTimeout(() => uni.navigateBack(), 1200)
-      }
-    },
-  })
-}
-
-function onDelete() {
-  uni.showModal({
-    title: '确认删除？',
-    content: '删除后无法恢复，请确认。',
-    confirmText: '删除',
-    confirmColor: '#D98A6C',
-    cancelText: '取消',
-    success(res) {
-      if (res.confirm) {
-        uni.showToast({ title: '已删除', icon: 'none' })
-        setTimeout(() => uni.navigateBack(), 800)
-      }
-    },
-  })
+function onSave() {
+  uni.showToast({ title: '修改已保存', icon: 'success' })
+  setTimeout(() => uni.navigateBack(), 800)
 }
 </script>
 
@@ -222,15 +280,13 @@ $color-primary-dark: #536251;
 $color-text: #333634;
 $color-text-secondary: rgba(51, 54, 52, 0.64);
 $color-warn: #D98A6C;
-$color-expired: #A69B8D;
 $color-line: rgba(51, 54, 52, 0.1);
-$shadow-card: 0 8rpx 48rpx rgba(51, 54, 52, 0.08);
 $radius-card: 32rpx;
 $radius-full: 9999rpx;
 $bottom-action-height: 160rpx;
 
 /* 统一字体格式为思源宋体 */
-view, text, button {
+view, text, button, input {
   font-family: 'Noto Serif SC', serif;
 }
 
@@ -309,6 +365,7 @@ view, text, button {
   margin: 32rpx 48rpx 0;
   border-radius: $radius-card;
   padding: 40rpx 0;
+  position: relative;
 }
 
 .hero-img-wrap {
@@ -324,23 +381,22 @@ view, text, button {
   height: 100%;
 }
 
-.hero-actions {
+.img-actions {
   display: flex;
   flex-direction: row;
-  gap: 20rpx;
-  padding: 24rpx 0;
+  justify-content: center;
+  gap: 24rpx;
+  width: 100%;
+  margin-top: 32rpx;
 }
 
-.hero-action-btn {
-  flex: 1;
-  height: 72rpx;
-  background: $color-card;
-  border-radius: $radius-full;
-  border: 2rpx solid $color-line;
+.img-action-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2rpx 8rpx rgba(0,0,0,0.04);
+  padding: 16rpx 40rpx;
+  background: rgba(51, 54, 52, 0.08);
+  border-radius: $radius-full;
 
   &__text {
     font-size: 26rpx;
@@ -358,6 +414,15 @@ view, text, button {
     font-size: 48rpx;
     font-weight: 700;
     color: $color-text;
+    line-height: 1.2;
+  }
+
+  &__name-input {
+    font-size: 48rpx;
+    color: $color-text;
+    height: 60rpx;
+    line-height: 1.2;
+    background: transparent;
   }
 }
 
@@ -380,6 +445,12 @@ view, text, button {
     color: $color-text-secondary;
   }
 
+  &__value-row {
+    display: flex;
+    align-items: center;
+    gap: 8rpx;
+  }
+
   &__value {
     font-family: 'Noto Serif SC', serif;
     font-size: 30rpx;
@@ -390,6 +461,39 @@ view, text, button {
       color: #8E4D33;
     }
   }
+}
+
+.arrow-icon {
+  width: 24rpx;
+  height: 24rpx;
+  opacity: 0.6;
+}
+
+.shelf-input-wrap {
+  min-width: 80rpx;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.shelf-input-text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 30rpx;
+  font-weight: 700;
+  color: $color-text;
+}
+
+.shelf-input {
+  width: 80rpx;
+  text-align: right;
+  font-size: 30rpx;
+  color: $color-text;
+}
+
+.unit-select {
+  display: flex;
+  align-items: center;
+  gap: 4rpx;
 }
 
 /* 日期卡 */
@@ -411,6 +515,12 @@ view, text, button {
     color: $color-text-secondary;
   }
 
+  &__value-row {
+    display: flex;
+    align-items: center;
+    gap: 12rpx;
+  }
+
   &__value {
     font-size: 30rpx;
     color: $color-text;
@@ -419,83 +529,6 @@ view, text, button {
   &__divider {
     height: 2rpx;
     background: $color-line;
-  }
-}
-
-/* 时间轴 */
-.timeline-section {
-  padding: 0 48rpx;
-
-  &__title {
-    font-family: 'Noto Serif SC', serif;
-    font-size: 36rpx;
-    font-weight: 700;
-    color: $color-text;
-    display: block;
-    margin-bottom: 32rpx;
-  }
-}
-
-.timeline {
-  display: flex;
-  flex-direction: column;
-}
-
-.timeline-item {
-  display: flex;
-  flex-direction: row;
-  gap: 24rpx;
-  min-height: 120rpx;
-
-  &__left {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    width: 24rpx;
-    flex-shrink: 0;
-    padding-top: 8rpx;
-  }
-
-  &__dot {
-    width: 20rpx;
-    height: 20rpx;
-    border-radius: $radius-full;
-    background: $color-expired;
-    flex-shrink: 0;
-
-    &--active {
-      background: $color-primary-dark;
-      width: 24rpx;
-      height: 24rpx;
-    }
-  }
-
-  &__line {
-    flex: 1;
-    width: 2rpx;
-    background: $color-line;
-    margin-top: 8rpx;
-  }
-
-  &__content {
-    flex: 1;
-    padding-bottom: 32rpx;
-  }
-
-  &__date {
-    font-size: 28rpx;
-    color: $color-text-secondary;
-    display: block;
-    margin-bottom: 8rpx;
-  }
-
-  &__desc {
-    font-size: 30rpx;
-    color: $color-text;
-    display: inline-block;
-    background: #F4F3F1;
-    border-radius: 16rpx;
-    padding: 4rpx 16rpx;
   }
 }
 
@@ -517,51 +550,13 @@ view, text, button {
   &__inner {
     display: flex;
     align-items: center;
-    padding: 16rpx 64rpx 40rpx;
-    gap: 24rpx;
+    padding: 16rpx 48rpx 40rpx;
     height: 100%;
     box-sizing: border-box;
   }
 }
 
-.action-delete {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4rpx;
-  width: 80rpx;
-
-  &__icon-img {
-    width: 44rpx;
-    height: 44rpx;
-    opacity: 1;
-  }
-
-  &__text {
-    font-size: 22rpx;
-    color: #747871;
-  }
-}
-
-.action-btn-outline {
-  flex: 1;
-  height: 88rpx;
-  border-radius: $radius-full;
-  border: 2rpx solid #536251;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  &__text {
-    font-family: 'Noto Serif SC', serif;
-    font-size: 30rpx;
-    font-weight: 700;
-    color: #536251;
-  }
-}
-
-.action-btn-primary {
+.action-btn-save {
   flex: 1;
   height: 88rpx;
   border-radius: $radius-full;

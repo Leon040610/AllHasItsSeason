@@ -3,10 +3,10 @@
     <!-- 顶部导航 -->
     <view class="top-bar">
       <view class="top-bar__back" @tap="onBack">
-        <text class="top-bar__back-icon">‹</text>
+        <image class="top-bar__back-icon" src="/static/icons/add-fanhui.svg" mode="aspectFit" />
       </view>
       <view class="top-bar__center">
-        <image class="top-bar__leaf" src="/static/icons/topIcon-yezi.svg" mode="aspectFit" />
+        <image class="top-bar__leaf" src="/static/icons/add-topIcon-yezi.svg" mode="aspectFit" />
         <text class="top-bar__title">添加物品</text>
       </view>
       <view class="top-bar__placeholder" />
@@ -16,21 +16,8 @@
 
       <!-- 图片预览区 -->
       <view class="img-section">
-        <!-- 识别中状态 -->
-        <view v-if="isScanning" class="img-preview img-preview--scanning">
-          <image class="img-preview__img img-preview__img--blur" :src="previewImage" mode="aspectFill" />
-          <view class="scanning-overlay">
-            <view class="scanning-frame" />
-          </view>
-          <view class="scanning-hint">
-            <image class="scanning-hint__icon-img" src="/static/icons/tongbu.svg" mode="aspectFit" />
-            <text class="scanning-hint__text">正在识别图片信息...</text>
-          </view>
-          <text class="scanning-hint__sub">请耐心等待</text>
-        </view>
-
         <!-- 正常预览状态 -->
-        <view v-else class="img-preview">
+        <view class="img-preview">
           <image
             v-if="previewImage"
             class="img-preview__img"
@@ -39,7 +26,7 @@
             :style="{ transform: `rotate(${imgRotation}deg)` }"
           />
           <view v-else class="img-preview__empty" @tap="onChooseImage">
-            <image class="img-preview__empty-icon-img" src="/static/icons/paizhao.svg" mode="aspectFit" />
+            <image class="img-preview__empty-icon-img" src="/static/icons/index-paizhao.svg" mode="aspectFit" />
             <text class="img-preview__empty-text">点击上传物品图片</text>
           </view>
         </view>
@@ -47,11 +34,11 @@
         <!-- 图片操作按钮 -->
         <view v-if="previewImage && !isScanning" class="img-actions">
           <view class="img-action-btn" @tap="onReprocess">
-            <image class="img-action-btn__icon-img" src="/static/icons/tongbu.svg" mode="aspectFit" />
-            <text class="img-action-btn__text">重新整理</text>
+            <image class="img-action-btn__icon-img" src="/static/icons/add-chongxinzhengli.svg" mode="aspectFit" />
+            <text class="img-action-btn__text">重新提取</text>
           </view>
           <view class="img-action-btn" @tap="onUseOriginal">
-            <image class="img-action-btn__icon-img" src="/static/icons/shoudong.svg" mode="aspectFit" />
+            <image class="img-action-btn__icon-img" src="/static/icons/add-shiyongyuantu.svg" mode="aspectFit" />
             <text class="img-action-btn__text">使用原图</text>
           </view>
         </view>
@@ -62,12 +49,22 @@
         <!-- 物品名称 -->
         <view class="form-group">
           <text class="form-label">物品名称</text>
-          <view class="form-input-wrap">
+          <view class="form-input-wrap" @tap="nameFocused = true">
+            <!-- 未聚焦时显示 <text>，使 Noto Serif SC 生效 -->
+            <text
+              v-if="!nameFocused"
+              class="fake-input-text"
+              :class="{ 'fake-input-text--placeholder': !form.name }"
+            >{{ form.name || '请输入物品名称' }}</text>
+            <!-- 聚焦时切换为真实 input -->
             <input
+              v-else
               class="form-input"
               v-model="form.name"
+              :focus="true"
               placeholder="请输入物品名称"
               :disabled="isScanning"
+              @blur="nameFocused = false"
             />
           </view>
           <view class="form-divider" />
@@ -78,7 +75,7 @@
           <text class="form-label">分类</text>
           <view class="form-select-row">
             <text class="form-select-value">{{ form.categoryLabel || '请选择' }}</text>
-            <text class="form-select-arrow">›</text>
+            <image class="form-select-arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
           </view>
           <view class="form-divider" />
         </view>
@@ -90,21 +87,32 @@
               <text class="form-label">生产日期</text>
               <view class="form-date-row">
                 <text class="form-select-value">{{ form.produceDate || '请选择' }}</text>
-                <text class="form-select-arrow">›</text>
+                <image class="form-select-arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
               </view>
             </view>
             <view class="form-col">
               <text class="form-label">保质期</text>
               <view class="form-shelf-row">
-                <input
-                  class="form-input form-input--shelf"
-                  v-model="form.shelfLife"
-                  type="number"
-                  placeholder="7"
-                />
+                <!-- 伪输入框：未聚焦时显示 <text> -->
+                <view class="fake-shelf-wrap" @tap="shelfFocused = true">
+                  <text
+                    v-if="!shelfFocused"
+                    class="fake-input-text fake-input-text--center"
+                    :class="{ 'fake-input-text--placeholder': !form.shelfLife }"
+                  >{{ form.shelfLife || '7' }}</text>
+                  <input
+                    v-else
+                    class="form-input form-input--shelf"
+                    v-model="form.shelfLife"
+                    type="number"
+                    :focus="true"
+                    placeholder="7"
+                    @blur="shelfFocused = false"
+                  />
+                </view>
                 <view class="form-unit-select" @tap="onPickUnit">
                   <text class="form-select-value">{{ form.shelfUnit }}</text>
-                  <text class="form-select-arrow form-select-arrow--down">∨</text>
+                  <image class="form-select-arrow-icon form-select-arrow-icon--down" src="/static/icons/add-xiaxuanze.svg" mode="aspectFit" />
                 </view>
               </view>
             </view>
@@ -140,25 +148,25 @@
           <text class="form-label">到期提醒</text>
           <view class="form-select-row">
             <text class="form-select-value">提前 {{ form.reminderDays }} 天提醒</text>
-            <text class="form-select-arrow">›</text>
+            <image class="form-select-arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
           </view>
           <view class="form-divider" />
         </view>
       </view>
 
+      <!-- 保存按钮放在滚动区域内 -->
+      <view class="bottom-action">
+        <view
+          class="save-btn"
+          :class="{ 'save-btn--disabled': !canSave || isSaving }"
+          @tap="onSave"
+        >
+          <text class="save-btn__text">{{ isSaving ? '保存中...' : '保存到物品库' }}</text>
+        </view>
+      </view>
+
       <view class="safe-bottom" />
     </scroll-view>
-
-    <!-- 底部保存按钮 -->
-    <view class="bottom-action">
-      <view
-        class="save-btn"
-        :class="{ 'save-btn--disabled': !canSave || isSaving }"
-        @tap="onSave"
-      >
-        <text class="save-btn__text">{{ isSaving ? '保存中...' : '保存到物品库' }}</text>
-      </view>
-    </view>
   </view>
 </template>
 
@@ -181,10 +189,12 @@ interface StatusOption {
   label: string
 }
 
-const previewImage = ref('')
+const previewImage = ref('/static/icons/add-Yogurt Bottle Cutout.svg')
 const imgRotation = ref(0)
 const isScanning = ref(false)
 const isSaving = ref(false)
+const nameFocused = ref(false)
+const shelfFocused = ref(false)
 
 const form = ref<FormData>({
   name: '某某牌酸奶',
@@ -312,6 +322,11 @@ $shadow-card: 0 8rpx 48rpx rgba(51, 54, 52, 0.08);
 $radius-card: 32rpx;
 $radius-full: 9999rpx;
 
+/* 统一字体格式为思源宋体 */
+view, text, input, button {
+  font-family: 'Noto Serif SC', serif;
+}
+
 .page {
   width: 100%;
   height: 100vh;
@@ -333,40 +348,40 @@ $radius-full: 9999rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-left: 24rpx;
-  padding-right: 24rpx;
   border-bottom: 2rpx solid $color-line;
+  box-shadow: 0 16rpx 48rpx rgba(51, 54, 52, 0.1);
 
   &__back {
     width: 88rpx;
-    height: 88rpx;
+    height: 120rpx;
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
   &__back-icon {
-    font-size: 56rpx;
-    color: $color-text;
-    font-weight: 300;
+    width: 36rpx;
+    height: 36rpx;
   }
 
   &__center {
     display: flex;
     align-items: center;
-    gap: 12rpx;
+    justify-content: center;
+    gap: 8rpx; /* 微调间距 */
   }
 
   &__leaf {
-    width: 30rpx;
-    height: 30rpx;
+    width: 32rpx;
+    height: 32rpx;
+    margin-top: 4rpx; /* 微调对齐 */
   }
 
   &__title {
-    font-family: 'Noto Serif SC', serif;
     font-size: 36rpx;
     font-weight: 700;
-    color: $color-primary-dark;
+    color: #536251;
+    line-height: 1.2;
   }
 
   &__placeholder {
@@ -377,50 +392,43 @@ $radius-full: 9999rpx;
 /* 滚动体 */
 .scroll-body {
   flex: 1;
-  margin-top: 120rpx;
-  margin-bottom: 168rpx;
-  height: calc(100vh - 120rpx - 168rpx);
+  margin-top: calc(120rpx + var(--status-bar-height, 44rpx));
+  height: calc(100vh - 120rpx - var(--status-bar-height, 44rpx));
 }
 
 /* 图片区 */
 .img-section {
-  margin: 0 48rpx;
-  margin-top: 32rpx;
+  margin: 32rpx 48rpx 0;
   background: $color-bg-light;
   border-radius: $radius-card;
-  overflow: hidden;
-  box-shadow: $shadow-card;
+  box-shadow: 0 8rpx 24rpx rgba(51, 54, 52, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40rpx 40rpx 48rpx;
 }
 
 .img-preview {
   width: 100%;
-  height: 480rpx;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  height: 360rpx;
   position: relative;
   overflow: hidden;
-
-  &--scanning {
-    background: rgba(0,0,0,0.05);
-  }
+  border-radius: 16rpx;
+  margin-bottom: 24rpx;
 
   &__img {
     width: 100%;
     height: 100%;
-    object-fit: contain;
-
-    &--blur {
-      filter: blur(8rpx);
-      opacity: 0.7;
-    }
+    object-fit: cover;
   }
 
   &__empty {
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 16rpx;
   }
 
@@ -436,86 +444,39 @@ $radius-full: 9999rpx;
   }
 }
 
-.scanning-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.scanning-frame {
-  width: 240rpx;
-  height: 240rpx;
-  border: 4rpx solid rgba(255,255,255,0.8);
-  border-radius: 16rpx;
-}
-
-.scanning-hint {
-  position: absolute;
-  bottom: 48rpx;
-  left: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12rpx;
-
-  &__icon-img {
-    width: 28rpx;
-    height: 28rpx;
-    opacity: 0.6;
-  }
-
-  &__text {
-    font-size: 28rpx;
-    color: $color-text-secondary;
-  }
-
-  &__sub {
-    position: absolute;
-    bottom: 20rpx;
-    left: 0;
-    right: 0;
-    text-align: center;
-    font-size: 24rpx;
-    color: $color-text-secondary;
-  }
-}
-
+/* 按钮区 */
 .img-actions {
   display: flex;
   flex-direction: row;
   justify-content: center;
   gap: 24rpx;
-  padding: 24rpx;
+  width: 100%;
 }
 
 .img-action-btn {
-  flex: 1;
-  height: 72rpx;
-  background: $color-card;
-  border-radius: $radius-full;
-  border: 2rpx solid $color-line;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12rpx;
-  box-shadow: $shadow-card;
+  gap: 8rpx;
+  padding: 16rpx 32rpx;
+  background: #FFFFFF;
+  border-radius: $radius-full;
+  box-shadow: 0 4rpx 16rpx rgba(51, 54, 52, 0.04);
 
   &__icon-img {
-    width: 28rpx;
-    height: 28rpx;
-    opacity: 0.6;
+    width: 24rpx;
+    height: 24rpx;
   }
 
   &__text {
-    font-size: 28rpx;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 24rpx;
+    font-weight: 400;
     color: $color-text;
   }
 }
 
-/* 表单 */
+/* 表单区 */
 .form-section {
   margin: 40rpx 48rpx 0;
 }
@@ -525,29 +486,59 @@ $radius-full: 9999rpx;
 }
 
 .form-label {
+  font-family: 'Noto Serif SC', serif;
   font-size: 24rpx;
   color: $color-text-secondary;
+  margin-bottom: 8rpx;
   display: block;
-  margin-bottom: 12rpx;
 }
 
 .form-input-wrap {
+  height: 64rpx;
   display: flex;
   align-items: center;
+}
+
+/* 伪输入框文字（<text> 组件，完整支持自定义字体）*/
+.fake-input-text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 34rpx;
+  font-weight: 400;
+  color: $color-text;
+  line-height: 64rpx;
+  flex: 1;
+
+  &--placeholder {
+    color: $color-text-secondary;
+    font-size: 28rpx;
+  }
+
+  &--center {
+    text-align: center;
+    flex: none;
+    width: 120rpx;
+  }
+}
+
+/* 保质期伪输入包装 */
+.fake-shelf-wrap {
+  width: 120rpx;
+  height: 64rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .form-input {
   flex: 1;
   height: 64rpx;
-  font-family: 'Noto Serif SC', serif;
   font-size: 34rpx;
-  font-weight: 700;
+  font-weight: 400;
   color: $color-text;
   background: transparent;
 
   &--shelf {
     width: 120rpx;
-    font-size: 34rpx;
     text-align: center;
   }
 }
@@ -562,28 +553,24 @@ $radius-full: 9999rpx;
 .form-select-value {
   font-family: 'Noto Serif SC', serif;
   font-size: 34rpx;
-  font-weight: 700;
+  font-weight: 400; /* 去掉加粗 */
   color: $color-text;
 }
 
-.form-select-arrow {
-  font-size: 36rpx;
-  color: $color-text-secondary;
-
-  &--down {
-    font-size: 24rpx;
-  }
+.form-select-arrow-icon {
+  width: 24rpx;
+  height: 24rpx;
+  opacity: 0.4;
 }
 
 .form-divider {
   height: 2rpx;
   background: $color-line;
-  margin: 16rpx 0 32rpx;
+  margin: 24rpx 0 32rpx;
 }
 
 .form-row {
   display: flex;
-  flex-direction: row;
   gap: 48rpx;
 }
 
@@ -594,13 +581,14 @@ $radius-full: 9999rpx;
 .form-date-row {
   display: flex;
   align-items: center;
-  gap: 12rpx;
+  justify-content: space-between;
   height: 64rpx;
 }
 
 .form-shelf-row {
   display: flex;
   align-items: center;
+  gap: 16rpx;
   height: 64rpx;
 }
 
@@ -608,61 +596,64 @@ $radius-full: 9999rpx;
   display: flex;
   align-items: center;
   gap: 8rpx;
-  margin-left: 16rpx;
+  padding-left: 16rpx;
+  border-left: 2rpx solid $color-line;
 }
 
-/* 到期日展示 */
 .form-expire-display {
-  background: $color-bg-light;
+  background: #F4F3F1;
   border-radius: 16rpx;
-  padding: 24rpx 32rpx;
+  padding: 16rpx 24rpx;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 40rpx;
+  margin-bottom: 32rpx;
 
   &__label {
-    font-size: 28rpx;
-    color: $color-text-secondary;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 24rpx;
+    color: #444842;
   }
 
   &__value {
-    font-size: 30rpx;
-    font-weight: 700;
-    color: $color-warn;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 28rpx;
+    font-weight: 400;
+    color: #8E4D33;
   }
 }
 
-/* 状态选择 */
 .form-status-row {
   display: flex;
-  flex-direction: row;
   gap: 24rpx;
-  margin-bottom: 8rpx;
+  height: 80rpx;
+  margin-top: 16rpx;
 }
 
 .form-status-btn {
   flex: 1;
-  height: 80rpx;
+  border: 2rpx solid transparent;
   border-radius: $radius-full;
-  border: 2rpx solid $color-line;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  &--active {
-    background: $color-primary-dark;
-    border-color: $color-primary-dark;
-
-    .form-status-btn__text {
-      color: #fff;
-      font-weight: 700;
-    }
-  }
+  background: #E3E2E0;
 
   &__text {
-    font-size: 30rpx;
-    color: $color-text-secondary;
+    font-family: 'Noto Serif SC', serif;
+    font-size: 28rpx;
+    font-weight: 400;
+    color: #444842;
+  }
+
+  &--active {
+    background: transparent;
+    border-color: #536251;
+
+    .form-status-btn__text {
+      color: #444842;
+      font-weight: 500;
+    }
   }
 }
 
@@ -670,37 +661,33 @@ $radius-full: 9999rpx;
   height: 40rpx;
 }
 
-/* 底部保存 */
+/* 保存按钮（流内） */
 .bottom-action {
-  position: fixed;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  padding: 24rpx 48rpx 64rpx;
-  background: linear-gradient(to top, #FAF9F7 70%, transparent);
+  padding: 40rpx 48rpx 48rpx;
 }
 
 .save-btn {
   width: 100%;
   height: 104rpx;
-  background: $color-primary-dark;
   border-radius: $radius-full;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 16rpx 48rpx rgba(83, 98, 81, 0.3);
-
-  &--disabled {
-    background: #E3E2E0;
-    box-shadow: none;
-    opacity: 0.7;
-  }
+  background: #536251;
 
   &__text {
     font-family: 'Noto Serif SC', serif;
-    font-size: 34rpx;
-    font-weight: 700;
+    font-size: 32rpx;
+    font-weight: 400;
     color: #fff;
+  }
+
+  &--disabled {
+    background: #E3E2E0;
+
+    .save-btn__text {
+      color: #A69B8D;
+    }
   }
 }
 </style>
