@@ -93,7 +93,7 @@ $radius-full:        9999rpx;
   align-items: center;
   justify-content: space-between;
   // 设计稿：pt-96px(=192rpx) pb-32px(=64rpx) px-24px(=48rpx)
-  padding: 192rpx 48rpx 64rpx;
+  padding: 260rpx 48rpx 64rpx;
   box-sizing: border-box;
 }
 
@@ -119,6 +119,7 @@ $radius-full:        9999rpx;
   color: $color-text-slogan;
   letter-spacing: 4rpx;
   text-align: center;
+  padding-left: 12rpx; // 补偿 letter-spacing 及句号造成的视觉偏移
 }
 
 // ── 底部操作区 ─────────────────────────────────────────────────────────────
@@ -142,9 +143,9 @@ $radius-full:        9999rpx;
   gap: 16rpx;
 
   &__icon {
-    // 设计稿：20×20px → 40×40rpx
-    width: 40rpx;
-    height: 40rpx;
+    // 设计稿：20×20px → 40×40rpx，视觉偏大，调小为 32×32rpx
+    width: 32rpx;
+    height: 32rpx;
   }
 
   &__text {

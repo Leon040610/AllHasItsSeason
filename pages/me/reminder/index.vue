@@ -27,24 +27,28 @@
         </view>
         <view class="settings-divider" />
 
-        <!-- 默认临期天数 -->
-        <view class="settings-item" @tap="onPickDefaultDays">
-          <text class="settings-item__label">默认临期天数</text>
-          <view class="settings-item__right">
-            <text class="settings-item__value">{{ settings.defaultDays }}天</text>
-            <image class="settings-item__arrow-icon" src="/static/icons/reminder-xuanze.svg" mode="aspectFit" />
+        <!-- 默认临期天数（到期提醒设置） -->
+        <picker mode="selector" :range="reminderPickerOptions" @change="onReminderPickerChange">
+          <view class="settings-item">
+            <text class="settings-item__label">到期提醒设置</text>
+            <view class="settings-item__right">
+              <text class="settings-item__value">{{ settings.defaultDays === 0 ? '不提醒' : `${settings.defaultDays}天` }}</text>
+              <image class="settings-item__arrow-icon" src="/static/icons/reminder-xuanze.svg" mode="aspectFit" />
+            </view>
           </view>
-        </view>
+        </picker>
         <view class="settings-divider" />
 
         <!-- 提醒时间 -->
-        <view class="settings-item" @tap="onPickReminderTime">
-          <text class="settings-item__label">提醒时间</text>
-          <view class="settings-item__right">
-            <text class="settings-item__value">{{ settings.reminderTime }}</text>
-            <image class="settings-item__arrow-icon" src="/static/icons/reminder-xuanze.svg" mode="aspectFit" />
+        <picker mode="time" :value="settings.reminderTime" @change="onReminderTimeChange">
+          <view class="settings-item">
+            <text class="settings-item__label">提醒时间</text>
+            <view class="settings-item__right">
+              <text class="settings-item__value">{{ settings.reminderTime }}</text>
+              <image class="settings-item__arrow-icon" src="/static/icons/reminder-xuanze.svg" mode="aspectFit" />
+            </view>
           </view>
-        </view>
+        </picker>
         <view class="settings-divider" />
 
         <!-- 应用内提醒 -->
@@ -64,7 +68,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, ref, computed } from 'vue'
 
 interface ReminderSettings {
   subscribeEnabled: boolean
@@ -73,10 +77,12 @@ interface ReminderSettings {
   inAppEnabled: boolean
 }
 
+const storedDefaultDays = uni.getStorageSync('defaultReminderDays')
+
 const settings = reactive<ReminderSettings>({
   subscribeEnabled: true,
-  defaultDays: 7,
-  reminderTime: '09:00',
+  defaultDays: storedDefaultDays === '' ? 7 : storedDefaultDays,
+  reminderTime: uni.getStorageSync('defaultReminderTime') || '09:00',
   inAppEnabled: true,
 })
 
@@ -92,22 +98,80 @@ function onToggleInApp() {
   settings.inAppEnabled = !settings.inAppEnabled
 }
 
-function onPickDefaultDays() {
-  uni.showActionSheet({
-    itemList: ['3天', '5天', '7天', '14天', '30天'],
-    success(res) {
-      settings.defaultDays = [3, 5, 7, 14, 30][res.tapIndex]
-    },
-  })
+const customReminderDays = ref<number[]>(uni.getStorageSync('customReminderDays') || [])
+
+const reminderPickerOptions = computed(() => {
+  const baseList = [0, 3, 5, 7, 14, 30]
+  const allDays = Array.from(new Set([...baseList, ...customReminderDays.value])).sort((a, b) => a - b)
+  
+  const options = allDays.map(d => d === 0 ? '不提醒' : `${d}天`)
+  options.push('+ 新增自定义')
+  if (customReminderDays.value.length > 0) {
+    options.push('- 管理自定义')
+  }
+  return options
+})
+
+function onReminderPickerChange(e: any) {
+  const index = e.detail.value
+  const selected = reminderPickerOptions.value[index]
+  
+  if (selected === '+ 新增自定义') {
+    uni.showModal({
+      title: '自定义天数',
+      placeholderText: '请输入天数',
+      editable: true,
+      success: (modalRes) => {
+        if (modalRes.confirm && modalRes.content) {
+          const days = parseInt(modalRes.content)
+          if (!isNaN(days) && days >= 0) {
+            const newCustom = Array.from(new Set([...customReminderDays.value, days])).sort((a, b) => a - b)
+            customReminderDays.value = newCustom
+            uni.setStorageSync('customReminderDays', newCustom)
+            
+            settings.defaultDays = days
+            uni.setStorageSync('defaultReminderDays', days)
+          } else {
+            uni.showToast({ title: '请输入有效天数', icon: 'none' })
+          }
+        }
+      }
+    })
+  } else if (selected === '- 管理自定义') {
+    const items = customReminderDays.value.slice(0, 6)
+    uni.showActionSheet({
+      itemList: items.map(d => `删除 ${d}天`),
+      success: (delRes) => {
+        const indexToDelete = delRes.tapIndex
+        const dayToDelete = items[indexToDelete]
+        
+        const realIndex = customReminderDays.value.indexOf(dayToDelete)
+        if (realIndex > -1) {
+          customReminderDays.value.splice(realIndex, 1)
+          uni.setStorageSync('customReminderDays', customReminderDays.value)
+          uni.showToast({ title: `已删除 ${dayToDelete}天`, icon: 'none' })
+          
+          const baseList = [0, 3, 5, 7, 14, 30]
+          if (settings.defaultDays === dayToDelete && !baseList.includes(dayToDelete)) {
+             settings.defaultDays = 7
+             uni.setStorageSync('defaultReminderDays', 7)
+          }
+        }
+      }
+    })
+  } else {
+    if (selected === '不提醒') {
+      settings.defaultDays = 0
+    } else {
+      settings.defaultDays = parseInt(selected.replace('天', ''))
+    }
+    uni.setStorageSync('defaultReminderDays', settings.defaultDays)
+  }
 }
 
-function onPickReminderTime() {
-  uni.showActionSheet({
-    itemList: ['07:00', '08:00', '09:00', '10:00', '12:00', '20:00'],
-    success(res) {
-      settings.reminderTime = ['07:00', '08:00', '09:00', '10:00', '12:00', '20:00'][res.tapIndex]
-    },
-  })
+function onReminderTimeChange(e: any) {
+  settings.reminderTime = e.detail.value
+  uni.setStorageSync('defaultReminderTime', settings.reminderTime)
 }
 </script>
 

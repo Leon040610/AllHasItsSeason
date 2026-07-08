@@ -125,6 +125,27 @@
 				"navigationBarTitleText": "数据管理",
 				"navigationStyle": "custom"
 			}
+		},
+		{
+			"path": "pages/me/category/index",
+			"style": {
+				"navigationBarTitleText": "分类设置",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/me/category/edit",
+			"style": {
+				"navigationBarTitleText": "编辑分类",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/me/profile/index",
+			"style": {
+				"navigationBarTitleText": "个人信息",
+				"navigationStyle": "custom"
+			}
 		}
 	],
 	"tabBar": {

@@ -83,12 +83,14 @@
         <!-- 生产日期 & 保质期 -->
         <view class="form-group">
           <view class="form-row">
-            <view class="form-col" @tap="onPickProduceDate">
+            <view class="form-col">
               <text class="form-label">生产日期</text>
-              <view class="form-date-row">
-                <text class="form-select-value">{{ form.produceDate || '请选择' }}</text>
-                <image class="form-select-arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
-              </view>
+              <picker mode="date" :value="form.produceDate" @change="onProduceDateChange">
+                <view class="form-date-row">
+                  <text class="form-select-value">{{ form.produceDate || '请选择' }}</text>
+                  <image class="form-select-arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+                </view>
+              </picker>
             </view>
             <view class="form-col">
               <text class="form-label">保质期</text>
@@ -99,14 +101,14 @@
                     v-if="!shelfFocused"
                     class="fake-input-text fake-input-text--center"
                     :class="{ 'fake-input-text--placeholder': !form.shelfLife }"
-                  >{{ form.shelfLife || '7' }}</text>
+                  >{{ form.shelfLife || '' }}</text>
                   <input
                     v-else
                     class="form-input form-input--shelf"
                     v-model="form.shelfLife"
                     type="number"
                     :focus="true"
-                    placeholder="7"
+                    placeholder=""
                     @blur="shelfFocused = false"
                   />
                 </view>
@@ -147,7 +149,7 @@
         <view class="form-group" @tap="onPickReminder">
           <text class="form-label">到期提醒</text>
           <view class="form-select-row">
-            <text class="form-select-value">提前 {{ form.reminderDays }} 天提醒</text>
+            <text class="form-select-value">{{ form.reminderDays === 0 ? '不提醒' : `提前 ${form.reminderDays} 天提醒` }}</text>
             <image class="form-select-arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
           </view>
           <view class="form-divider" />
@@ -196,6 +198,8 @@ const isSaving = ref(false)
 const nameFocused = ref(false)
 const shelfFocused = ref(false)
 
+const storedDefaultDays = uni.getStorageSync('defaultReminderDays')
+
 const form = ref<FormData>({
   name: '某某牌酸奶',
   category: 'food',
@@ -204,7 +208,7 @@ const form = ref<FormData>({
   shelfLife: '7',
   shelfUnit: '天',
   status: 'pending',
-  reminderDays: 7,
+  reminderDays: storedDefaultDays === '' ? 7 : storedDefaultDays,
 })
 
 const statusOptions = ref<StatusOption[]>([
@@ -274,8 +278,8 @@ function onPickCategory() {
   })
 }
 
-function onPickProduceDate() {
-  uni.showDatePickerView?.({}) // 实际使用 wot-design-uni 的 wd-datetime-picker
+function onProduceDateChange(e: any) {
+  form.value.produceDate = e.detail.value
 }
 
 function onPickUnit() {
@@ -288,10 +292,16 @@ function onPickUnit() {
 }
 
 function onPickReminder() {
+  const customDays: number[] = uni.getStorageSync('customReminderDays') || []
+  const baseList = [0, 3, 7, 14, 30]
+  const allDays = Array.from(new Set([...baseList, ...customDays])).sort((a, b) => a - b)
+  
+  const itemList = allDays.map(d => d === 0 ? '不提醒' : `提前 ${d} 天`)
+  
   uni.showActionSheet({
-    itemList: ['提前 3 天', '提前 7 天', '提前 14 天', '提前 30 天'],
+    itemList,
     success(res) {
-      form.value.reminderDays = [3, 7, 14, 30][res.tapIndex]
+      form.value.reminderDays = allDays[res.tapIndex]
     },
   })
 }

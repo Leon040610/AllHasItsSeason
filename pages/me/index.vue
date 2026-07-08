@@ -12,7 +12,7 @@
 
       <!-- 用户信息卡 -->
       <view class="profile-card">
-        <view class="profile-card__avatar">
+        <view class="profile-card__avatar" @tap="user.isLoggedIn ? onEditProfile() : null">
           <image
             v-if="user.avatarUrl"
             class="profile-card__avatar-img"
@@ -29,16 +29,16 @@
           </view>
           <text class="profile-card__hint">登录后可同步物品数据与提醒设置</text>
         </view>
-        <view v-else class="profile-card__user-info">
+        <view v-else class="profile-card__user-info" @tap="onEditProfile">
           <text class="profile-card__nickname">{{ user.nickname }}</text>
           <text class="profile-card__uid">ID: {{ user.uid }}</text>
         </view>
       </view>
 
-      <!-- 生活提醒组 -->
+      <!-- 物品管理设置组 -->
       <view class="settings-group">
         <view class="settings-group__card">
-          <text class="settings-group__title">生活提醒</text>
+          <text class="settings-group__title">物品管理设置</text>
           <view class="settings-divider" />
           <view class="settings-item" @tap="onReminderSettings">
             <view class="settings-item__left">
@@ -61,6 +61,16 @@
               <text class="settings-item__value">{{ defaultDays }}天</text>
               <image class="settings-item__arrow-icon" src="/static/icons/me-xuanze.svg" mode="aspectFit" />
             </view>
+          </view>
+          <view class="settings-divider" />
+          <view class="settings-item" @tap="onCategorySettings">
+            <view class="settings-item__left">
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/me-fenleishezhi.svg" mode="aspectFit" />
+              </view>
+              <text class="settings-item__label">分类设置</text>
+            </view>
+            <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
           </view>
         </view>
       </view>
@@ -211,6 +221,14 @@ function onDefaultDays() {
       defaultDays.value = [3, 5, 7, 14, 30][res.tapIndex]
     },
   })
+}
+
+function onCategorySettings() {
+  uni.navigateTo({ url: '/pages/me/category/index' })
+}
+
+function onEditProfile() {
+  uni.navigateTo({ url: '/pages/me/profile/index' })
 }
 
 function onDataManagement() {

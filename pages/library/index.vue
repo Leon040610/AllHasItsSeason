@@ -185,7 +185,7 @@ const statusFilters = ref<Filter[]>([
   { key: 'near_expire', label: '临期' },
   { key: 'expired', label: '过期' },
   { key: 'using', label: '使用中' },
-  { key: 'pending', label: '已用' },
+  { key: 'pending', label: '待取用' },
 ])
 
 const allItems = ref<Item[]>([
