@@ -1,0 +1,37 @@
+import { generateUUID } from '../utils/uuid.js';
+
+export function createItem(data) {
+  const now = Date.now();
+  return {
+    id: data.id || generateUUID(),
+    name: data.name || '',
+    categoryId: data.categoryId || '',
+    categoryName: data.categoryName || '',
+    originalImageUrl: data.originalImageUrl || '',
+    cutoutImageUrl: data.cutoutImageUrl || '',
+    displayImageUrl: data.displayImageUrl || '',
+    imageProcessStatus: data.imageProcessStatus || 'idle', // idle, success, fallback, error
+    stickerRotation: data.stickerRotation !== undefined ? data.stickerRotation : (Math.random() * 4 - 2),
+    productionDate: data.productionDate || '',
+    shelfLifeValue: data.shelfLifeValue || 0,
+    shelfLifeUnit: data.shelfLifeUnit || 'day', // day, month, year
+    expiryDate: data.expiryDate || '',
+    status: data.status || 'pending', // pending, using, done, deleted
+    remindDays: data.remindDays !== undefined ? data.remindDays : 7,
+    timeline: data.timeline || [{
+      id: generateUUID(),
+      date: formatDateMonthDay(now),
+      desc: '录入'
+    }],
+    createdAt: data.createdAt || now,
+    updatedAt: now,
+    lastEditedAt: data.lastEditedAt || now
+  };
+}
+
+function formatDateMonthDay(timestamp) {
+  const d = new Date(timestamp);
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${m}-${day}`;
+}

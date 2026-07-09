@@ -12,7 +12,7 @@
       <view class="top-bar__placeholder" />
     </view>
 
-    <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
+    <scroll-view v-if="item" class="scroll-body" scroll-y enhanced :show-scrollbar="false">
 
       <!-- Hero 图片区 -->
       <view class="hero-section">
@@ -88,7 +88,7 @@
     </scroll-view>
 
     <!-- 底部操作栏 -->
-    <view class="bottom-actions">
+    <view v-if="item" class="bottom-actions">
       <view class="bottom-actions__inner">
         <view class="action-delete" @tap="onDelete">
           <image class="action-delete__icon-img" src="/static/icons/detail-shanchu.svg" mode="aspectFit" />
@@ -106,80 +106,53 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { itemService } from '../../services/itemService.js'
 
-interface TimelineEvent {
-  id: string
-  date: string
-  desc: string
-}
+const item = ref<any>(null)
+let currentId = ''
 
-interface ItemDetail {
-  id: string
-  name: string
-  category: string
-  categoryLabel: string
-  imageUrl: string
-  displayImageUrl?: string
-  rotation: number
-  status: string
-  statusLabel: string
-  daysLeft: number
-  produceDate: string
-  produceDateLabel: string
-  expireDate: string
-  expireDateLabel: string
-  timeline: TimelineEvent[]
-}
-
-const item = ref<ItemDetail>({
-  id: '1',
-  name: '牛奶',
-  category: 'food',
-  categoryLabel: '食品',
-  imageUrl: '/static/icons/detail-milkbox.svg',
-  displayImageUrl: '',
-  rotation: -1.5,
-  status: 'pending',
-  statusLabel: '待取用',
-  daysLeft: 2,
-  produceDate: '2026-06-20',
-  produceDateLabel: '2026年06月20日',
-  expireDate: '2026-06-27',
-  expireDateLabel: '2026年06月27日',
-  timeline: [
-    { id: '1', date: '06-25', desc: '小管家提醒' },
-    { id: '2', date: '06-23', desc: '收纳' },
-    { id: '3', date: '06-20', desc: '录入' },
-  ],
-})
-
-onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const options = (currentPage as any).options
-  if (options?.id) {
-    // 实际项目中根据 id 从云数据库加载数据
+onLoad((options: any) => {
+  if (options && options.id) {
+    currentId = options.id
   }
 })
+
+onShow(() => {
+  if (currentId) {
+    loadItem()
+  } else {
+    showFallback()
+  }
+})
+
+function loadItem() {
+  const found = itemService.getViewItemById(currentId)
+  if (found) {
+    item.value = found
+  } else {
+    showFallback()
+  }
+}
+
+function showFallback() {
+  uni.showToast({ title: '物品不存在或已被删除', icon: 'none' })
+  setTimeout(() => uni.navigateBack(), 1200)
+}
 
 function onBack() {
   uni.navigateBack()
 }
 
-function onReprocess() {
-  // 重新整理图片
-}
-
-function onUseOriginal() {
-  item.value.rotation = 0
-}
-
 function onEdit() {
-  uni.navigateTo({ url: `/pages/detail/edit/index?id=${item.value.id}` })
+  if (item.value) {
+    uni.navigateTo({ url: `/pages/detail/edit/index?id=${item.value.id}` })
+  }
 }
 
 function onMarkUsed() {
+  if (!item.value) return
   uni.showModal({
     title: '确认已用完？',
     content: '小管家会将此物品标记为已完成使命～',
@@ -187,16 +160,20 @@ function onMarkUsed() {
     cancelText: '取消',
     success(res) {
       if (res.confirm) {
-        item.value.status = 'done'
-        item.value.statusLabel = '已用完'
-        uni.showToast({ title: '已记录，好物完成使命！', icon: 'none' })
-        setTimeout(() => uni.navigateBack(), 1200)
+        const success = itemService.markItemDone(item.value.id)
+        if (success) {
+          uni.showToast({ title: '已记录，好物完成使命！', icon: 'none' })
+          setTimeout(() => loadItem(), 1200)
+        } else {
+          uni.showToast({ title: '更新失败', icon: 'none' })
+        }
       }
     },
   })
 }
 
 function onDelete() {
+  if (!item.value) return
   uni.showModal({
     title: '确认删除？',
     content: '删除后无法恢复，请确认。',
@@ -205,8 +182,13 @@ function onDelete() {
     cancelText: '取消',
     success(res) {
       if (res.confirm) {
-        uni.showToast({ title: '已删除', icon: 'none' })
-        setTimeout(() => uni.navigateBack(), 800)
+        const success = itemService.softDeleteItem(item.value.id)
+        if (success) {
+          uni.showToast({ title: '已删除', icon: 'none' })
+          setTimeout(() => uni.navigateBack(), 800)
+        } else {
+          uni.showToast({ title: '删除失败', icon: 'none' })
+        }
       }
     },
   })

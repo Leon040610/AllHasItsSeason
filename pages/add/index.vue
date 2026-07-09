@@ -113,7 +113,7 @@
                   />
                 </view>
                 <view class="form-unit-select" @tap="onPickUnit">
-                  <text class="form-select-value">{{ form.shelfUnit }}</text>
+                  <text class="form-select-value">{{ form.shelfUnitLabel }}</text>
                   <image class="form-select-arrow-icon form-select-arrow-icon--down" src="/static/icons/add-xiaxuanze.svg" mode="aspectFit" />
                 </view>
               </view>
@@ -160,7 +160,7 @@
       <view class="bottom-action">
         <view
           class="save-btn"
-          :class="{ 'save-btn--disabled': !canSave || isSaving }"
+          :class="{ 'save-btn--disabled': isSaving }"
           @tap="onSave"
         >
           <text class="save-btn__text">{{ isSaving ? '保存中...' : '保存到物品库' }}</text>
@@ -173,23 +173,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-
-interface FormData {
-  name: string
-  category: string
-  categoryLabel: string
-  produceDate: string
-  shelfLife: string
-  shelfUnit: string
-  status: string
-  reminderDays: number
-}
-
-interface StatusOption {
-  key: string
-  label: string
-}
+import { ref, computed, onMounted } from 'vue'
+import { itemService } from '../../services/itemService.js'
+import { settingsService } from '../../services/settingsService.js'
+import { calculateExpiryDate } from '../../utils/dateUtils.js'
 
 const previewImage = ref('/static/icons/add-Yogurt Bottle Cutout.svg')
 const imgRotation = ref(0)
@@ -198,42 +185,57 @@ const isSaving = ref(false)
 const nameFocused = ref(false)
 const shelfFocused = ref(false)
 
-const storedDefaultDays = uni.getStorageSync('defaultReminderDays')
+const originalImagePath = ref('')
+const processStatus = ref<'idle' | 'success' | 'fallback' | 'error'>('idle')
 
-const form = ref<FormData>({
-  name: '某某牌酸奶',
-  category: 'food',
-  categoryLabel: '食品',
-  produceDate: '2026-06-20',
-  shelfLife: '7',
-  shelfUnit: '天',
-  status: 'pending',
-  reminderDays: storedDefaultDays === '' ? 7 : storedDefaultDays,
+const form = ref({
+  name: '',
+  category: '',
+  categoryLabel: '',
+  produceDate: '',
+  shelfLife: '',
+  shelfUnit: 'day', // day, month, year
+  shelfUnitLabel: '天',
+  status: 'pending', // pending, using
+  reminderDays: 7,
 })
 
-const statusOptions = ref<StatusOption[]>([
+const statusOptions = ref([
   { key: 'pending', label: '待取用' },
   { key: 'using', label: '使用中' },
 ])
 
-const computedExpireDate = computed(() => {
-  if (!form.value.produceDate || !form.value.shelfLife) return ''
-  const produce = new Date(form.value.produceDate)
-  const days = parseInt(form.value.shelfLife)
-  if (isNaN(days)) return ''
-  const unitMap: Record<string, number> = { 天: 1, 月: 30, 年: 365 }
-  const multiplier = unitMap[form.value.shelfUnit] || 1
-  produce.setDate(produce.getDate() + days * multiplier)
-  const y = produce.getFullYear()
-  const m = String(produce.getMonth() + 1).padStart(2, '0')
-  const d = String(produce.getDate()).padStart(2, '0')
-  return `${y}年${m}月${d}日`
+onMounted(() => {
+  const settings = settingsService.getSettings()
+  if (settings) {
+    form.value.reminderDays = settings.defaultReminderDays
+  }
 })
 
-const canSave = computed(() => !!form.value.name && !!form.value.produceDate)
+const computedExpireDate = computed(() => {
+  if (!form.value.produceDate || !form.value.shelfLife) return ''
+  const val = parseInt(form.value.shelfLife)
+  if (isNaN(val) || val <= 0) return ''
+  return calculateExpiryDate(form.value.produceDate, val, form.value.shelfUnit)
+})
+
 
 function onBack() {
-  uni.navigateBack()
+  if (form.value.name || form.value.produceDate) {
+    uni.showModal({
+      title: '提示',
+      content: '有未保存的内容，是否放弃离开？',
+      confirmText: '离开',
+      cancelText: '取消',
+      success(res) {
+        if (res.confirm) {
+          uni.navigateBack()
+        }
+      }
+    })
+  } else {
+    uni.navigateBack()
+  }
 }
 
 function onChooseImage() {
@@ -242,14 +244,28 @@ function onChooseImage() {
     sizeType: ['compressed'],
     sourceType: ['album', 'camera'],
     success(res) {
-      previewImage.value = res.tempFilePaths[0]
-      isScanning.value = true
-      // 模拟识别延迟
-      setTimeout(() => {
-        isScanning.value = false
-        imgRotation.value = (Math.random() * 4 - 2)
-      }, 2000)
-    },
+      const tempPath = res.tempFilePaths[0]
+      originalImagePath.value = tempPath
+      processStatus.value = 'idle'
+      
+      uni.showLoading({ title: '处理图片中' })
+      uni.saveFile({
+        tempFilePath: tempPath,
+        success: function (saveRes) {
+          previewImage.value = saveRes.savedFilePath
+          processStatus.value = 'success'
+          imgRotation.value = 0
+          uni.hideLoading()
+        },
+        fail: function () {
+          previewImage.value = tempPath
+          processStatus.value = 'fallback'
+          imgRotation.value = 0
+          uni.hideLoading()
+          uni.showToast({ title: '图片保存失败，将使用原图', icon: 'none' })
+        }
+      })
+    }
   })
 }
 
@@ -286,35 +302,79 @@ function onPickUnit() {
   uni.showActionSheet({
     itemList: ['天', '月', '年'],
     success(res) {
-      form.value.shelfUnit = ['天', '月', '年'][res.tapIndex]
+      const map = ['天', '月', '年']
+      const keyMap = ['day', 'month', 'year']
+      form.value.shelfUnitLabel = map[res.tapIndex]
+      form.value.shelfUnit = keyMap[res.tapIndex]
     },
   })
 }
 
 function onPickReminder() {
-  const customDays: number[] = uni.getStorageSync('customReminderDays') || []
-  const baseList = [0, 3, 7, 14, 30]
-  const allDays = Array.from(new Set([...baseList, ...customDays])).sort((a, b) => a - b)
+  const settings = settingsService.getSettings()
+  const customDays = settings.customReminderDays || [0, 3, 7, 14, 30]
   
-  const itemList = allDays.map(d => d === 0 ? '不提醒' : `提前 ${d} 天`)
+  const itemList = customDays.map(d => d === 0 ? '不提醒' : `提前 ${d} 天`)
   
   uni.showActionSheet({
     itemList,
     success(res) {
-      form.value.reminderDays = allDays[res.tapIndex]
+      form.value.reminderDays = customDays[res.tapIndex]
     },
   })
 }
 
 function onSave() {
-  if (!canSave.value || isSaving.value) return
+  if (isSaving.value) return
+  
+  // Validation
+  if (!form.value.name) {
+    return uni.showToast({ title: '请输入物品名称', icon: 'none' })
+  }
+  if (!form.value.category) {
+    return uni.showToast({ title: '请选择分类', icon: 'none' })
+  }
+  if (!form.value.produceDate) {
+    return uni.showToast({ title: '请选择生产日期', icon: 'none' })
+  }
+  const shelfVal = parseInt(form.value.shelfLife)
+  if (isNaN(shelfVal) || shelfVal <= 0) {
+    return uni.showToast({ title: '请输入有效的保质期', icon: 'none' })
+  }
+  if (!computedExpireDate.value) {
+    return uni.showToast({ title: '无法计算到期日', icon: 'none' })
+  }
+  if (form.value.reminderDays < 0 || form.value.reminderDays > 365) {
+    return uni.showToast({ title: '提醒天数无效', icon: 'none' })
+  }
+
   isSaving.value = true
-  // 实际项目中此处调用云函数保存
-  setTimeout(() => {
-    isSaving.value = false
-    uni.showToast({ title: '已收入物品库~', icon: 'none' })
+  
+  const newItem = {
+    name: form.value.name,
+    categoryId: form.value.category,
+    categoryName: form.value.categoryLabel,
+    originalImageUrl: originalImagePath.value,
+    displayImageUrl: previewImage.value,
+    imageProcessStatus: processStatus.value,
+    stickerRotation: imgRotation.value,
+    productionDate: form.value.produceDate,
+    shelfLifeValue: shelfVal,
+    shelfLifeUnit: form.value.shelfUnit,
+    expiryDate: computedExpireDate.value,
+    status: form.value.status,
+    remindDays: form.value.reminderDays,
+  }
+
+  const success = itemService.addItem(newItem)
+  
+  if (success) {
+    uni.showToast({ title: '已收入物品库~', icon: 'success' })
     setTimeout(() => uni.navigateBack(), 1000)
-  }, 1200)
+  } else {
+    isSaving.value = false
+    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  }
 }
 </script>
 

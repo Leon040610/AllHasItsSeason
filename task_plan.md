@@ -1,28 +1,32 @@
-# Task Plan: Implement Category and Profile Pages
+# Task Plan: Data-Driven Refactoring
 
 ## Goal
-Implement three new pages (`分类设置`, `编辑分类`, `编辑资料`) based on Figma designs, adhering to the `agents.md` guidelines.
+Transform the current static UI uni-app into a data-driven application. First phase uses local storage, second phase uses WeChat Cloud development. 
 
 ## Phases
-1. [ ] **Phase 1: Research and Planning**
-   - Fetch and analyze Figma node data (Complete).
-   - Write `implementation_plan.md` and request user approval.
-2. [ ] **Phase 2: Execution - Category Settings (`pages/me/category/index.vue`)**
-   - Build layout with category list and counts.
-   - Implement "Add Custom Category" button.
-   - Configure styles according to Figma (colors, shadows, fonts).
-3. [ ] **Phase 3: Execution - Edit Category (`pages/me/category/edit.vue`)**
-   - Build category name input.
-   - Build category color and icon color pickers.
-   - Build icon selection grid.
-4. [ ] **Phase 4: Execution - Edit Profile (`pages/me/profile/index.vue`)**
-   - Build avatar upload/preview area.
-   - Build nickname input field.
-   - Build logout and save actions.
-5. [ ] **Phase 5: Routing and Integration**
-   - Register new pages in `pages.json`.
-   - Connect "分类设置" from `pages/me/index.vue` to `pages/me/category/index.vue`.
-   - Connect profile editing from `pages/me/index.vue` to `pages/me/profile/index.vue`.
-6. [ ] **Phase 6: Verification**
-   - Ensure "去 AI 化" and "手账风" guidelines are met.
-   - Create walkthrough document.
+1. [x] **Phase 1: Research and Planning**
+   - Read PRD, design specs, and current uni-app codebase.
+   - Analyze current page structure and mock data.
+   - Design data model, directory structure, local storage strategy, and cloud transition strategy.
+   - Output `implementation_plan.md` for user approval.
+
+2. [x] **Phase 2: Establish Base Architecture (Local Storage)**
+   - Create root directories: `/services`, `/repositories`, `/models`, `/utils`.
+   - Implement `/repositories/localRepository.js` using `uni.getStorageSync` / `uni.setStorageSync` with explicit keys.
+   - Implement `ItemModel.js` and `DataConverter.js` for ViewModel generation.
+   - Implement `/services/itemService.js` and `/services/settingsService.js` (including backward compatibility).
+
+3. [x] **Phase 3: Refactor Core Items Loop (P0)**
+   - Refactor `pages/add/index.vue` and `pages/detail/edit/index.vue` with strict form validation and true data saving.
+   - Refactor `pages/detail/index.vue` to fetch data by ID, handle fallback on fail, add double confirmation for delete/done.
+   - Refactor `pages/library/index.vue` to fetch list from service via `onShow` and apply ViewModel filtering.
+   - Refactor `pages/index/index.vue` to fetch dashboard data and calculate metrics from real items.
+
+4. [ ] **Phase 4: Refactor Settings and Light Features (P1)**
+   - Connect reminder settings to `settingsService`.
+   - Connect category settings to `categoryService`.
+   - Update data management page to show local data status.
+
+5. [ ] **Phase 5: Cloud Development Transition Readiness**
+   - Harden `App.vue` `wx.cloud.init()` logic.
+   - Stub `/repositories/wechatCloudRepository.js` (without implementing full sync).

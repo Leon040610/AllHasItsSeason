@@ -12,7 +12,7 @@
       <view class="top-bar__placeholder" />
     </view>
 
-    <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
+    <scroll-view v-if="item" class="scroll-body" scroll-y enhanced :show-scrollbar="false">
 
       <!-- Hero 图片区 -->
       <view class="hero-section" @tap="onChooseImage">
@@ -124,7 +124,7 @@
     </scroll-view>
 
     <!-- 底部操作栏 -->
-    <view class="bottom-actions">
+    <view v-if="item" class="bottom-actions">
       <view class="bottom-actions__inner">
         <view class="action-btn-save" @tap="onSave">
           <text class="action-btn-save__text">保存修改</text>
@@ -135,77 +135,82 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { onLoad, onShow } from '@dcloudio/uni-app'
+import { itemService } from '../../../services/itemService.js'
+import { calculateExpiryDate, getDaysDifference, getTodayStr, formatDate } from '../../../utils/dateUtils.js'
 
-interface ItemDetail {
-  id: string
-  name: string
-  category: string
-  categoryLabel: string
-  imageUrl: string
-  displayImageUrl?: string
-  rotation: number
-  status: string
-  statusLabel: string
-  daysLeft: number
-  shelfLife: string
-  shelfUnit: string
-  produceDate: string
-  produceDateLabel: string
-  expireDate: string
-  expireDateLabel: string
-}
-
-const item = ref<ItemDetail>({
-  id: '1',
-  name: '牛奶',
-  category: 'food',
-  categoryLabel: '食品',
-  imageUrl: '/static/icons/detail-milkbox.svg',
-  displayImageUrl: '',
-  rotation: -1.5,
-  status: 'pending',
-  statusLabel: '待取用',
-  daysLeft: 2,
-  shelfLife: '7',
-  shelfUnit: '天',
-  produceDate: '2026-06-20',
-  produceDateLabel: '2026年06月20日',
-  expireDate: '2026-06-27',
-  expireDateLabel: '2026年06月27日',
-})
-
+const item = ref<any>(null)
+let currentId = ''
 const nameFocused = ref(false)
 const shelfFocused = ref(false)
+const originalImagePath = ref('')
+const processStatus = ref<'idle' | 'success' | 'fallback' | 'error'>('idle')
+const isSaving = ref(false)
+
+onLoad((options: any) => {
+  if (options && options.id) {
+    currentId = options.id
+  }
+})
+
+onShow(() => {
+  if (currentId) {
+    loadItem()
+  } else {
+    showFallback()
+  }
+})
+
+function loadItem() {
+  const found = itemService.getViewItemById(currentId)
+  if (found) {
+    // Only set if not already editing to avoid overriding unsaved changes if onShow runs again (e.g. returning from chooseImage)
+    if (!item.value || item.value.id !== found.id) {
+      item.value = { ...found } // Create a copy for editing
+      originalImagePath.value = found.imageUrl // Assume current imageUrl as original for now
+    }
+  } else {
+    showFallback()
+  }
+}
+
+function showFallback() {
+  uni.showToast({ title: '物品不存在或已被删除', icon: 'none' })
+  setTimeout(() => uni.navigateBack(), 1200)
+}
+
 const computedExpireDateLabel = computed(() => {
-  if (!item.value.produceDate || !item.value.shelfLife) return ''
-  const produce = new Date(item.value.produceDate)
-  const days = parseInt(item.value.shelfLife)
-  if (isNaN(days)) return ''
-  const unitMap: Record<string, number> = { 天: 1, 月: 30, 年: 365 }
-  const multiplier = unitMap[item.value.shelfUnit] || 1
-  produce.setDate(produce.getDate() + days * multiplier)
-  const y = produce.getFullYear()
-  const m = String(produce.getMonth() + 1).padStart(2, '0')
-  const d = String(produce.getDate()).padStart(2, '0')
+  if (!item.value || !item.value.produceDate || !item.value.shelfLife) return ''
+  const val = parseInt(item.value.shelfLife)
+  if (isNaN(val) || val <= 0 || val > 9999) return ''
+  
+  let unit = 'day'
+  if (item.value.shelfUnit === '天') unit = 'day'
+  else if (item.value.shelfUnit === '月') unit = 'month'
+  else if (item.value.shelfUnit === '年') unit = 'year'
+  
+  const expiry = calculateExpiryDate(item.value.produceDate, val, unit)
+  if (!expiry) return ''
+  
+  const [y, m, d] = expiry.split('-')
   return `${y}年${m}月${d}日`
 })
 
 const computedDaysLeftText = computed(() => {
-  if (!item.value.produceDate || !item.value.shelfLife) return '--'
-  const produce = new Date(item.value.produceDate)
-  const days = parseInt(item.value.shelfLife)
-  if (isNaN(days)) return '--'
-  const unitMap: Record<string, number> = { 天: 1, 月: 30, 年: 365 }
-  const multiplier = unitMap[item.value.shelfUnit] || 1
-  produce.setDate(produce.getDate() + days * multiplier)
+  if (!item.value || !item.value.produceDate || !item.value.shelfLife) return '--'
+  const val = parseInt(item.value.shelfLife)
+  if (isNaN(val) || val <= 0 || val > 9999) return '--'
   
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  produce.setHours(0, 0, 0, 0)
+  let unit = 'day'
+  if (item.value.shelfUnit === '天') unit = 'day'
+  else if (item.value.shelfUnit === '月') unit = 'month'
+  else if (item.value.shelfUnit === '年') unit = 'year'
   
-  const diffTime = produce.getTime() - today.getTime()
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  const expiry = calculateExpiryDate(item.value.produceDate, val, unit)
+  if (!expiry) return '--'
+  
+  const diffDays = getDaysDifference(expiry, getTodayStr())
   
   if (diffDays < 0) {
     return `已过期 ${Math.abs(diffDays)} 天`
@@ -216,17 +221,38 @@ const computedDaysLeftText = computed(() => {
   }
 })
 
-onMounted(() => {
-  const pages = getCurrentPages()
-  const currentPage = pages[pages.length - 1]
-  const options = (currentPage as any).options
-  if (options?.id) {
-    // 实际项目中根据 id 从云数据库加载数据
-  }
-})
-
 function onBack() {
-  uni.navigateBack()
+  // Check if there are unsaved changes
+  const original = itemService.getViewItemById(currentId)
+  let hasChanges = false
+  if (original && item.value) {
+    hasChanges = 
+      original.name !== item.value.name ||
+      original.category !== item.value.category ||
+      original.status !== item.value.status ||
+      original.produceDate !== item.value.produceDate ||
+      original.shelfLife !== item.value.shelfLife ||
+      original.shelfUnit !== item.value.shelfUnit ||
+      original.rotation !== item.value.rotation ||
+      original.imageUrl !== originalImagePath.value
+  }
+
+  if (hasChanges) {
+    uni.showModal({
+      title: '提示',
+      content: '有未保存的修改',
+      cancelText: '放弃修改',
+      cancelColor: '#D98A6C',
+      confirmText: '继续编辑',
+      success(res) {
+        if (res.cancel) {
+          uni.navigateBack()
+        }
+      }
+    })
+  } else {
+    uni.navigateBack()
+  }
 }
 
 function onChooseImage() {
@@ -235,10 +261,30 @@ function onChooseImage() {
     sizeType: ['compressed'],
     sourceType: ['album', 'camera'],
     success(res) {
-      item.value.imageUrl = res.tempFilePaths[0]
-      item.value.displayImageUrl = '' // clear display image if uploaded new
-      item.value.rotation = 0
-    },
+      const tempPath = res.tempFilePaths[0]
+      originalImagePath.value = tempPath
+      processStatus.value = 'idle'
+      
+      uni.showLoading({ title: '处理图片中' })
+      uni.saveFile({
+        tempFilePath: tempPath,
+        success: function (saveRes) {
+          item.value.imageUrl = saveRes.savedFilePath
+          item.value.displayImageUrl = saveRes.savedFilePath
+          processStatus.value = 'success'
+          item.value.rotation = 0
+          uni.hideLoading()
+        },
+        fail: function () {
+          item.value.imageUrl = tempPath
+          item.value.displayImageUrl = tempPath
+          processStatus.value = 'fallback'
+          item.value.rotation = 0
+          uni.hideLoading()
+          uni.showToast({ title: '图片保存失败，将使用原图', icon: 'none' })
+        }
+      })
+    }
   })
 }
 
@@ -283,10 +329,7 @@ function onPickUnit() {
 }
 
 function onReprocess() {
-  uni.showToast({ title: '开始智能抠图...', icon: 'none' })
-  setTimeout(() => {
-    item.value.rotation = (Math.random() * 4 - 2)
-  }, 1000)
+  uni.showToast({ title: '重新提取暂未开放', icon: 'none' })
 }
 
 function onUseOriginal() {
@@ -294,8 +337,59 @@ function onUseOriginal() {
 }
 
 function onSave() {
-  uni.showToast({ title: '修改已保存', icon: 'success' })
-  setTimeout(() => uni.navigateBack(), 800)
+  if (isSaving.value) return
+
+  // Validation
+  if (!item.value.name) return uni.showToast({ title: '请输入物品名称', icon: 'none' })
+  if (!item.value.category) return uni.showToast({ title: '请选择分类', icon: 'none' })
+  if (!item.value.produceDate) return uni.showToast({ title: '请选择生产日期', icon: 'none' })
+  
+  const today = getTodayStr()
+  if (item.value.produceDate > today) {
+    return uni.showToast({ title: '生产日期不能晚于今天', icon: 'none' })
+  }
+  
+  const shelfVal = parseInt(item.value.shelfLife)
+  if (isNaN(shelfVal) || shelfVal <= 0 || shelfVal > 9999) return uni.showToast({ title: '保质期需为1-9999的正整数', icon: 'none' })
+
+  let unit = 'day'
+  if (item.value.shelfUnit === '天') unit = 'day'
+  else if (item.value.shelfUnit === '月') unit = 'month'
+  else if (item.value.shelfUnit === '年') unit = 'year'
+  
+  const expiry = calculateExpiryDate(item.value.produceDate, shelfVal, unit)
+  if (!expiry) return uni.showToast({ title: '无法计算到期日', icon: 'none' })
+  if (expiry < item.value.produceDate) {
+    return uni.showToast({ title: '到期日早于生产日期', icon: 'none' })
+  }
+
+  isSaving.value = true
+  
+  const updateData = {
+    name: item.value.name,
+    categoryId: item.value.category,
+    categoryName: item.value.categoryLabel,
+    originalImageUrl: originalImagePath.value,
+    displayImageUrl: item.value.displayImageUrl,
+    imageProcessStatus: processStatus.value,
+    stickerRotation: item.value.rotation,
+    productionDate: item.value.produceDate,
+    shelfLifeValue: shelfVal,
+    shelfLifeUnit: unit,
+    expiryDate: expiry,
+    status: item.value.status,
+    remindDays: item.value.remindDays
+  }
+
+  const success = itemService.updateItem(item.value.id, updateData)
+  
+  if (success) {
+    uni.showToast({ title: '修改已保存', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 800)
+  } else {
+    isSaving.value = false
+    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  }
 }
 </script>
 

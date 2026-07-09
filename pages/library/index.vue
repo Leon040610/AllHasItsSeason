@@ -148,18 +148,8 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-
-interface Item {
-  id: string
-  name: string
-  category: string
-  categoryLabel: string
-  imageUrl: string
-  displayImageUrl?: string
-  status: 'pending' | 'using' | 'near_expire' | 'expired'
-  daysLeft: number
-  expireDate: string
-}
+import { onShow } from '@dcloudio/uni-app'
+import { itemService } from '../../services/itemService.js'
 
 interface Filter {
   key: string
@@ -178,6 +168,7 @@ const categoryFilters = ref<Filter[]>([
   { key: 'medicine', label: '药品' },
   { key: 'beauty', label: '美妆' },
   { key: 'daily', label: '日化' },
+  { key: 'baby', label: '母婴' }
 ])
 
 const statusFilters = ref<Filter[]>([
@@ -188,48 +179,11 @@ const statusFilters = ref<Filter[]>([
   { key: 'pending', label: '待取用' },
 ])
 
-const allItems = ref<Item[]>([
-  {
-    id: '1',
-    name: '海蓝之谜面霜',
-    category: 'beauty',
-    categoryLabel: '美妆',
-    imageUrl: '/static/icons/library-La Mer Cream.svg',
-    status: 'near_expire',
-    daysLeft: 12,
-    expireDate: '2026-07-17',
-  },
-  {
-    id: '2',
-    name: '布洛芬缓释胶囊',
-    category: 'medicine',
-    categoryLabel: '药品',
-    imageUrl: '/static/icons/library-Ibuprofen.svg',
-    status: 'pending',
-    daysLeft: 180,
-    expireDate: '2027-01-01',
-  },
-  {
-    id: '3',
-    name: '蓝月亮洗衣液',
-    category: 'daily',
-    categoryLabel: '日化',
-    imageUrl: '/static/icons/library-Laundry Detergent.svg',
-    status: 'using',
-    daysLeft: 90,
-    expireDate: '2026-10-05',
-  },
-  {
-    id: '4',
-    name: '全麦吐司面包',
-    category: 'food',
-    categoryLabel: '食品',
-    imageUrl: '/static/icons/library-bread.svg',
-    status: 'expired',
-    daysLeft: -1,
-    expireDate: '2026-07-04',
-  },
-])
+const allItems = ref<any[]>([])
+
+onShow(() => {
+  allItems.value = itemService.getViewItems()
+})
 
 const filteredItems = computed(() => {
   let result = allItems.value
@@ -237,7 +191,14 @@ const filteredItems = computed(() => {
     result = result.filter(i => i.category === activeCategoryKey.value)
   }
   if (activeStatusKey.value !== 'all') {
-    result = result.filter(i => i.status === activeStatusKey.value)
+    // 动态判断状态
+    result = result.filter(i => {
+      if (activeStatusKey.value === 'expired') return i.daysLeft < 0
+      if (activeStatusKey.value === 'near_expire') return i.daysLeft >= 0 && i.daysLeft <= i.remindDays
+      if (activeStatusKey.value === 'using') return i.status === 'using'
+      if (activeStatusKey.value === 'pending') return i.status === 'pending'
+      return true
+    })
   }
   if (searchKeyword.value) {
     result = result.filter(i => i.name.includes(searchKeyword.value))
@@ -245,19 +206,15 @@ const filteredItems = computed(() => {
   return result
 })
 
-function getStatusClass(status: string) {
-  if (status === 'near_expire') return 'text-warn'
-  if (status === 'expired') return 'text-expired'
+function getStatusClass(statusLabel: string) {
+  if (statusLabel.includes('已过期')) return 'text-expired'
+  if (statusLabel.includes('临期') || statusLabel.includes('还有')) return 'text-warn'
   return 'text-muted'
 }
 
-function getStatusLabel(item: Item) {
-  if (item.status === 'near_expire') return `还有 ${item.daysLeft} 天`
-  if (item.status === 'expired') return '已过期'
-  if (item.status === 'using') return '使用中'
-  return `还有 ${item.daysLeft} 天`
+function getStatusLabel(item: any) {
+  return item.statusLabel
 }
-
 
 function onCategoryFilter(key: string) {
   activeCategoryKey.value = key
@@ -273,17 +230,18 @@ function getCategoryBg(category: string) {
     medicine: '#A69B8D',
     daily: '#536251',
     food: '#D98A6C',
+    baby: '#8A9A86'
   }
   return map[category] || '#8A9A86'
 }
 
-function getStatusIconPath(status: string) {
-  if (status === 'near_expire') return '/static/icons/library-daojishi.svg'
-  if (status === 'expired') return '/static/icons/library-jinggao.svg'
+function getStatusIconPath(statusLabel: string) {
+  if (statusLabel.includes('临期') || (statusLabel.includes('还有') && !statusLabel.includes('使用中'))) return '/static/icons/library-daojishi.svg'
+  if (statusLabel.includes('已过期')) return '/static/icons/library-jinggao.svg'
   return '/static/icons/library-queren.svg'
 }
 
-function onItemTap(item: Item) {
+function onItemTap(item: any) {
   uni.navigateTo({ url: `/pages/detail/index?id=${item.id}` })
 }
 

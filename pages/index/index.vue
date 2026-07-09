@@ -77,7 +77,7 @@
             </view>
             <view class="focus-card__info">
               <text class="focus-card__name">{{ item.name }}</text>
-              <text class="focus-card__category">{{ item.category }}</text>
+              <text class="focus-card__category">{{ item.categoryLabel }}</text>
             </view>
           </view>
         </view>
@@ -145,79 +145,68 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { itemService } from '../../services/itemService.js'
+import { categoryService } from '../../services/categoryService.js'
 
-interface Item {
-  id: string
-  name: string
-  category: string
-  imageUrl: string
-  displayImageUrl?: string
-  cardBg: string
-  status: 'pending' | 'using' | 'near_expire' | 'expired'
-  daysLeft: number
-  rotation: number
-  expireDate: string
-  produceDate: string
-}
+const focusItems = ref<any[]>([])
+const categories = ref<any[]>([])
 
-interface Category {
-  key: string
-  name: string
-  icon: string
-  cardBg: string
-  iconBg: string
-  count: number
-}
+const nearExpireCount = ref(0)
+const expiredCount = ref(0)
 
-const focusItems = ref<Item[]>([
-  {
-    id: '1',
-    name: '鲜牛奶',
-    category: '食品',
-    imageUrl: '/static/icons/index-milk.svg',
-    displayImageUrl: '',
-    cardBg: '#E3E2E0',
-    status: 'near_expire',
-    daysLeft: 2,
-    rotation: -1.5,
-    expireDate: '2026-07-07',
-    produceDate: '2026-06-30',
-  },
-  {
-    id: '2',
-    name: '保湿面霜',
-    category: '美妆',
-    imageUrl: '/static/icons/index-cream.svg',
-    displayImageUrl: '',
-    cardBg: '#F4EFEA',
-    status: 'using',
-    daysLeft: 6,
-    rotation: 1.2,
-    expireDate: '2026-07-11',
-    produceDate: '2024-01-01',
-  },
-])
+onShow(() => {
+  // 从服务层获取最新数据
+  const allViewItems = itemService.getViewItems()
+  
+  // 统计过期和临期
+  nearExpireCount.value = allViewItems.filter(i => i.status !== 'done' && i.daysLeft <= i.remindDays && i.daysLeft >= 0).length
+  expiredCount.value = allViewItems.filter(i => i.status !== 'done' && i.daysLeft < 0).length
 
-const categories = ref<Category[]>([
-  { key: 'food',     name: '食品', icon: '/static/icons/index-shipin.svg',    cardBg: '#F4F3F1', iconBg: '#FFFFFF', count: 12 },
-  { key: 'medicine', name: '药品', icon: '/static/icons/index-yaopin.svg',    cardBg: '#E9EDEA', iconBg: '#FFFFFF', count: 5  },
-  { key: 'beauty',   name: '美妆', icon: '/static/icons/index-meizhuang.svg', cardBg: '#F4EFEA', iconBg: '#FFFFFF', count: 8  },
-  { key: 'daily',    name: '日化', icon: '/static/icons/index-rihua.svg',     cardBg: '#EEF1EE', iconBg: '#FFFFFF', count: 3  },
-])
+  // 今日关注：优先取使用中和临期/过期的物品，如果不够则补充最近添加的 (最多展示 4 个)
+  const activeItems = allViewItems.filter(i => i.status !== 'done' && i.status !== 'deleted')
+  
+  // 按照紧急程度和剩余天数排序
+  activeItems.sort((a, b) => {
+    const aUrgent = (a.status === 'using' || a.daysLeft <= a.remindDays) ? 1 : 0
+    const bUrgent = (b.status === 'using' || b.daysLeft <= b.remindDays) ? 1 : 0
+    
+    if (aUrgent !== bUrgent) {
+      return bUrgent - aUrgent // 紧急的排前面
+    }
+    
+    // 如果都是紧急的，按剩余天数从小到大排
+    if (aUrgent === 1) {
+      return a.daysLeft - b.daysLeft
+    }
+    
+    // 如果都不紧急，按最近添加或修改的时间倒序（新添加的在前面）
+    const aTime = a.lastEditedAt || a.createdAt || 0
+    const bTime = b.lastEditedAt || b.createdAt || 0
+    return bTime - aTime
+  })
+  
+  focusItems.value = activeItems.slice(0, 4)
 
-const nearExpireCount = computed(() =>
-  focusItems.value.filter(i => i.status === 'near_expire' || i.status === 'using').length
-)
-const expiredCount = computed(() =>
-  focusItems.value.filter(i => i.status === 'expired').length
-)
+  // 统计分类数量
+  const allCats = categoryService.getCategories()
+  categories.value = allCats.map(cat => {
+    const count = allViewItems.filter(i => i.category === cat.id).length
+    return {
+      key: cat.id,
+      name: cat.name,
+      icon: cat.icon,
+      cardBg: cat.cardBg,
+      iconBg: cat.iconBg,
+      count
+    }
+  })
+})
 
 function onPhotoScan() {
   uni.navigateTo({ url: '/pages/add/index?mode=photo' })
 }
-
-
 
 function onManualAdd() {
   uni.navigateTo({ url: '/pages/add/index?mode=manual' })
@@ -227,11 +216,12 @@ function onViewAll() {
   uni.switchTab({ url: '/pages/library/index' })
 }
 
-function onItemTap(item: Item) {
+function onItemTap(item: any) {
   uni.navigateTo({ url: `/pages/detail/index?id=${item.id}` })
 }
 
-function onCategoryTap(_cat: Category) {
+function onCategoryTap(cat: any) {
+  // 可选：带参数跳转或记录全局过滤状态
   uni.switchTab({ url: '/pages/library/index' })
 }
 
@@ -244,10 +234,6 @@ function onTabTap(tab: string) {
   }
   uni.switchTab({ url: tabMap[tab] })
 }
-
-onMounted(() => {
-  // 实际项目中此处从云数据库加载数据
-})
 </script>
 
 <style lang="scss" scoped>
