@@ -30,12 +30,7 @@
           </view>
           <text class="quick-add-card__label">拍照识别</text>
         </view>
-        <view class="quick-add-card" @tap="onScanCode">
-          <view class="quick-add-card__icon-wrap quick-add-card__icon-wrap--scan">
-            <image class="quick-add-card__icon-img" src="/static/icons/index-saoma.svg" mode="aspectFit" />
-          </view>
-          <text class="quick-add-card__label">扫码录入</text>
-        </view>
+
         <view class="quick-add-card" @tap="onManualAdd">
           <view class="quick-add-card__icon-wrap quick-add-card__icon-wrap--manual">
             <image class="quick-add-card__icon-img" src="/static/icons/index-shoudong.svg" mode="aspectFit" />
@@ -135,7 +130,7 @@
       </view>
       <view class="tab-bar__item" @tap="onTabTap('tools')">
         <view class="tab-bar__icon-wrap">
-          <image class="tab-bar__icon-img" src="/static/icons/index-gongju.svg" mode="aspectFit" />
+          <image class="tab-bar__icon-img" src="/static/icons/me-gongju.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label">工具</text>
       </view>
@@ -205,7 +200,7 @@ const focusItems = ref<Item[]>([
 ])
 
 const categories = ref<Category[]>([
-  { key: 'food',     name: '食品', icon: '/static/icons/index-shipin.svg',    cardBg: '#F4F3F1', iconBg: '#FCEEE8', count: 12 },
+  { key: 'food',     name: '食品', icon: '/static/icons/index-shipin.svg',    cardBg: '#F4F3F1', iconBg: '#FFFFFF', count: 12 },
   { key: 'medicine', name: '药品', icon: '/static/icons/index-yaopin.svg',    cardBg: '#E9EDEA', iconBg: '#FFFFFF', count: 5  },
   { key: 'beauty',   name: '美妆', icon: '/static/icons/index-meizhuang.svg', cardBg: '#F4EFEA', iconBg: '#FFFFFF', count: 8  },
   { key: 'daily',    name: '日化', icon: '/static/icons/index-rihua.svg',     cardBg: '#EEF1EE', iconBg: '#FFFFFF', count: 3  },
@@ -222,9 +217,7 @@ function onPhotoScan() {
   uni.navigateTo({ url: '/pages/add/index?mode=photo' })
 }
 
-function onScanCode() {
-  uni.navigateTo({ url: '/pages/add/index?mode=scan' })
-}
+
 
 function onManualAdd() {
   uni.navigateTo({ url: '/pages/add/index?mode=manual' })
@@ -426,8 +419,7 @@ $top-height:          120rpx;
 
     // 拍照识别：鼠尾草绿 #8a9a86
     &--photo  { background: $color-primary; }
-    // 扫码录入：设计稿 #9f9486，枯木灰系
-    &--scan   { background: #9F9486; }
+
     // 手动添加：设计稿 #feaa8a，陶土橘浅色
     &--manual { background: #FEAA8A; }
   }
@@ -729,7 +721,7 @@ $top-height:          120rpx;
     font-family: 'Noto Serif SC', serif;
     font-size: 22rpx;
     font-weight: 400;
-    color: $color-text-muted;
+    color: $color-expired;
 
     &--active {
       color: $color-primary-dark;

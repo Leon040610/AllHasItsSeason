@@ -21,6 +21,7 @@
             v-model="form.name" 
             placeholder="输入分类名称" 
             placeholder-class="form-input__placeholder"
+            placeholder-style="font-family: 'Noto Serif SC', serif; color: #747871;"
             class="form-input__inner"
           />
         </view>
@@ -29,31 +30,35 @@
       <!-- 分类颜色 -->
       <view class="form-section">
         <text class="form-section__title">分类颜色</text>
-        <view class="color-picker">
-          <view 
-            v-for="(color, index) in bgColors" 
-            :key="index"
-            class="color-dot"
-            :class="{ 'color-dot--active': form.bgColor === color }"
-            :style="{ backgroundColor: color }"
-            @tap="form.bgColor = color"
-          ></view>
-        </view>
+        <scroll-view class="color-scroll" scroll-x :show-scrollbar="false">
+          <view class="color-picker">
+            <view 
+              v-for="(color, index) in bgColors" 
+              :key="index"
+              class="color-dot"
+              :class="{ 'color-dot--active': form.bgColor === color }"
+              :style="{ backgroundColor: color }"
+              @tap="form.bgColor = color"
+            ></view>
+          </view>
+        </scroll-view>
       </view>
 
       <!-- 图标颜色 -->
       <view class="form-section">
         <text class="form-section__title">图标颜色</text>
-        <view class="color-picker">
-          <view 
-            v-for="(color, index) in iconColors" 
-            :key="index"
-            class="color-dot"
-            :class="{ 'color-dot--active': form.iconColor === color }"
-            :style="{ backgroundColor: color }"
-            @tap="form.iconColor = color"
-          ></view>
-        </view>
+        <scroll-view class="color-scroll" scroll-x :show-scrollbar="false">
+          <view class="color-picker">
+            <view 
+              v-for="(color, index) in iconColors" 
+              :key="index"
+              class="color-dot"
+              :class="{ 'color-dot--active': form.iconColor === color }"
+              :style="{ backgroundColor: color }"
+              @tap="form.iconColor = color"
+            ></view>
+          </view>
+        </scroll-view>
       </view>
 
       <!-- 分类图标 (可选) -->
@@ -82,14 +87,14 @@
           <view class="preview-card" :style="{ backgroundColor: form.bgColor }">
             <view class="preview-card__content">
               <view class="preview-card__icon-wrap">
-                <view 
-                  class="preview-card__icon" 
-                  :style="{ 
-                    backgroundColor: form.iconColor, 
-                    maskImage: 'url(/static/icons/me-category-' + availableIcons[form.iconIndex] + '.svg)', 
-                    WebkitMaskImage: 'url(/static/icons/me-category-' + availableIcons[form.iconIndex] + '.svg)' 
-                  }"
-                ></view>
+                <view class="preview-card__icon-box">
+                  <image 
+                    class="preview-card__icon-img" 
+                    :src="'/static/icons/me-category-' + availableIcons[form.iconIndex] + '.svg'" 
+                    :style="{ filter: 'drop-shadow(100px 0 0 ' + form.iconColor + ')' }"
+                    mode="aspectFit"
+                  />
+                </view>
               </view>
               <text class="preview-card__name">{{ form.name || '分类名称' }}</text>
             </view>
@@ -119,13 +124,20 @@ const availableIcons = [
 
 const form = ref({
   name: '',
-  bgColor: '#D4C1A8',
-  iconColor: '#333634',
+  bgColor: '#F4F3F1',
+  iconColor: '#8E4D33',
   iconIndex: 0
 })
 
-const bgColors = ['#D4C1A8', '#A3B1C6', '#E5C5D8', '#C5D8A3']
-const iconColors = ['#333634', '#536251', '#8E4D33', '#665D51']
+const bgColors = [
+  '#F4F3F1', '#E9EDEA', '#F4EFEA', '#EEF1EE', 
+  '#F7F2E8', '#E8F0EA', '#F0EBE6', 
+  '#D4C1A8', '#A3B1C6', '#E5C5D8', '#C5D8A3'
+]
+const iconColors = [
+  '#8E4D33', '#665D51', '#444842', '#536251', '#333634',
+  '#4A3F35', '#2C3E38', '#5C4A4D', '#3E4651'
+]
 
 function goBack() {
   uni.navigateBack()
@@ -257,11 +269,16 @@ $color-text: #1A1C1B;
 }
 
 /* 颜色选择器 */
+.color-scroll {
+  width: 100%;
+  white-space: nowrap;
+}
+
 .color-picker {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 32rpx;
-  padding: 16rpx 16rpx 16rpx 24rpx;
+  padding: 16rpx 24rpx;
 }
 
 .color-dot {
@@ -270,6 +287,7 @@ $color-text: #1A1C1B;
   border-radius: 50%;
   transition: all 0.3s;
   box-shadow: 0 4rpx 8rpx rgba(0, 0, 0, 0.05);
+  flex-shrink: 0;
 
   &--active {
     transform: scale(1.1);
@@ -347,15 +365,17 @@ $color-text: #1A1C1B;
     justify-content: center;
   }
 
-  &__icon {
+  &__icon-box {
     width: 44rpx;
     height: 44rpx;
-    mask-size: contain;
-    -webkit-mask-size: contain;
-    mask-repeat: no-repeat;
-    -webkit-mask-repeat: no-repeat;
-    mask-position: center;
-    -webkit-mask-position: center;
+    overflow: hidden;
+  }
+
+  &__icon-img {
+    width: 44rpx;
+    height: 44rpx;
+    transform: translateX(-100px);
+    display: block;
   }
 
   &__name {

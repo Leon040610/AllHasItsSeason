@@ -71,7 +71,10 @@
         </view>
         <view class="meta-col">
           <text class="meta-col__label">剩余时间</text>
-          <text class="meta-col__value meta-col__value--warn">还有 {{ item.daysLeft }} 天</text>
+          <text
+            class="meta-col__value"
+            :class="computedDaysLeftText.startsWith('已过期') ? 'meta-col__value--expired' : 'meta-col__value--warn'"
+          >{{ computedDaysLeftText }}</text>
         </view>
       </view>
 
@@ -186,6 +189,31 @@ const computedExpireDateLabel = computed(() => {
   const m = String(produce.getMonth() + 1).padStart(2, '0')
   const d = String(produce.getDate()).padStart(2, '0')
   return `${y}年${m}月${d}日`
+})
+
+const computedDaysLeftText = computed(() => {
+  if (!item.value.produceDate || !item.value.shelfLife) return '--'
+  const produce = new Date(item.value.produceDate)
+  const days = parseInt(item.value.shelfLife)
+  if (isNaN(days)) return '--'
+  const unitMap: Record<string, number> = { 天: 1, 月: 30, 年: 365 }
+  const multiplier = unitMap[item.value.shelfUnit] || 1
+  produce.setDate(produce.getDate() + days * multiplier)
+  
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  produce.setHours(0, 0, 0, 0)
+  
+  const diffTime = produce.getTime() - today.getTime()
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24))
+  
+  if (diffDays < 0) {
+    return `已过期 ${Math.abs(diffDays)} 天`
+  } else if (diffDays === 0) {
+    return '今天到期'
+  } else {
+    return `还有 ${diffDays} 天`
+  }
 })
 
 onMounted(() => {
@@ -460,6 +488,10 @@ view, text, button, input {
     &--warn {
       color: #8E4D33;
     }
+    
+    &--expired {
+      color: #BA1A1A;
+    }
   }
 }
 
@@ -493,7 +525,9 @@ view, text, button, input {
 .unit-select {
   display: flex;
   align-items: center;
-  gap: 4rpx;
+  gap: 8rpx;
+  padding-left: 16rpx;
+  border-left: 2rpx solid $color-line;
 }
 
 /* 日期卡 */

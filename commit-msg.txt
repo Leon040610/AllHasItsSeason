@@ -1,19 +1,15 @@
-feat: 新增个人信息编辑与分类设置功能并优化提醒天数管理
+refactor: 优化分类编辑与详情编辑的计算逻辑并完善多处 UI 细节
 
-- 个人信息管理 (pages/me/profile/)：
-  1. 新增个人信息页 (pages/me/profile/index.vue)，支持用户修改昵称及更换头像
-  2. 我的主页 (pages/me/index.vue) 增加点击头像/昵称跳转至个人信息页的交互，并将设置组重命名为“物品管理设置”
-- 分类设置管理 (pages/me/category/)：
-  1. 新增分类设置页 (pages/me/category/index.vue) 与编辑分类页 (pages/me/category/edit.vue)，支持对分类重命名、重置、重选图标以及删除
-  2. 导入全套分类相关的 SVG 矢量图标 (me-category-*) 及个人信息所需图标资源 (me-profile-*)
-  3. 我的主页中增加进入“分类设置”的列表项
-- 到期提醒设置优化 (pages/me/reminder/index.vue)：
-  1. 重构“到期提醒设置”与“提醒时间”，采用 picker 原生选择器组件替代 actionSheet 弹出菜单
-  2. 新增对“自定义提醒天数”的输入、添加、删除管理及本地同步持久化 (uni.setStorageSync)
-  3. 设置页载入时，自动从本地缓存初始化上次设置的值
-- 其它界面与交互细节调整：
-  1. 优化启动页 (pages/launch/index.vue) 顶距、微信图标大小并增加 slogan 视觉对齐补偿
-  2. 添加物品页 (pages/add/index.vue) 选项联动优化
-  3. 物品库 (pages/library/index.vue) 状态筛选文案由“已用”调整为“待取用”以增强逻辑合理性
+- 首页与物品库页 (pages/index/ & pages/library/)：
+  1. 移除首页暂无业务支持的“扫码录入”入口，仅保留“拍照识别”与“手动添加”
+  2. 修复物品库分类及状态过滤器的横向滚动，将 padding 移入滚动行容器内以防边缘截断
+  3. 统一 TabBar 中“工具”选项的未激活态图标为 `me-gongju.svg`
+- 分类编辑页 (pages/me/category/edit.vue)：
+  1. 将背景颜色和图标颜色选择器容器改造为横向滑动的 scroll-view，并扩充了预设调色板
+  2. 重构 SVG 图标预览着色方案，使用位移 drop-shadow 滤镜替代 mask-image，解决微信小程序真机上自定义图标无法动态着色的兼容性问题
+- 物品详情编辑页 (pages/detail/edit/index.vue)：
+  1. 新增 `computedDaysLeftText` 计算属性，支持在用户修改生产日期和保质期时，实时计算剩余天数或已过期天数
+  2. 根据实时计算的效期状态，动态渲染天数提示文字颜色（未过期为陶土橘，已过期为红色）
+  3. 优化保质期单位选择器的分割线与间距布局
 
-影响范围：个人信息、分类管理、提醒设置功能模块，以及部分页面的交互样式与路由
+影响范围：首页操作入口、物品库筛选过滤器、分类图标着色预览及详情编辑页的效期计算逻辑

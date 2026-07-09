@@ -132,7 +132,7 @@
       </view>
       <view class="tab-bar__item" @tap="onTabTap('tools')">
         <view class="tab-bar__icon-wrap">
-          <image class="tab-bar__icon-img" src="/static/icons/library-gongju.svg" mode="aspectFit" />
+          <image class="tab-bar__icon-img" src="/static/icons/me-gongju.svg" mode="aspectFit" />
         </view>
         <text class="tab-bar__label">工具</text>
       </view>
@@ -412,15 +412,15 @@ $top-height: 120rpx;
 /* 筛选器 */
 .filter-scroll {
   margin-top: 24rpx;
-  padding: 0 48rpx;
+  width: 100%;
   white-space: nowrap;
 }
 
 .filter-row {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   gap: 16rpx;
-  padding-right: 48rpx;
+  padding: 0 48rpx;
 }
 
 .filter-chip {
