@@ -1,16 +1,18 @@
-feat: 完成本地数据存储架构搭建并接入全部页面逻辑
+feat: 实现多维度效期管理 (常态/开封/双重效期) 及数据链路改造
 
-- 数据架构与业务逻辑层 (models/, repositories/, services/, utils/)：
-  1. 新增 repositories/localRepository.js，基于 uni-app 本地存储封装统一的持久化仓储层
-  2. 新增 models/ItemModel.js 与 DataConverter.js，规范物品底层数据模型、状态映射与视图数据模型的双向转换
-  3. 新增 services/itemService.js，提供物品的添加、更新、软删除、状态更新及按紧急程度（使用中/临期/最近修改）排序等业务服务
-  4. 新增 services/categoryService.js 与 settingsService.js，实现自定义分类及提醒天数选项的业务管理
-  5. 新增 utils/dateUtils.js 与 uuid.js，提供到期日计算、天数间隔计算及 UUID 生成等底层工具
-- 各业务页面数据链路接入：
-  1. 首页与物品库页：通过 onShow 生命周期动态拉取真实数据，今日关注及统计天数改为真实计算，自动分类统计数量
-  2. 添加物品页与编辑页：加入严密的前端表单校验（非空校验、生产日期不得晚于今天等），接入真实的物品创建及更新保存链路
-  3. 物品详情页：根据路由携带的物品 ID 加载详情，并将删除与标记用完按钮接入真实的软删除与状态标记逻辑
-- 进度记录更新：
-  1. 更新 progress.md 及 task_plan.md
+- 效期数据模型与计算 (models/ & utils/)：
+  1. 重构 ItemModel，新增 `expiryMode`、`openDate`、`afterOpeningShelfLife` 等开封效期相关核心字段
+  2. 新增 `dateUtils.js` 中的 `calculateAfterOpeningDate` 与 `determineActiveExpiry` 计算逻辑，根据开封状态和效期模式动态计算激活的到期日 (activeExpiryDate)
+  3. 升级 `DataConverter.js` 以输出正确的展示层文字标签及效期状态，并兼容缺失信息的待完善状态 (incomplete)
+- 历史数据兼容与分类配置 (services/)：
+  1. 重构 `itemService.js`，在系统初始化时，自动将单效期历史数据升级为常态效期 (normal) 模式
+  2. 重构 `categoryService.js`，增加分类与默认效期模式的映射联动（如美妆/药品/母婴默认为双重效期）
+- 界面设计与交互适配 (pages/)：
+  1. 添加页 (add) 和编辑页 (edit)：增加效期模式的分段选择器，支持根据选择模式动态展示常态保质期、开封保质期及开封日期，并在保存时执行实时效期与状态校验
+  2. 详情页 (detail)：根据效期模式条件渲染不同的日期卡片组合，并对信息不全的物品进行“待完善信息”警告提示
+  3. 首页与物品库页 (index & library)：优化过期/临期过滤逻辑，在统计中排查信息不全的物品，防止误报
+  4. 效期计算器 (tools/calculator)：升级为双 Tab 交互面板，独立支持常态与开封后保质期的计算
+- 新增基础服务架构 (repositories/ & services/)：
+  1. 引入 `authService.js`、`syncService.js`、`draftService.js` 与 `localDraftRepository.js` 准备为下一阶段的数据同步及草稿管理功能提供服务
 
-影响范围：整个小程序的数据读写链路，所有涉及物品列表、新增、编辑、详情和状态变更的页面
+影响范围：全站所有页面的效期管理业务逻辑及底层数据结构

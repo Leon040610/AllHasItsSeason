@@ -69,6 +69,7 @@
 
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
+import { settingsService } from '../../../services/settingsService.js'
 
 interface ReminderSettings {
   subscribeEnabled: boolean
@@ -77,14 +78,23 @@ interface ReminderSettings {
   inAppEnabled: boolean
 }
 
-const storedDefaultDays = uni.getStorageSync('defaultReminderDays')
+const currentSettings = settingsService.getSettings()
 
 const settings = reactive<ReminderSettings>({
-  subscribeEnabled: true,
-  defaultDays: storedDefaultDays === '' ? 7 : storedDefaultDays,
-  reminderTime: uni.getStorageSync('defaultReminderTime') || '09:00',
-  inAppEnabled: true,
+  subscribeEnabled: currentSettings.enabled !== false,
+  defaultDays: currentSettings.defaultRemindDays,
+  reminderTime: currentSettings.remindTime,
+  inAppEnabled: currentSettings.inAppEnabled !== false,
 })
+
+const remindDayOptions = ref<number[]>([...currentSettings.remindDayOptions])
+
+function saveSettings(partial: any) {
+  const success = settingsService.updateSettings(partial)
+  if (!success) {
+    uni.showToast({ title: '保存设置失败', icon: 'none' })
+  }
+}
 
 function onBack() {
   uni.navigateBack()
@@ -92,21 +102,20 @@ function onBack() {
 
 function onToggleSubscribe() {
   settings.subscribeEnabled = !settings.subscribeEnabled
+  saveSettings({ enabled: settings.subscribeEnabled })
 }
 
 function onToggleInApp() {
   settings.inAppEnabled = !settings.inAppEnabled
+  saveSettings({ inAppEnabled: settings.inAppEnabled })
 }
 
-const customReminderDays = ref<number[]>(uni.getStorageSync('customReminderDays') || [])
-
 const reminderPickerOptions = computed(() => {
-  const baseList = [0, 3, 5, 7, 14, 30]
-  const allDays = Array.from(new Set([...baseList, ...customReminderDays.value])).sort((a, b) => a - b)
+  const allDays = Array.from(new Set([...remindDayOptions.value])).sort((a, b) => a - b)
   
   const options = allDays.map(d => d === 0 ? '不提醒' : `${d}天`)
   options.push('+ 新增自定义')
-  if (customReminderDays.value.length > 0) {
+  if (remindDayOptions.value.length > 5) {
     options.push('- 管理自定义')
   }
   return options
@@ -125,12 +134,14 @@ function onReminderPickerChange(e: any) {
         if (modalRes.confirm && modalRes.content) {
           const days = parseInt(modalRes.content)
           if (!isNaN(days) && days >= 0) {
-            const newCustom = Array.from(new Set([...customReminderDays.value, days])).sort((a, b) => a - b)
-            customReminderDays.value = newCustom
-            uni.setStorageSync('customReminderDays', newCustom)
-            
+            const newOptions = Array.from(new Set([...remindDayOptions.value, days])).sort((a, b) => a - b)
+            remindDayOptions.value = newOptions
             settings.defaultDays = days
-            uni.setStorageSync('defaultReminderDays', days)
+            
+            saveSettings({
+              remindDayOptions: newOptions,
+              defaultRemindDays: days
+            })
           } else {
             uni.showToast({ title: '请输入有效天数', icon: 'none' })
           }
@@ -138,24 +149,30 @@ function onReminderPickerChange(e: any) {
       }
     })
   } else if (selected === '- 管理自定义') {
-    const items = customReminderDays.value.slice(0, 6)
+    const items = remindDayOptions.value.filter(d => ![0, 1, 3, 7, 30].includes(d))
+    if (items.length === 0) {
+      return uni.showToast({ title: '没有可删除的自定义天数', icon: 'none' })
+    }
     uni.showActionSheet({
       itemList: items.map(d => `删除 ${d}天`),
       success: (delRes) => {
         const indexToDelete = delRes.tapIndex
         const dayToDelete = items[indexToDelete]
         
-        const realIndex = customReminderDays.value.indexOf(dayToDelete)
+        const realIndex = remindDayOptions.value.indexOf(dayToDelete)
         if (realIndex > -1) {
-          customReminderDays.value.splice(realIndex, 1)
-          uni.setStorageSync('customReminderDays', customReminderDays.value)
-          uni.showToast({ title: `已删除 ${dayToDelete}天`, icon: 'none' })
+          remindDayOptions.value.splice(realIndex, 1)
           
-          const baseList = [0, 3, 5, 7, 14, 30]
-          if (settings.defaultDays === dayToDelete && !baseList.includes(dayToDelete)) {
+          let nextDefault = settings.defaultDays
+          if (settings.defaultDays === dayToDelete) {
+             nextDefault = 7
              settings.defaultDays = 7
-             uni.setStorageSync('defaultReminderDays', 7)
           }
+          saveSettings({
+            remindDayOptions: [...remindDayOptions.value],
+            defaultRemindDays: nextDefault
+          })
+          uni.showToast({ title: `已删除 ${dayToDelete}天`, icon: 'none' })
         }
       }
     })
@@ -165,13 +182,13 @@ function onReminderPickerChange(e: any) {
     } else {
       settings.defaultDays = parseInt(selected.replace('天', ''))
     }
-    uni.setStorageSync('defaultReminderDays', settings.defaultDays)
+    saveSettings({ defaultRemindDays: settings.defaultDays })
   }
 }
 
 function onReminderTimeChange(e: any) {
   settings.reminderTime = e.detail.value
-  uni.setStorageSync('defaultReminderTime', settings.reminderTime)
+  saveSettings({ remindTime: settings.reminderTime })
 }
 </script>
 

@@ -18,14 +18,39 @@ class SettingsService {
       const oldDefaultTime = uni.getStorageSync('defaultReminderTime');
       
       settings = {
-        defaultReminderDays: oldDefaultDays !== '' ? oldDefaultDays : 7,
-        customReminderDays: oldCustomDays || [0, 3, 7, 14, 30],
-        defaultReminderTime: oldDefaultTime || '10:00',
-        nickname: '独居探索家',
-        avatar: ''
+        enabled: true,
+        inAppEnabled: true,
+        remindDayOptions: oldCustomDays || [0, 1, 3, 7, 30],
+        defaultRemindDays: oldDefaultDays !== '' ? Number(oldDefaultDays) : 7,
+        remindTime: oldDefaultTime || '10:00',
+        updatedAt: Date.now()
       };
       
       localRepository.set(SETTINGS_KEY, settings);
+    } else {
+      // Ensure existing settings have new keys if they were created with old schema
+      let migrated = false;
+      if (settings.remindDayOptions === undefined) {
+        settings.remindDayOptions = settings.customReminderDays || [0, 1, 3, 7, 30];
+        migrated = true;
+      }
+      if (settings.defaultRemindDays === undefined) {
+        settings.defaultRemindDays = settings.defaultReminderDays !== undefined ? settings.defaultReminderDays : 7;
+        migrated = true;
+      }
+      if (settings.remindTime === undefined) {
+        settings.remindTime = settings.defaultReminderTime || '10:00';
+        migrated = true;
+      }
+      if (settings.enabled === undefined) {
+        settings.enabled = true;
+        settings.inAppEnabled = true;
+        migrated = true;
+      }
+      if (migrated) {
+        settings.updatedAt = Date.now();
+        localRepository.set(SETTINGS_KEY, settings);
+      }
     }
     this.settings = settings;
   }
@@ -36,7 +61,7 @@ class SettingsService {
   }
 
   updateSettings(newSettings) {
-    this.settings = { ...this.settings, ...newSettings };
+    this.settings = { ...this.settings, ...newSettings, updatedAt: Date.now() };
     return localRepository.set(SETTINGS_KEY, this.settings);
   }
 }

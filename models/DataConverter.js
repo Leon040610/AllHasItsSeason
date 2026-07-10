@@ -1,73 +1,109 @@
-import { getDaysDifference, getTodayStr } from '../utils/dateUtils.js';
+import { getDaysDifference, getTodayStr, determineActiveExpiry } from '../utils/dateUtils.js';
 
 export const DataConverter = {
   toItemViewModel(item) {
     const today = getTodayStr();
-    const daysLeft = getDaysDifference(item.expiryDate, today);
+    
+    // Safety fallback for old data
+    const safeItem = {
+      ...item,
+      expiryMode: item.expiryMode || 'normal',
+      activeExpirySource: item.activeExpirySource || 'normal',
+      activeExpiryDate: item.activeExpiryDate !== undefined ? item.activeExpiryDate : (item.expiryDate || null)
+    };
+
+    // Recalculate active expiry dynamically based on current date/status just to be safe
+    const activeInfo = determineActiveExpiry(safeItem);
+    const activeDate = activeInfo.date;
+    const activeSource = activeInfo.source;
+
+    let daysLeft = null;
+    if (activeDate) {
+      daysLeft = getDaysDifference(activeDate, today);
+    }
     
     let statusLabel = '';
-    // Priority:
-    // 1. deleted / isDeleted: (should be filtered out before display usually, but just in case)
-    if (item.status === 'deleted') {
+    let displayStatus = 'normal'; // normal, expiring, expired, done, deleted, incomplete
+
+    if (safeItem.status === 'deleted') {
       statusLabel = '已删除';
-    } 
-    // 2. done: 已用完
-    else if (item.status === 'done') {
+      displayStatus = 'deleted';
+    } else if (safeItem.status === 'done') {
       statusLabel = '已用完';
-    }
-    // 3. daysLeft < 0: 已过期
-    else if (daysLeft < 0) {
-      statusLabel = '已过期';
-    }
-    // 4. status === using 且 daysLeft >= 0: 使用中 · 还有 X 天
-    else if (item.status === 'using' && daysLeft >= 0) {
-      statusLabel = `使用中 · 还有 ${daysLeft} 天`;
-    }
-    // 5. daysLeft <= remindDays: 临期 / 还有 X 天
-    else if (daysLeft <= item.remindDays) {
-      statusLabel = `还有 ${daysLeft} 天`; // UI handles the warning color
-    }
-    // 6. 其他: 待取用 / 还有 X 天
-    else {
-      statusLabel = `还有 ${daysLeft} 天`; // UI typically shows '待取用' in details, or just days
+      displayStatus = 'done';
+    } else if (!activeDate) {
+      statusLabel = '待补全';
+      displayStatus = 'incomplete';
+    } else if (daysLeft < 0) {
+      displayStatus = 'expired';
+      if (activeSource === 'opened') {
+        statusLabel = `开封后已过期 ${Math.abs(daysLeft)} 天`;
+      } else {
+        statusLabel = `已过期 ${Math.abs(daysLeft)} 天`;
+      }
+    } else {
+      if (daysLeft <= safeItem.remindDays) {
+        displayStatus = 'expiring';
+      }
+      
+      if (safeItem.status === 'using' && activeSource === 'opened') {
+        statusLabel = `开封后还有 ${daysLeft} 天`;
+      } else {
+        statusLabel = `还有 ${daysLeft} 天`;
+      }
     }
 
-    // Format dates for display
-    let produceDateLabel = '';
-    if (item.productionDate) {
-      const [y, m, d] = item.productionDate.split('-');
-      produceDateLabel = `${y}年${m}月${d}日`;
-    }
-    
-    let expireDateLabel = '';
-    if (item.expiryDate) {
-      const [y, m, d] = item.expiryDate.split('-');
-      expireDateLabel = `${y}年${m}月${d}日`;
-    }
-    
-    let shelfUnitDisplay = '天';
-    if (item.shelfLifeUnit === 'month') shelfUnitDisplay = '月';
-    if (item.shelfLifeUnit === 'year') shelfUnitDisplay = '年';
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '';
+      const [y, m, d] = dateStr.split('-');
+      return `${y}年${m}月${d}日`;
+    };
+
+    const getUnitDisplay = (unit) => {
+      if (unit === 'month') return '月';
+      if (unit === 'year') return '年';
+      return '天';
+    };
 
     return {
-      id: item.id,
-      name: item.name,
-      category: item.categoryId,           // Backwards compatibility for UI
-      categoryLabel: item.categoryName,    // Backwards compatibility for UI
-      imageUrl: item.originalImageUrl || item.displayImageUrl,
-      displayImageUrl: item.displayImageUrl,
-      rotation: item.stickerRotation,
-      status: item.status,
+      id: safeItem.id,
+      name: safeItem.name,
+      category: safeItem.categoryId,           
+      categoryLabel: safeItem.categoryName,    
+      imageUrl: safeItem.originalImageUrl || safeItem.displayImageUrl,
+      displayImageUrl: safeItem.displayImageUrl,
+      cardBg: safeItem.imageBackgroundColor,
+      rotation: safeItem.stickerRotation,
+      status: safeItem.status,
       statusLabel: statusLabel,
+      displayStatus: displayStatus,
       daysLeft: daysLeft,
-      produceDate: item.productionDate,
-      produceDateLabel: produceDateLabel,
-      expireDate: item.expiryDate,
-      expireDateLabel: expireDateLabel,
-      shelfLife: item.shelfLifeValue.toString(),
-      shelfUnit: shelfUnitDisplay,
-      timeline: item.timeline,
-      remindDays: item.remindDays
+      
+      // Normal expiry
+      produceDate: safeItem.productionDate,
+      produceDateLabel: formatDate(safeItem.productionDate),
+      expireDate: safeItem.expiryDate,
+      expireDateLabel: formatDate(safeItem.expiryDate),
+      shelfLife: safeItem.shelfLifeValue ? safeItem.shelfLifeValue.toString() : '',
+      shelfUnit: getUnitDisplay(safeItem.shelfLifeUnit),
+      
+      // Multi-expiry
+      expiryMode: safeItem.expiryMode,
+      expiryModeLabel: safeItem.expiryMode === 'dual' ? '双效期' : (safeItem.expiryMode === 'after_opening' ? '开封后效期' : '普通效期'),
+      openDate: safeItem.openDate,
+      openDateLabel: formatDate(safeItem.openDate),
+      afterOpeningShelfLife: safeItem.afterOpeningShelfLifeValue ? safeItem.afterOpeningShelfLifeValue.toString() : '',
+      afterOpeningShelfUnit: getUnitDisplay(safeItem.afterOpeningShelfLifeUnit),
+      openedExpiryDate: safeItem.openedExpiryDate,
+      openedExpiryDateLabel: formatDate(safeItem.openedExpiryDate),
+      
+      activeExpiryDate: activeDate,
+      activeExpiryDateLabel: formatDate(activeDate),
+      activeExpirySource: activeSource,
+      activeExpirySourceLabel: activeSource === 'opened' ? '开封后效期更早' : (activeSource === 'unopened' ? '包装效期更早' : ''),
+      
+      timeline: safeItem.timeline,
+      remindDays: safeItem.remindDays
     };
   }
 };

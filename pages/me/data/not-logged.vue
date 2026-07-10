@@ -64,12 +64,22 @@
 </template>
 
 <script setup lang="ts">
+import { authService } from '../../../services/authService.js'
+
 function onBack() {
   uni.navigateBack()
 }
 
-function onLogin() {
-  uni.navigateTo({ url: '/pages/launch/index' })
+async function onLogin() {
+  try {
+    await authService.login()
+    uni.showToast({ title: '登录成功', icon: 'success' })
+    setTimeout(() => {
+      uni.redirectTo({ url: '/pages/me/data/index' })
+    }, 1000)
+  } catch (err) {
+    uni.showToast({ title: err.message || '登录失败', icon: 'none' })
+  }
 }
 
 function onExportLocal() {

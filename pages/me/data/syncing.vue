@@ -100,19 +100,17 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
+import { syncService } from '../../../services/syncService.js'
 
-const syncProgress = ref(64)
+const syncProgress = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
 
 onMounted(() => {
-  timer = setInterval(() => {
-    if (syncProgress.value < 100) {
-      syncProgress.value += 2
-    } else {
-      clearInterval(timer!)
-      uni.redirectTo({ url: '/pages/me/data/success' })
-    }
-  }, 200)
+  const settings = syncService.getSettings()
+  syncProgress.value = settings.syncProgress || 0
+  
+  // Real sync loop would poll status here, but P1.5 does not have real sync.
+  // timer = setInterval(() => { ... }, 1000)
 })
 
 onUnmounted(() => {
@@ -134,15 +132,6 @@ function onCancelSync() {
     success(res) {
       if (res.confirm) {
         uni.navigateBack()
-      } else {
-        timer = setInterval(() => {
-          if (syncProgress.value < 100) {
-            syncProgress.value += 2
-          } else {
-            clearInterval(timer!)
-            uni.redirectTo({ url: '/pages/me/data/success' })
-          }
-        }, 200)
       }
     },
   })

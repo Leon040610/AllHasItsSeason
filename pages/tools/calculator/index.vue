@@ -19,51 +19,105 @@
         <text class="page-header__sub">自动计算到期日</text>
       </view>
 
+      <!-- 模式切换 -->
+      <view class="mode-tabs">
+        <view class="mode-tab" :class="{'mode-tab--active': mode === 'normal'}" @tap="onModeSwitch('normal')">普通效期</view>
+        <view class="mode-tab" :class="{'mode-tab--active': mode === 'after_opening'}" @tap="onModeSwitch('after_opening')">开封后效期</view>
+      </view>
+
       <!-- 输入卡片 -->
       <view class="input-card">
-        <!-- 生产日期 -->
-        <view class="input-row">
-          <image class="input-row__icon-img" src="@/static/icons/calculator-shengchanriqi.svg" mode="aspectFit" />
-          <text class="input-row__label">生产日期</text>
-        </view>
-        <picker
-          class="date-picker"
-          mode="date"
-          :value="form.produceDate"
-          :end="todayStr"
-          @change="onProduceDateChange"
-        >
-          <view class="input-field">
-            <text class="input-field__text" :class="{ 'input-field__text--placeholder': !form.produceDate }">
-              {{ form.produceDate || '请选择日期' }}
-            </text>
+        <block v-if="mode === 'normal'">
+          <!-- 生产日期 -->
+          <view class="input-row">
+            <image class="input-row__icon-img" src="@/static/icons/calculator-shengchanriqi.svg" mode="aspectFit" />
+            <text class="input-row__label">生产日期</text>
           </view>
-        </picker>
+          <picker
+            class="date-picker"
+            mode="date"
+            :value="form.produceDate"
+            :end="todayStr"
+            @change="onProduceDateChange"
+          >
+            <view class="input-field">
+              <text class="input-field__text" :class="{ 'input-field__text--placeholder': !form.produceDate }">
+                {{ form.produceDate || '请选择日期' }}
+              </text>
+            </view>
+          </picker>
 
-        <!-- 保质期 -->
-        <view class="input-row" style="margin-top: 32rpx;">
-          <image class="input-row__icon-img" src="@/static/icons/calculator-baozhiqi.svg" mode="aspectFit" />
-          <text class="input-row__label">保质期</text>
-        </view>
-        <view class="shelf-row">
-          <view class="shelf-input-wrap">
-            <input
-              class="shelf-input"
-              v-model="form.shelfLife"
-              type="number"
-              placeholder="3"
-              @input="onShelfLifeChange"
-            />
+          <!-- 保质期 -->
+          <view class="input-row" style="margin-top: 32rpx;">
+            <image class="input-row__icon-img" src="@/static/icons/calculator-baozhiqi.svg" mode="aspectFit" />
+            <text class="input-row__label">保质期</text>
           </view>
-          <view class="unit-select" @tap="onPickUnit">
-            <text class="unit-select__value">{{ form.shelfUnit }}</text>
-            <text class="unit-select__arrow">∨</text>
+          <view class="shelf-row">
+            <view class="shelf-input-wrap">
+              <input
+                class="shelf-input"
+                v-model="form.shelfLife"
+                type="text"
+                placeholder="请输入"
+                placeholder-style="font-family: 'Noto Serif SC', serif; color: rgba(51, 54, 52, 0.64);"
+                @input="onFormChange"
+              />
+            </view>
+            <view class="unit-select" @tap="onPickUnit('normal')">
+              <text class="unit-select__value">{{ form.shelfUnit }}</text>
+              <image class="unit-select__arrow-img" src="@/static/icons/add-xiaxuanze.svg" mode="aspectFit" />
+            </view>
           </view>
-        </view>
+        </block>
+
+        <block v-if="mode === 'after_opening'">
+          <!-- 开封日期 -->
+          <view class="input-row">
+            <image class="input-row__icon-img" src="@/static/icons/calculator-shengchanriqi.svg" mode="aspectFit" />
+            <text class="input-row__label">开封日期</text>
+          </view>
+          <picker
+            class="date-picker"
+            mode="date"
+            :value="form.openDate"
+            :end="todayStr"
+            @change="onOpenDateChange"
+          >
+            <view class="input-field">
+              <text class="input-field__text" :class="{ 'input-field__text--placeholder': !form.openDate }">
+                {{ form.openDate || '请选择日期' }}
+              </text>
+            </view>
+          </picker>
+
+          <!-- 开封后保质期 -->
+          <view class="input-row" style="margin-top: 32rpx;">
+            <image class="input-row__icon-img" src="@/static/icons/calculator-baozhiqi.svg" mode="aspectFit" />
+            <text class="input-row__label">开封后保质期</text>
+          </view>
+          <view class="shelf-row">
+            <view class="shelf-input-wrap">
+              <input
+                class="shelf-input"
+                v-model="form.afterShelfLife"
+                type="text"
+                placeholder="请输入"
+                placeholder-style="font-family: 'Noto Serif SC', serif; color: rgba(51, 54, 52, 0.64);"
+                @input="onFormChange"
+              />
+            </view>
+            <view class="unit-select" @tap="onPickUnit('after_opening')">
+              <text class="unit-select__value">{{ form.afterShelfUnitLabel }}</text>
+              <image class="unit-select__arrow-img" src="@/static/icons/add-xiaxuanze.svg" mode="aspectFit" />
+            </view>
+          </view>
+        </block>
 
         <!-- 计算按钮 -->
-        <view class="calc-btn" @tap="onCalculate">
-          <text class="calc-btn__text">重新计算</text>
+        <view class="calc-btn" :class="{'calc-btn--primary': !hasCalculated}" @tap="onCalculate">
+          <text class="calc-btn__text" :class="{'calc-btn__text--primary': !hasCalculated}">
+            {{ hasCalculated ? '重新计算' : '开始计算' }}
+          </text>
         </view>
       </view>
 
@@ -96,12 +150,19 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
+
+import { calculateExpiryDate, calculateAfterOpeningDate } from '../../../utils/dateUtils.js'
 
 interface CalcForm {
   produceDate: string
   shelfLife: string
   shelfUnit: string
+  
+  openDate: string
+  afterShelfLife: string
+  afterShelfUnit: string
+  afterShelfUnitLabel: string
 }
 
 interface CalcResult {
@@ -111,11 +172,17 @@ interface CalcResult {
 }
 
 const todayStr = new Date().toISOString().slice(0, 10)
+const mode = ref<'normal' | 'after_opening'>('normal')
 
 const form = reactive<CalcForm>({
   produceDate: '',
-  shelfLife: '3',
-  shelfUnit: '年',
+  shelfLife: '',
+  shelfUnit: '天',
+  
+  openDate: '',
+  afterShelfLife: '',
+  afterShelfUnit: 'day',
+  afterShelfUnitLabel: '天'
 })
 
 const result = reactive<CalcResult>({
@@ -124,46 +191,90 @@ const result = reactive<CalcResult>({
   reminderDays: 7,
 })
 
+const hasCalculated = computed(() => !!result.expireDate)
+
 function onBack() {
   uni.navigateBack()
 }
 
-function onProduceDateChange(e: any) {
-  form.produceDate = e.detail.value  // picker 返回 YYYY-MM-DD
-  onCalculate()
+function onModeSwitch(newMode: 'normal' | 'after_opening') {
+  if (mode.value !== newMode) {
+    mode.value = newMode
+    resetResult()
+  }
 }
 
-function onPickUnit() {
+function resetResult() {
+  result.expireDate = ''
+  result.expireDateLabel = ''
+}
+
+function onProduceDateChange(e: any) {
+  form.produceDate = e.detail.value
+}
+
+function onOpenDateChange(e: any) {
+  form.openDate = e.detail.value
+}
+
+function onPickUnit(target: 'normal' | 'after_opening') {
   uni.showActionSheet({
     itemList: ['天', '月', '年'],
     success(res) {
-      form.shelfUnit = ['天', '月', '年'][res.tapIndex]
-      onCalculate()
+      if (target === 'normal') {
+        form.shelfUnit = ['天', '月', '年'][res.tapIndex]
+      } else {
+        form.afterShelfUnitLabel = ['天', '月', '年'][res.tapIndex]
+        form.afterShelfUnit = ['day', 'month', 'year'][res.tapIndex]
+      }
     },
   })
 }
 
-function onShelfLifeChange() {
-  onCalculate()
+function onFormChange() {
+  // Do nothing. The user wants the result card to remain visible 
+  // until they explicitly click "重新计算".
 }
 
 function onCalculate() {
-  if (!form.produceDate || !form.shelfLife) return
-  try {
-    // picker 返回 YYYY-MM-DD，加 T00:00:00 避免时区导致日期偏移
-    const produce = new Date(`${form.produceDate}T00:00:00`)
+  if (mode.value === 'normal') {
+    if (!form.produceDate || !form.shelfLife) return
     const val = parseInt(form.shelfLife)
-    if (isNaN(val)) return
-    const unitMap: Record<string, number> = { 天: 1, 月: 30, 年: 365 }
-    const multiplier = unitMap[form.shelfUnit] || 1
-    produce.setDate(produce.getDate() + val * multiplier)
-    const ey = produce.getFullYear()
-    const em = String(produce.getMonth() + 1).padStart(2, '0')
-    const ed = String(produce.getDate()).padStart(2, '0')
-    result.expireDate = `${ey}-${em}-${ed}`
-    result.expireDateLabel = `${ey}年${em}月${ed}日`
-  } catch {
-    // 忽略
+    if (isNaN(val)) {
+      uni.showToast({ title: '小管家没看清，请输入纯数字哦~', icon: 'none' })
+      return
+    }
+    
+    let unit = 'day'
+    if (form.shelfUnit === '天') unit = 'day'
+    else if (form.shelfUnit === '月') unit = 'month'
+    else if (form.shelfUnit === '年') unit = 'year'
+    
+    const expiry = calculateExpiryDate(form.produceDate, val, unit)
+    if (expiry) {
+      result.expireDate = expiry
+      const [y, m, d] = expiry.split('-')
+      result.expireDateLabel = `${y}年${m}月${d}日`
+    }
+  } else {
+    if (!form.openDate || !form.afterShelfLife) return
+    const val = parseInt(form.afterShelfLife)
+    if (isNaN(val)) {
+      uni.showToast({ title: '小管家没看清，请输入纯数字哦~', icon: 'none' })
+      return
+    }
+    
+    let unit = 'month'
+    if (form.afterShelfUnit === '天' || form.afterShelfUnitLabel === '天') unit = 'day'
+    else if (form.afterShelfUnit === '月' || form.afterShelfUnitLabel === '月') unit = 'month'
+    else if (form.afterShelfUnit === '年' || form.afterShelfUnitLabel === '年') unit = 'year'
+    
+    const expiry = calculateAfterOpeningDate(form.openDate, val, unit)
+    if (expiry) {
+      result.expireDate = expiry
+      const [y, m, d] = expiry.split('-')
+      result.expireDateLabel = `${y}年${m}月${d}日`
+    }
   }
 }
 
@@ -189,6 +300,11 @@ $shadow-card: 0 16rpx 48rpx rgba(51, 54, 52, 0.08);
 $radius-card: 32rpx;
 $radius-full: 9999rpx;
 $top-height: 120rpx;
+
+/* 统一字体格式为思源宋体 */
+view, text, button, input {
+  font-family: 'Noto Serif SC', serif !important;
+}
 
 .page {
   width: 100%;
@@ -284,6 +400,31 @@ $top-height: 120rpx;
   }
 }
 
+.mode-tabs {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  margin: 0 48rpx 32rpx;
+}
+
+.mode-tab {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 16rpx;
+  background-color: $color-bg-light;
+  color: $color-text-secondary;
+  font-size: 26rpx;
+  transition: all 0.2s ease;
+}
+
+.mode-tab--active {
+  background-color: $color-primary;
+  color: #FFF;
+  font-weight: 600;
+}
+
 /* 输入卡片 */
 .input-card {
   margin: 0 48rpx;
@@ -359,7 +500,7 @@ $top-height: 120rpx;
 
 .shelf-input {
   width: 100%;
-  font-family: 'Noto Serif SC', serif;
+  font-family: 'Noto Serif SC', serif !important;
   font-size: 34rpx;
   color: $color-text;
   background: transparent;
@@ -381,10 +522,10 @@ $top-height: 120rpx;
     color: $color-text;
   }
 
-  &__arrow {
-    font-family: 'Noto Serif SC', serif;
-    font-size: 22rpx;
-    color: $color-text-secondary;
+  &__arrow-img {
+    width: 24rpx;
+    height: 24rpx;
+    opacity: 0.6;
   }
 }
 
@@ -397,11 +538,23 @@ $top-height: 120rpx;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
+
+  &--primary {
+    background: $color-primary-dark;
+    border-color: $color-primary-dark;
+  }
 
   &__text {
     font-family: 'Noto Serif SC', serif;
     font-size: 32rpx;
     color: $color-text;
+    transition: all 0.2s ease;
+
+    &--primary {
+      color: #FFF;
+      font-weight: 700;
+    }
   }
 }
 

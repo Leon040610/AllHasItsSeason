@@ -39,24 +39,88 @@
         </view>
         <view class="meta-col">
           <text class="meta-col__label">状态</text>
-          <text class="meta-col__value">{{ item.statusLabel }}</text>
+          <text class="meta-col__value">{{ pureStatusLabel }}</text>
         </view>
         <view class="meta-col">
           <text class="meta-col__label">剩余时间</text>
-          <text class="meta-col__value meta-col__value--warn">还有 {{ item.daysLeft }} 天</text>
+          <text class="meta-col__value" :class="item.displayStatus === 'expired' ? 'meta-col__value--expired' : 'meta-col__value--warn'">
+            {{ item.statusLabel }}
+          </text>
         </view>
       </view>
 
       <!-- 日期信息卡片 -->
       <view class="date-card">
-        <view class="date-card__row">
-          <text class="date-card__label">生产日期</text>
-          <text class="date-card__value">{{ item.produceDateLabel }}</text>
-        </view>
-        <view class="date-card__divider" />
-        <view class="date-card__row">
-          <text class="date-card__label">到期日</text>
-          <text class="date-card__value">{{ item.expireDateLabel }}</text>
+        <!-- 普通效期 -->
+        <block v-if="item.expiryMode === 'normal'">
+          <view class="date-card__row">
+            <text class="date-card__label">生产日期</text>
+            <text class="date-card__value">{{ item.produceDateLabel || '-' }}</text>
+          </view>
+          <view class="date-card__divider" />
+          <view class="date-card__row">
+            <text class="date-card__label">保质期</text>
+            <text class="date-card__value">{{ item.shelfLife ? (item.shelfLife + item.shelfUnit) : '-' }}</text>
+          </view>
+          <view class="date-card__divider" />
+          <view class="date-card__row">
+            <text class="date-card__label">包装到期日</text>
+            <text class="date-card__value">{{ item.expireDateLabel || '-' }}</text>
+          </view>
+        </block>
+
+        <!-- 开封后效期 -->
+        <block v-if="item.expiryMode === 'after_opening'">
+          <view class="date-card__row">
+            <text class="date-card__label">开封日期</text>
+            <text class="date-card__value">{{ item.openDateLabel || '-' }}</text>
+          </view>
+          <view class="date-card__divider" />
+          <view class="date-card__row">
+            <text class="date-card__label">开封后保质期</text>
+            <text class="date-card__value">{{ item.afterOpeningShelfLife ? (item.afterOpeningShelfLife + item.afterOpeningShelfUnit) : '-' }}</text>
+          </view>
+          <view class="date-card__divider" />
+          <view class="date-card__row">
+            <text class="date-card__label">开封后到期日</text>
+            <text class="date-card__value">{{ item.openedExpiryDateLabel || '-' }}</text>
+          </view>
+        </block>
+
+        <!-- 双效期 -->
+        <block v-if="item.expiryMode === 'dual'">
+          <view class="date-card__row">
+            <text class="date-card__label">包装到期日</text>
+            <text class="date-card__value">{{ item.expireDateLabel || '-' }}</text>
+          </view>
+          <view class="date-card__divider" />
+          <block v-if="item.status === 'pending' || !item.openDate">
+            <view class="date-card__row date-card__row--tip">
+              <text class="date-card__tip">转为使用中可补充开封后效期</text>
+            </view>
+          </block>
+          <block v-else>
+            <view class="date-card__row">
+              <text class="date-card__label">开封日期</text>
+              <text class="date-card__value">{{ item.openDateLabel || '-' }}</text>
+            </view>
+            <view class="date-card__divider" />
+            <view class="date-card__row">
+              <text class="date-card__label">开封后到期日</text>
+              <text class="date-card__value">{{ item.openedExpiryDateLabel || '-' }}</text>
+            </view>
+            <view class="date-card__divider" />
+            <view class="date-card__row date-card__row--highlight">
+              <text class="date-card__label">当前提醒</text>
+              <text class="date-card__value">{{ item.activeExpiryDateLabel }} <text style="font-size: 24rpx; color: #8A9A86">({{ item.activeExpirySourceLabel }})</text></text>
+            </view>
+          </block>
+        </block>
+
+        <!-- 缺失信息提示 -->
+        <view v-if="item.displayStatus === 'incomplete'" class="date-card__incomplete-tip">
+          <!-- We can use a simple icon or just text. We use text and warn color -->
+          <text class="incomplete-tip__text">小管家发现信息有点不全哦，可以点击底部编辑补充～</text>
         </view>
       </view>
 
@@ -106,12 +170,23 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 
 const item = ref<any>(null)
 let currentId = ''
+
+const pureStatusLabel = computed(() => {
+  if (!item.value) return ''
+  let label = item.value.statusLabel
+  if (label.includes('使用中')) return '使用中'
+  if (label.includes('已用完')) return '已用完'
+  if (label.includes('已删除')) return '已删除'
+  if (label.includes('已过期')) return '已过期'
+  if (label.includes('还有')) return '待取用'
+  return label
+})
 
 onLoad((options: any) => {
   if (options && options.id) {
@@ -402,9 +477,40 @@ view, text, button {
     height: 2rpx;
     background: $color-line;
   }
+  
+  &__row--tip {
+    justify-content: center;
+  }
+  
+  &__tip {
+    font-size: 24rpx;
+    color: $color-warn;
+  }
+  
+  &__row--highlight {
+    background: rgba(138, 154, 134, 0.06);
+    margin: 0 -32rpx;
+    padding: 0 32rpx;
+    border-bottom-left-radius: 24rpx;
+    border-bottom-right-radius: 24rpx;
+  }
+  
+  &__incomplete-tip {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24rpx 0 16rpx;
+    margin-top: 16rpx;
+    border-top: 2rpx dashed rgba(217, 138, 108, 0.2);
+  }
 }
 
-/* 时间轴 */
+.incomplete-tip__text {
+  font-size: 24rpx;
+  color: $color-warn;
+}
+
+/* 历史动态 */
 .timeline-section {
   padding: 0 48rpx;
 

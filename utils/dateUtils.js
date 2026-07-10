@@ -40,6 +40,52 @@ export function calculateExpiryDate(produceDateStr, shelfLifeValue, shelfLifeUni
   return formatDate(d);
 }
 
+// Calculate after-opening expiry date
+export function calculateAfterOpeningDate(openDateStr, shelfLifeValue, shelfLifeUnit) {
+  return calculateExpiryDate(openDateStr, shelfLifeValue, shelfLifeUnit);
+}
+
+// Determine active expiry date and source based on expiry mode and status
+export function determineActiveExpiry(item) {
+  if (item.status === 'done') {
+    return { date: null, source: null };
+  }
+
+  const unopened = item.expiryDate;
+  const opened = item.openedExpiryDate;
+
+  if (item.expiryMode === 'normal') {
+    return { date: unopened, source: 'normal' };
+  }
+
+  if (item.expiryMode === 'after_opening') {
+    if (item.openDate) {
+      return { date: opened, source: 'opened' };
+    }
+    return { date: null, source: null };
+  }
+
+  if (item.expiryMode === 'dual') {
+    if (item.status === 'pending' || !item.openDate) {
+      return { date: unopened, source: 'unopened' };
+    }
+    if (item.status === 'using' && item.openDate) {
+      if (!unopened) return { date: opened, source: 'opened' };
+      if (!opened) return { date: unopened, source: 'unopened' };
+      
+      const uDate = new Date(unopened);
+      const oDate = new Date(opened);
+      if (oDate.getTime() < uDate.getTime()) {
+        return { date: opened, source: 'opened' };
+      } else {
+        return { date: unopened, source: 'unopened' };
+      }
+    }
+  }
+
+  return { date: unopened, source: 'normal' };
+}
+
 // Calculate difference in days between two dates (date1 - date2)
 export function getDaysDifference(dateStr1, dateStr2) {
   const d1 = new Date(dateStr1);

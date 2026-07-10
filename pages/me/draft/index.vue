@@ -15,7 +15,7 @@
     <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
 
       <!-- 顶部摘要行 -->
-      <view class="summary-row">
+      <view v-if="drafts.length > 0" class="summary-row">
         <view class="summary-row__left">
           <text class="summary-row__count">共 {{ drafts.length }} 个草稿</text>
           <text class="summary-row__hint">管理待完善的物品</text>
@@ -25,17 +25,23 @@
         </view>
       </view>
 
+      <!-- 空状态 -->
+      <view v-if="drafts.length === 0" class="empty-state">
+        <image class="empty-state__icon" src="/static/icons/library-kongzhuangtai.svg" mode="aspectFit" />
+        <text class="empty-state__text">暂无草稿，去添加物品吧</text>
+      </view>
+
       <!-- 草稿列表 -->
-      <view class="draft-list">
+      <view v-else class="draft-list">
         <view v-for="draft in drafts" :key="draft.id" class="draft-card">
           <!-- 上半：物品信息 -->
           <view class="draft-card__main">
             <!-- 图片区 -->
             <view class="draft-card__img-wrap" :style="{ background: draft.imgBg }">
               <image
-                v-if="draft.imageUrl"
+                v-if="draft.displayImageUrl || draft.originalImageUrl"
                 class="draft-card__img"
-                :src="draft.imageUrl"
+                :src="draft.displayImageUrl || draft.originalImageUrl"
                 mode="aspectFill"
               />
               <view v-else class="draft-card__img-empty">
@@ -49,11 +55,11 @@
               <text class="draft-card__time">最后编辑 {{ draft.lastEditTime }}</text>
               <view class="draft-card__tags">
                 <view
-                  v-for="tag in draft.tags"
+                  v-for="tag in draft.missingFields"
                   :key="tag"
                   class="draft-tag"
                 >
-                  <text class="draft-tag__text">{{ tag }}</text>
+                  <text class="draft-tag__text">待补全{{ tag }}</text>
                 </view>
               </view>
             </view>
@@ -81,42 +87,32 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { draftService } from '../../../services/draftService.js'
+import { dateUtils } from '../../../utils/dateUtils.js'
 
-interface DraftItem {
-  id: string
-  name: string
-  imageUrl: string
-  imgBg: string
-  lastEditTime: string
-  tags: string[]
+const drafts = ref<any[]>([])
+
+onShow(() => {
+  loadDrafts()
+})
+
+function loadDrafts() {
+  const list = draftService.getDrafts()
+  drafts.value = list.map(d => {
+    let lastEditTime = ''
+    if (d.updatedAt) {
+      const date = new Date(d.updatedAt)
+      lastEditTime = `${date.getFullYear()}.${String(date.getMonth() + 1).padStart(2, '0')}.${String(date.getDate()).padStart(2, '0')} ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+    }
+    return {
+      ...d,
+      name: d.name || '未命名物品',
+      imgBg: '#F4F3F1',
+      lastEditTime
+    }
+  })
 }
-
-const drafts = ref<DraftItem[]>([
-  {
-    id: '1',
-    name: '海蓝之谜面霜',
-    imageUrl: '/static/icons/draft-cream.svg',
-    imgBg: '#F4EDE5',
-    lastEditTime: '2023.10.24 14:30',
-    tags: ['待确认到期日'],
-  },
-  {
-    id: '2',
-    name: '未命名物品',
-    imageUrl: '',
-    imgBg: '#E8EDE7',
-    lastEditTime: '2023.10.24 11:05',
-    tags: ['缺失图片', '待补充分类'],
-  },
-  {
-    id: '3',
-    name: '植萃洗衣液',
-    imageUrl: '/static/icons/draft-laundry detergent.svg',
-    imgBg: '#F4F3F1',
-    lastEditTime: '2023.10.23 20:15',
-    tags: ['待确认到期日'],
-  },
-])
 
 function onBack() {
   uni.navigateBack()
@@ -135,16 +131,16 @@ function onDelete(draft: DraftItem) {
     cancelText: '取消',
     success(res) {
       if (res.confirm) {
-        const index = drafts.value.findIndex(d => d.id === draft.id)
-        if (index > -1) drafts.value.splice(index, 1)
+        draftService.deleteDraft(draft.id)
+        loadDrafts()
         uni.showToast({ title: '草稿已删除', icon: 'none' })
       }
     },
   })
 }
 
-function onContinueEdit(draft: DraftItem) {
-  uni.navigateTo({ url: `/pages/add/index?mode=draft&id=${draft.id}` })
+function onContinueEdit(draft: any) {
+  uni.navigateTo({ url: `/pages/add/index?draftId=${draft.id}` })
 }
 </script>
 
@@ -402,14 +398,36 @@ $top-height: 120rpx;
 .draft-tag {
   height: 48rpx;
   padding: 0 20rpx;
+  background: rgba(217, 138, 108, 0.1);
   border-radius: $radius-full;
-  background: rgba(217, 138, 108, 0.12);
   display: flex;
   align-items: center;
+  justify-content: center;
 
   &__text {
-    font-size: 24rpx;
+    font-size: 20rpx;
     color: $color-warn;
+    font-weight: 500;
+  }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+  
+  &__icon {
+    width: 160rpx;
+    height: 160rpx;
+    opacity: 0.5;
+    margin-bottom: 24rpx;
+  }
+  
+  &__text {
+    font-size: 28rpx;
+    color: $color-text-secondary;
   }
 }
 

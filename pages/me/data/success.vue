@@ -57,14 +57,21 @@
   </view>
 </template>
 
-<script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { syncService } from '../../../services/syncService.js'
 
-const lastSyncLabel = ref('刚刚')
+const lastSyncLabel = ref('暂无')
 
 const syncResult = reactive({
-  itemCount: 124,
-  savedSpace: 32,
+  itemCount: 0,
+  savedSpace: '0',
+})
+
+onShow(() => {
+  const settings = syncService.getSettings()
+  syncResult.itemCount = settings.syncedItemCount || 0
+  syncResult.savedSpace = settings.savedStorageSize || '0'
 })
 
 function onBack() {

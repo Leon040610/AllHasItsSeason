@@ -16,14 +16,30 @@
       <!-- 分类名称 -->
       <view class="form-section">
         <text class="form-section__title">分类名称</text>
-        <view class="form-input">
+        <view class="form-input" @tap="nameFocused = true">
+          <text 
+            v-if="!nameFocused"
+            class="fake-input-text"
+            :class="{'fake-input-text--placeholder': !form.name}"
+          >{{ form.name || '输入分类名称' }}</text>
           <input 
+            v-else
             v-model="form.name" 
+            :focus="true"
+            @blur="nameFocused = false"
             placeholder="输入分类名称" 
             placeholder-class="form-input__placeholder"
-            placeholder-style="font-family: 'Noto Serif SC', serif; color: #747871;"
             class="form-input__inner"
           />
+        </view>
+      </view>
+
+      <!-- 默认效期方式 -->
+      <view class="form-section">
+        <text class="form-section__title">默认效期方式</text>
+        <view class="mode-select" @tap="onPickExpiryMode">
+          <text class="mode-select__value">{{ expiryModeLabel }}</text>
+          <image class="mode-select__icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
         </view>
       </view>
 
@@ -113,7 +129,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { categoryService } from '../../../services/categoryService.js'
+
+let editId = ''
+const nameFocused = ref(false)
 
 const availableIcons = [
   'fenlei1', 'fenlei2', 'fenlei3', 'fenlei4', 'fenlei5',
@@ -126,7 +147,8 @@ const form = ref({
   name: '',
   bgColor: '#F4F3F1',
   iconColor: '#8E4D33',
-  iconIndex: 0
+  iconIndex: 0,
+  defaultExpiryMode: 'normal'
 })
 
 const bgColors = [
@@ -139,6 +161,51 @@ const iconColors = [
   '#4A3F35', '#2C3E38', '#5C4A4D', '#3E4651'
 ]
 
+const expiryModeLabel = computed(() => {
+  if (form.value.defaultExpiryMode === 'after_opening') return '开封后效期'
+  if (form.value.defaultExpiryMode === 'dual') return '双效期'
+  return '普通效期'
+})
+
+function onPickExpiryMode() {
+  uni.showActionSheet({
+    itemList: ['普通效期', '开封后效期', '双效期'],
+    success(res) {
+      const modes = ['normal', 'after_opening', 'dual']
+      form.value.defaultExpiryMode = modes[res.tapIndex]
+    }
+  })
+}
+
+onLoad((options: any) => {
+  if (options && options.id) {
+    editId = options.id
+    const cat = categoryService.getCategories().find(c => c.id === editId)
+    if (cat) {
+      form.value.name = cat.name
+      form.value.bgColor = cat.backgroundColor || cat.cardBg || '#F4F3F1'
+      form.value.iconColor = cat.iconColor || cat.iconBg || '#8E4D33'
+      form.value.defaultExpiryMode = cat.defaultExpiryMode || 'normal'
+      if (cat.iconKey) {
+        let key = cat.iconKey
+        const systemIconMap: Record<string, string> = {
+          'shipin': 'fenlei1',
+          'yaopin': 'fenlei2',
+          'meizhuang': 'fenlei3',
+          'rihua': 'fenlei4',
+          'muying': 'fenlei9',
+          'qita': 'fenlei20'
+        }
+        if (systemIconMap[key]) {
+          key = systemIconMap[key]
+        }
+        const idx = availableIcons.indexOf(key)
+        if (idx !== -1) form.value.iconIndex = idx
+      }
+    }
+  }
+})
+
 function goBack() {
   uni.navigateBack()
 }
@@ -148,6 +215,21 @@ function onSave() {
     uni.showToast({ title: '请输入分类名称', icon: 'none' })
     return
   }
+  
+  const payload = {
+    name: form.value.name.trim(),
+    backgroundColor: form.value.bgColor,
+    iconColor: form.value.iconColor,
+    iconKey: availableIcons[form.value.iconIndex],
+    defaultExpiryMode: form.value.defaultExpiryMode
+  }
+  
+  if (editId) {
+    categoryService.updateCategory(editId, payload)
+  } else {
+    categoryService.addCategory(payload)
+  }
+  
   uni.showToast({ title: '已保存', icon: 'success' })
   setTimeout(() => {
     uni.navigateBack()
@@ -248,11 +330,34 @@ $color-text: #1A1C1B;
   }
 }
 
+.mode-select {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24rpx 32rpx;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  border: 2rpx solid rgba(231, 225, 216, 0.8);
+  
+  &__value {
+    font-size: 32rpx;
+    color: $color-text;
+  }
+  
+  &__icon {
+    width: 32rpx;
+    height: 32rpx;
+  }
+}
+
 .form-input {
   background: #FAF9F7;
   border: 2rpx solid #C4C8BF;
   border-radius: 24rpx;
-  padding: 30rpx 32rpx;
+  padding: 0 32rpx;
+  height: 96rpx;
+  display: flex;
+  align-items: center;
   box-shadow: 0 2rpx 4rpx rgba(0, 0, 0, 0.05);
 
   &__inner {
@@ -260,10 +365,22 @@ $color-text: #1A1C1B;
     font-size: 32rpx;
     color: $color-text;
     width: 100%;
+    height: 100%;
   }
 
   &__placeholder {
     font-family: 'Noto Serif SC', serif !important;
+    color: #747871;
+  }
+}
+
+.fake-input-text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 32rpx;
+  color: $color-text;
+  width: 100%;
+
+  &--placeholder {
     color: #747871;
   }
 }

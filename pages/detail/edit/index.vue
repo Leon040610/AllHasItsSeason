@@ -65,7 +65,7 @@
         <view class="meta-col" @tap="onPickStatus">
           <text class="meta-col__label">状态</text>
           <view class="meta-col__value-row">
-            <text class="meta-col__value">{{ item.statusLabel }}</text>
+            <text class="meta-col__value">{{ pureStatusLabel }}</text>
             <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
           </view>
         </view>
@@ -78,45 +78,107 @@
         </view>
       </view>
 
+      <!-- 效期方式选择 -->
+      <view class="expiry-mode-card">
+        <view class="mode-btn" :class="{'mode-btn--active': item.expiryMode === 'normal'}" @tap="item.expiryMode = 'normal'">普通效期</view>
+        <view class="mode-btn" :class="{'mode-btn--active': item.expiryMode === 'after_opening'}" @tap="item.expiryMode = 'after_opening'">开封后效期</view>
+        <view class="mode-btn" :class="{'mode-btn--active': item.expiryMode === 'dual'}" @tap="item.expiryMode = 'dual'">双效期</view>
+      </view>
+
       <!-- 日期信息卡片 -->
       <view class="date-card">
-        <picker mode="date" @change="onProduceDateChange">
+        <block v-if="item.expiryMode === 'normal' || item.expiryMode === 'dual'">
+          <picker mode="date" @change="onProduceDateChange">
+            <view class="date-card__row">
+              <text class="date-card__label">生产日期</text>
+              <view class="date-card__value-row">
+                <text class="date-card__value">{{ item.produceDateLabel || '请选择' }}</text>
+                <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+              </view>
+            </view>
+          </picker>
+          <view class="date-card__divider" />
           <view class="date-card__row">
-            <text class="date-card__label">生产日期</text>
+            <text class="date-card__label">保质期</text>
             <view class="date-card__value-row">
-              <text class="date-card__value">{{ item.produceDateLabel }}</text>
-              <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+              <view class="shelf-input-wrap" @tap="shelfFocused = true">
+                <text
+                  v-if="!shelfFocused"
+                  class="shelf-input-text"
+                >{{ item.shelfLife || '0' }}</text>
+                <input
+                  v-else
+                  class="shelf-input"
+                  type="number"
+                  v-model="item.shelfLife"
+                  :focus="true"
+                  @blur="shelfFocused = false"
+                />
+              </view>
+              <view class="unit-select" @tap="onPickUnit('normal')">
+                <text class="date-card__value">{{ item.shelfUnit }}</text>
+                <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+              </view>
             </view>
           </view>
-        </picker>
+          <view class="date-card__divider" />
+          <view class="date-card__row">
+            <text class="date-card__label">包装到期日</text>
+            <text class="date-card__value" style="color: #A69B8D">{{ computedExpireDateLabel }}</text>
+          </view>
+        </block>
+
+        <block v-if="item.expiryMode === 'dual'">
+          <view class="date-card__divider" style="margin: 16rpx 0; height: 1rpx; background: transparent;" />
+        </block>
+
+        <block v-if="item.expiryMode === 'after_opening' || item.expiryMode === 'dual'">
+          <picker mode="date" @change="onOpenDateChange">
+            <view class="date-card__row">
+              <text class="date-card__label">开封日期</text>
+              <view class="date-card__value-row">
+                <text class="date-card__value">{{ item.openDateLabel || '请选择' }}</text>
+                <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+              </view>
+            </view>
+          </picker>
+          <view class="date-card__divider" />
+          <view class="date-card__row">
+            <text class="date-card__label">开封后保质期</text>
+            <view class="date-card__value-row">
+              <view class="shelf-input-wrap" @tap="afterShelfFocused = true">
+                <text
+                  v-if="!afterShelfFocused"
+                  class="shelf-input-text"
+                >{{ item.afterOpeningShelfLife || '0' }}</text>
+                <input
+                  v-else
+                  class="shelf-input"
+                  type="number"
+                  v-model="item.afterOpeningShelfLife"
+                  :focus="true"
+                  @blur="afterShelfFocused = false"
+                />
+              </view>
+              <view class="unit-select" @tap="onPickUnit('after_opening')">
+                <text class="date-card__value">{{ item.afterOpeningShelfUnitLabel || item.afterOpeningShelfUnit }}</text>
+                <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+              </view>
+            </view>
+          </view>
+          <view class="date-card__divider" />
+          <view class="date-card__row">
+            <text class="date-card__label">开封后到期日</text>
+            <text class="date-card__value" style="color: #A69B8D">{{ computedOpenedExpireDateLabel }}</text>
+          </view>
+        </block>
         <view class="date-card__divider" />
-        <view class="date-card__row">
-          <text class="date-card__label">保质期</text>
+        <view class="date-card__row" @tap="onPickReminder">
+          <text class="date-card__label">到期提醒</text>
           <view class="date-card__value-row">
-            <view class="shelf-input-wrap" @tap="shelfFocused = true">
-              <text
-                v-if="!shelfFocused"
-                class="shelf-input-text"
-              >{{ item.shelfLife }}</text>
-              <input
-                v-else
-                class="shelf-input"
-                type="number"
-                v-model="item.shelfLife"
-                :focus="true"
-                @blur="shelfFocused = false"
-              />
-            </view>
-            <view class="unit-select" @tap="onPickUnit">
-              <text class="date-card__value">{{ item.shelfUnit }}</text>
-              <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
-            </view>
+            <text class="date-card__value">{{ item.remindDays === 0 ? '不提醒' : `提前 ${item.remindDays} 天` }}</text>
+            <image class="arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
           </view>
-        </view>
-        <view class="date-card__divider" />
-        <view class="date-card__row">
-          <text class="date-card__label">到期日</text>
-          <text class="date-card__value" style="color: #A69B8D">{{ computedExpireDateLabel }}</text>
         </view>
       </view>
 
@@ -138,12 +200,28 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../../services/itemService.js'
-import { calculateExpiryDate, getDaysDifference, getTodayStr, formatDate } from '../../../utils/dateUtils.js'
+import { settingsService } from '../../../services/settingsService.js'
+import { calculateExpiryDate, calculateAfterOpeningDate, getDaysDifference, getTodayStr, formatDate, determineActiveExpiry } from '../../../utils/dateUtils.js'
 
 const item = ref<any>(null)
 let currentId = ''
+
+const pureStatusLabel = computed(() => {
+  if (!item.value) return ''
+  let label = item.value.statusLabel
+  if (label.includes('使用中')) return '使用中'
+  if (label.includes('已用完')) return '已用完'
+  if (label.includes('已删除')) return '已删除'
+  if (label.includes('已过期')) return '已过期'
+  if (label.includes('待取用')) return '待取用'
+  if (label.includes('待补全')) return '待补全'
+  if (label.includes('还有')) return '待取用'
+  return label
+})
+
 const nameFocused = ref(false)
 const shelfFocused = ref(false)
+const afterShelfFocused = ref(false)
 const originalImagePath = ref('')
 const processStatus = ref<'idle' | 'success' | 'fallback' | 'error'>('idle')
 const isSaving = ref(false)
@@ -197,26 +275,74 @@ const computedExpireDateLabel = computed(() => {
   return `${y}年${m}月${d}日`
 })
 
+const computedOpenedExpireDateLabel = computed(() => {
+  if (!item.value || !item.value.openDate || !item.value.afterOpeningShelfLife) return ''
+  const val = parseInt(item.value.afterOpeningShelfLife)
+  if (isNaN(val) || val <= 0 || val > 9999) return ''
+  
+  let unit = 'month'
+  if (item.value.afterOpeningShelfUnit === '天' || item.value.afterOpeningShelfUnitLabel === '天') unit = 'day'
+  else if (item.value.afterOpeningShelfUnit === '月' || item.value.afterOpeningShelfUnitLabel === '月') unit = 'month'
+  else if (item.value.afterOpeningShelfUnit === '年' || item.value.afterOpeningShelfUnitLabel === '年') unit = 'year'
+  
+  const expiry = calculateAfterOpeningDate(item.value.openDate, val, unit)
+  if (!expiry) return ''
+  
+  const [y, m, d] = expiry.split('-')
+  return `${y}年${m}月${d}日`
+})
+
 const computedDaysLeftText = computed(() => {
-  if (!item.value || !item.value.produceDate || !item.value.shelfLife) return '--'
-  const val = parseInt(item.value.shelfLife)
-  if (isNaN(val) || val <= 0 || val > 9999) return '--'
+  if (!item.value) return '--'
   
-  let unit = 'day'
-  if (item.value.shelfUnit === '天') unit = 'day'
-  else if (item.value.shelfUnit === '月') unit = 'month'
-  else if (item.value.shelfUnit === '年') unit = 'year'
+  const tempItem = {
+    expiryMode: item.value.expiryMode,
+    status: item.value.status,
+    openDate: item.value.openDate,
+    expiryDate: '',
+    openedExpiryDate: ''
+  }
+
+  // Calculate temp normal expiry
+  if (item.value.produceDate && item.value.shelfLife) {
+    const v1 = parseInt(item.value.shelfLife)
+    let u1 = 'day'
+    if (item.value.shelfUnit === '天') u1 = 'day'
+    else if (item.value.shelfUnit === '月') u1 = 'month'
+    else if (item.value.shelfUnit === '年') u1 = 'year'
+    if (!isNaN(v1) && v1 > 0) {
+      tempItem.expiryDate = calculateExpiryDate(item.value.produceDate, v1, u1)
+    }
+  }
+
+  // Calculate temp opened expiry
+  if (item.value.openDate && item.value.afterOpeningShelfLife) {
+    const v2 = parseInt(item.value.afterOpeningShelfLife)
+    let u2 = 'month'
+    if (item.value.afterOpeningShelfUnit === '天' || item.value.afterOpeningShelfUnitLabel === '天') u2 = 'day'
+    else if (item.value.afterOpeningShelfUnit === '月' || item.value.afterOpeningShelfUnitLabel === '月') u2 = 'month'
+    else if (item.value.afterOpeningShelfUnit === '年' || item.value.afterOpeningShelfUnitLabel === '年') u2 = 'year'
+    if (!isNaN(v2) && v2 > 0) {
+      tempItem.openedExpiryDate = calculateAfterOpeningDate(item.value.openDate, v2, u2)
+    }
+  }
+
+  const activeInfo = determineActiveExpiry(tempItem)
+  if (!activeInfo.date) {
+    return '待补全'
+  }
   
-  const expiry = calculateExpiryDate(item.value.produceDate, val, unit)
-  if (!expiry) return '--'
-  
-  const diffDays = getDaysDifference(expiry, getTodayStr())
+  const diffDays = getDaysDifference(activeInfo.date, getTodayStr())
   
   if (diffDays < 0) {
+    if (activeInfo.source === 'opened') return `开封后已过期 ${Math.abs(diffDays)} 天`
     return `已过期 ${Math.abs(diffDays)} 天`
   } else if (diffDays === 0) {
     return '今天到期'
   } else {
+    if (item.value.status === 'using' && activeInfo.source === 'opened') {
+      return `开封后还有 ${diffDays} 天`
+    }
     return `还有 ${diffDays} 天`
   }
 })
@@ -230,9 +356,13 @@ function onBack() {
       original.name !== item.value.name ||
       original.category !== item.value.category ||
       original.status !== item.value.status ||
+      original.expiryMode !== item.value.expiryMode ||
       original.produceDate !== item.value.produceDate ||
       original.shelfLife !== item.value.shelfLife ||
       original.shelfUnit !== item.value.shelfUnit ||
+      original.openDate !== item.value.openDate ||
+      original.afterOpeningShelfLife !== item.value.afterOpeningShelfLife ||
+      (original.afterOpeningShelfUnit !== item.value.afterOpeningShelfUnit && original.afterOpeningShelfUnitLabel !== item.value.afterOpeningShelfUnit) ||
       original.rotation !== item.value.rotation ||
       original.imageUrl !== originalImagePath.value
   }
@@ -306,8 +436,15 @@ function onPickStatus() {
     success(res) {
       const map = ['待取用', '使用中', '已用完']
       const keyMap = ['pending', 'using', 'done']
+      
+      const newStatus = keyMap[res.tapIndex]
+      // Check if transitioning to using and missing openDate for dual/after_opening
+      if (newStatus === 'using' && (item.value.expiryMode === 'after_opening' || item.value.expiryMode === 'dual') && !item.value.openDate) {
+        uni.showToast({ title: '转为使用中，请补充开封日期', icon: 'none' })
+      }
+      
       item.value.statusLabel = map[res.tapIndex]
-      item.value.status = keyMap[res.tapIndex]
+      item.value.status = newStatus
     },
   })
 }
@@ -319,11 +456,37 @@ function onProduceDateChange(e: any) {
   item.value.produceDateLabel = `${y}年${m}月${d}日`
 }
 
-function onPickUnit() {
+function onOpenDateChange(e: any) {
+  const dateStr = e.detail.value
+  item.value.openDate = dateStr
+  const [y, m, d] = dateStr.split('-')
+  item.value.openDateLabel = `${y}年${m}月${d}日`
+}
+
+function onPickUnit(target: 'normal' | 'after_opening') {
   uni.showActionSheet({
     itemList: ['天', '月', '年'],
     success(res) {
-      item.value.shelfUnit = ['天', '月', '年'][res.tapIndex]
+      if (target === 'normal') {
+        item.value.shelfUnit = ['天', '月', '年'][res.tapIndex]
+      } else {
+        item.value.afterOpeningShelfUnitLabel = ['天', '月', '年'][res.tapIndex]
+        item.value.afterOpeningShelfUnit = ['day', 'month', 'year'][res.tapIndex]
+      }
+    },
+  })
+}
+
+function onPickReminder() {
+  const settings = settingsService.getSettings()
+  const customDays = settings.remindDayOptions || [0, 1, 3, 7, 30]
+  
+  const itemList = customDays.map(d => d === 0 ? '不提醒' : `提前 ${d} 天`)
+  
+  uni.showActionSheet({
+    itemList,
+    success(res) {
+      item.value.remindDays = customDays[res.tapIndex]
     },
   })
 }
@@ -342,25 +505,34 @@ function onSave() {
   // Validation
   if (!item.value.name) return uni.showToast({ title: '请输入物品名称', icon: 'none' })
   if (!item.value.category) return uni.showToast({ title: '请选择分类', icon: 'none' })
-  if (!item.value.produceDate) return uni.showToast({ title: '请选择生产日期', icon: 'none' })
   
-  const today = getTodayStr()
-  if (item.value.produceDate > today) {
-    return uni.showToast({ title: '生产日期不能晚于今天', icon: 'none' })
-  }
-  
-  const shelfVal = parseInt(item.value.shelfLife)
-  if (isNaN(shelfVal) || shelfVal <= 0 || shelfVal > 9999) return uni.showToast({ title: '保质期需为1-9999的正整数', icon: 'none' })
-
   let unit = 'day'
   if (item.value.shelfUnit === '天') unit = 'day'
   else if (item.value.shelfUnit === '月') unit = 'month'
   else if (item.value.shelfUnit === '年') unit = 'year'
   
-  const expiry = calculateExpiryDate(item.value.produceDate, shelfVal, unit)
-  if (!expiry) return uni.showToast({ title: '无法计算到期日', icon: 'none' })
-  if (expiry < item.value.produceDate) {
-    return uni.showToast({ title: '到期日早于生产日期', icon: 'none' })
+  let afterUnit = 'month'
+  if (item.value.afterOpeningShelfUnit === '天' || item.value.afterOpeningShelfUnitLabel === '天') afterUnit = 'day'
+  else if (item.value.afterOpeningShelfUnit === '月' || item.value.afterOpeningShelfUnitLabel === '月') afterUnit = 'month'
+  else if (item.value.afterOpeningShelfUnit === '年' || item.value.afterOpeningShelfUnitLabel === '年') afterUnit = 'year'
+
+  const shelfVal = parseInt(item.value.shelfLife) || 0
+  const afterShelfVal = parseInt(item.value.afterOpeningShelfLife) || 0
+  let expiry = ''
+  let openedExpiry = ''
+
+  if (item.value.expiryMode === 'normal' || item.value.expiryMode === 'dual') {
+    if (!item.value.produceDate) return uni.showToast({ title: '请选择生产日期', icon: 'none' })
+    if (shelfVal <= 0 || shelfVal > 9999) return uni.showToast({ title: '保质期无效', icon: 'none' })
+    expiry = calculateExpiryDate(item.value.produceDate, shelfVal, unit)
+    if (!expiry) return uni.showToast({ title: '无法计算到期日', icon: 'none' })
+  }
+
+  if (item.value.expiryMode === 'after_opening' || (item.value.expiryMode === 'dual' && item.value.status === 'using')) {
+    if (!item.value.openDate) return uni.showToast({ title: '请选择开封日期', icon: 'none' })
+    if (afterShelfVal <= 0 || afterShelfVal > 9999) return uni.showToast({ title: '开封后保质期无效', icon: 'none' })
+    openedExpiry = calculateAfterOpeningDate(item.value.openDate, afterShelfVal, afterUnit)
+    if (!openedExpiry) return uni.showToast({ title: '无法计算开封后到期日', icon: 'none' })
   }
 
   isSaving.value = true
@@ -373,13 +545,28 @@ function onSave() {
     displayImageUrl: item.value.displayImageUrl,
     imageProcessStatus: processStatus.value,
     stickerRotation: item.value.rotation,
+    
+    expiryMode: item.value.expiryMode,
     productionDate: item.value.produceDate,
     shelfLifeValue: shelfVal,
     shelfLifeUnit: unit,
     expiryDate: expiry,
+    
+    openDate: item.value.openDate,
+    afterOpeningShelfLifeValue: afterShelfVal,
+    afterOpeningShelfLifeUnit: afterUnit,
+    openedExpiryDate: openedExpiry,
+    
     status: item.value.status,
     remindDays: item.value.remindDays
   }
+
+  // Active expiry calculation runs naturally through DataConverter when accessed, but we can set it here too if needed, though itemService._save just merges updateData. wait, itemService updates the item. DataConverter calculates it.
+  // Actually we need to make sure the underlying ItemModel receives `activeExpiryDate` properly so that DB has it for filtering!
+  const preItem = { ...itemService.getItemById(item.value.id), ...updateData }
+  const activeInfo = determineActiveExpiry(preItem)
+  updateData.activeExpiryDate = activeInfo.date
+  updateData.activeExpirySource = activeInfo.source
 
   const success = itemService.updateItem(item.value.id, updateData)
   
@@ -622,6 +809,31 @@ view, text, button, input {
   gap: 8rpx;
   padding-left: 16rpx;
   border-left: 2rpx solid $color-line;
+}
+
+.expiry-mode-card {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  margin: 0 48rpx 32rpx;
+}
+
+.mode-btn {
+  flex: 1;
+  text-align: center;
+  padding: 16rpx 0;
+  border-radius: 16rpx;
+  background-color: $color-bg-light;
+  color: $color-text-secondary;
+  font-size: 26rpx;
+  transition: all 0.2s ease;
+}
+
+.mode-btn--active {
+  background-color: $color-primary;
+  color: #FFF;
+  font-weight: 600;
 }
 
 /* 日期卡 */

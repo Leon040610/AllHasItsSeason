@@ -13,7 +13,7 @@
 
       <!-- 问候区 -->
       <view class="greeting-section">
-        <text class="greeting-section__title">早上好，今天也从容一点</text>
+        <text class="greeting-section__title">{{ greetingText }}</text>
         <view class="greeting-section__badge">
           <text class="badge-warn">{{ nearExpireCount }} 件</text>
           <text class="badge-text"> 好物快到期 · </text>
@@ -40,7 +40,7 @@
       </view>
 
       <!-- 今日关注 -->
-      <view class="section">
+      <view class="section" v-if="focusItems.length > 0">
         <view class="section__header">
           <text class="section__title">今日关注</text>
           <view class="section__more" @tap="onViewAll">
@@ -49,38 +49,40 @@
           </view>
         </view>
         <!-- 2 列并排，对齐设计稿 -->
-        <view class="focus-grid">
-          <view
-            v-for="item in focusItems"
-            :key="item.id"
-            class="focus-card"
-            :style="{ background: item.cardBg }"
-            @tap="onItemTap(item)"
-          >
-            <view class="focus-card__img-wrap">
-              <image
-                class="focus-card__img"
-                :src="item.displayImageUrl || item.imageUrl"
-                mode="aspectFit"
-                :style="{ transform: `rotate(${item.rotation}deg)` }"
-              />
-              <!-- 临期 / 使用中角标 -->
-              <view
-                class="focus-card__badge"
-                :class="item.status === 'using' ? 'focus-card__badge--using' : 'focus-card__badge--warn'"
-              >
-                <view v-if="item.status === 'using'" class="focus-card__badge-dot" />
-                <text class="focus-card__badge-text">
-                  {{ item.status === 'using' ? '使用中 · 还有 ' : '还有 ' }}{{ item.daysLeft }} 天
-                </text>
+        <scroll-view class="focus-grid" scroll-x enhanced :show-scrollbar="false">
+          <view class="focus-grid-inner">
+            <view
+              v-for="item in focusItems"
+              :key="item.id"
+              class="focus-card"
+              :style="{ background: item.cardBg || '#F4EFEA' }"
+              @tap="onItemTap(item)"
+            >
+              <view class="focus-card__img-wrap">
+                <image
+                  class="focus-card__img"
+                  :src="item.displayImageUrl || item.imageUrl"
+                  mode="aspectFit"
+                  :style="{ transform: `rotate(${item.rotation}deg)` }"
+                />
+                <!-- 临期 / 使用中角标 -->
+                <view
+                  class="focus-card__badge"
+                  :class="item.status === 'using' ? 'focus-card__badge--using' : 'focus-card__badge--warn'"
+                >
+                  <view v-if="item.status === 'using'" class="focus-card__badge-dot" />
+                  <text class="focus-card__badge-text">
+                    {{ item.statusLabel }}
+                  </text>
+                </view>
+              </view>
+              <view class="focus-card__info">
+                <text class="focus-card__name">{{ item.name }}</text>
+                <text class="focus-card__category">{{ item.categoryLabel }}</text>
               </view>
             </view>
-            <view class="focus-card__info">
-              <text class="focus-card__name">{{ item.name }}</text>
-              <text class="focus-card__category">{{ item.categoryLabel }}</text>
-            </view>
           </view>
-        </view>
+        </scroll-view>
       </view>
 
       <!-- 分类概览 -->
@@ -95,8 +97,10 @@
             @tap="onCategoryTap(cat)"
           >
             <view class="category-card__left">
-              <view class="category-card__icon-circle" :style="{ background: cat.iconBg }">
-                <image class="category-card__icon-img" :src="cat.icon" mode="aspectFit" />
+              <view class="category-card__icon-circle">
+                <view class="category-card__icon-box">
+                  <image class="category-card__icon-img" :src="cat.icon" :style="{ filter: 'drop-shadow(100px 0 0 ' + cat.iconBg + ')' }" mode="aspectFit" />
+                </view>
               </view>
               <text class="category-card__name">{{ cat.name }}</text>
             </view>
@@ -156,38 +160,41 @@ const categories = ref<any[]>([])
 const nearExpireCount = ref(0)
 const expiredCount = ref(0)
 
+const greetingText = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return '早上好，今天也从容一点'
+  if (hour < 18) return '下午好，今天也从容一点'
+  return '晚上好，今天也从容一点'
+})
+
 onShow(() => {
   // 从服务层获取最新数据
   const allViewItems = itemService.getViewItems()
   
-  // 统计过期和临期
-  nearExpireCount.value = allViewItems.filter(i => i.status !== 'done' && i.daysLeft <= i.remindDays && i.daysLeft >= 0).length
-  expiredCount.value = allViewItems.filter(i => i.status !== 'done' && i.daysLeft < 0).length
+  // 直接读取用户在"我的-提醒设置"里保存的默认临期天数，如果没有则默认为 7 天
+  const storedDays = uni.getStorageSync('defaultReminderDays')
+  const globalRemindDays = (storedDays === '' || storedDays === null || storedDays === undefined) ? 7 : Number(storedDays)
+  
+  // 统计过期和临期 (依赖全局设定的默认临期天数)
+  nearExpireCount.value = allViewItems.filter(i => i.status !== 'done' && i.status !== 'deleted' && i.displayStatus !== 'incomplete' && i.daysLeft !== null && i.daysLeft <= globalRemindDays && i.daysLeft >= 0).length
+  expiredCount.value = allViewItems.filter(i => i.status !== 'done' && i.status !== 'deleted' && i.displayStatus !== 'incomplete' && i.daysLeft !== null && i.daysLeft < 0).length
 
-  // 今日关注：优先取使用中和临期/过期的物品，如果不够则补充最近添加的 (最多展示 4 个)
-  const activeItems = allViewItems.filter(i => i.status !== 'done' && i.status !== 'deleted')
+  // 今日关注：只保留临期物品 (daysLeft <= globalRemindDays 且 daysLeft >= 0)
+  const activeItems = allViewItems.filter(i => i.status !== 'done' && i.status !== 'deleted' && i.displayStatus !== 'incomplete' && i.daysLeft !== null && i.daysLeft <= globalRemindDays && i.daysLeft >= 0)
   
-  // 按照紧急程度和剩余天数排序
-  activeItems.sort((a, b) => {
-    const aUrgent = (a.status === 'using' || a.daysLeft <= a.remindDays) ? 1 : 0
-    const bUrgent = (b.status === 'using' || b.daysLeft <= b.remindDays) ? 1 : 0
-    
-    if (aUrgent !== bUrgent) {
-      return bUrgent - aUrgent // 紧急的排前面
+  // 按剩余天数从小到大排
+  activeItems.sort((a, b) => a.daysLeft - b.daysLeft)
+  
+  focusItems.value = activeItems.slice(0, 4).map(item => {
+    let bg = '#F4EFEA' // default for food / baby / others
+    if (item.category === 'beauty') bg = '#E3E2E0'
+    if (item.category === 'medicine') bg = '#E9EDEA'
+    if (item.category === 'daily') bg = '#EEF1EE'
+    return {
+      ...item,
+      cardBg: bg
     }
-    
-    // 如果都是紧急的，按剩余天数从小到大排
-    if (aUrgent === 1) {
-      return a.daysLeft - b.daysLeft
-    }
-    
-    // 如果都不紧急，按最近添加或修改的时间倒序（新添加的在前面）
-    const aTime = a.lastEditedAt || a.createdAt || 0
-    const bTime = b.lastEditedAt || b.createdAt || 0
-    return bTime - aTime
   })
-  
-  focusItems.value = activeItems.slice(0, 4)
 
   // 统计分类数量
   const allCats = categoryService.getCategories()
@@ -213,6 +220,7 @@ function onManualAdd() {
 }
 
 function onViewAll() {
+  uni.setStorageSync('library_filter', { category: 'all', status: 'near_expire' })
   uni.switchTab({ url: '/pages/library/index' })
 }
 
@@ -221,7 +229,7 @@ function onItemTap(item: any) {
 }
 
 function onCategoryTap(cat: any) {
-  // 可选：带参数跳转或记录全局过滤状态
+  uni.setStorageSync('library_filter', { category: cat.key, status: 'all' })
   uni.switchTab({ url: '/pages/library/index' })
 }
 
@@ -473,21 +481,27 @@ $top-height:          120rpx;
   }
 }
 
-// ── 今日关注：2 列并排（对齐设计稿 flex row gap-24px=48rpx）──────────────
 .focus-grid {
+  width: 100%;
+  white-space: nowrap;
+}
+
+.focus-grid-inner {
   display: flex;
   flex-direction: row;
   gap: 24rpx;
+  padding: 32rpx 24rpx; // 增加上下内边距防止投影被裁切
 }
 
 // 设计稿：flex-[1_0_0] / rounded-12px → agents.md 32rpx / border-2 border-white
 // 每张卡背景色通过 :style 绑定（见数据层 cardBg）
 .focus-card {
-  flex: 1 0 0;
-  min-width: 0;
+  width: 320rpx;
+  flex-shrink: 0;
+  white-space: normal;
   border-radius: $radius-card;
-  box-shadow: $shadow-card-sm;
-  border: 4rpx solid #fff;
+  border: 6rpx solid #fff; // 留一点点白边
+  box-shadow: 0 16rpx 32rpx rgba(138, 154, 134, 0.15); // 整个卡片的柔和投影
   box-sizing: border-box;
   overflow: hidden;
 
@@ -503,6 +517,7 @@ $top-height:          120rpx;
   &__img {
     width: 160rpx;
     height: 160rpx;
+    filter: drop-shadow(0 16rpx 24rpx rgba(51, 54, 52, 0.15)); // 仅给 PNG 图片增加真实轮廓投影
   }
 
   // 角标：absolute 右上角，rounded-full
@@ -592,10 +607,11 @@ $top-height:          120rpx;
     gap: 16rpx;
   }
 
-  // 设计稿：40×40px=80rpx 圆圈，bg 颜色通过 :style 绑定
+  // 设计稿：40×40px=80rpx 圆圈，统一白底
   &__icon-circle {
     width: 80rpx;
     height: 80rpx;
+    background: #FFFFFF;
     border-radius: $radius-full;
     display: flex;
     align-items: center;
@@ -603,10 +619,18 @@ $top-height:          120rpx;
     flex-shrink: 0;
   }
 
-  // 设计稿：图标约 15-20px ≈ 32-40rpx
+  &__icon-box {
+    width: 40rpx;
+    height: 40rpx;
+    overflow: hidden;
+  }
+
+  // 设计稿：图标约 15-20px ≈ 32-40rpx，利用 drop-shadow 动态变色
   &__icon-img {
     width: 40rpx;
     height: 40rpx;
+    transform: translateX(-100px);
+    display: block;
   }
 
   // 设计稿：Noto Serif SC Medium 14px=28rpx，#1a1c1b

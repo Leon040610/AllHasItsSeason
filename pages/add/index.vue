@@ -80,8 +80,19 @@
           <view class="form-divider" />
         </view>
 
-        <!-- 生产日期 & 保质期 -->
+        <!-- 效期方式选择 -->
         <view class="form-group">
+          <text class="form-label">效期方式</text>
+          <view class="form-expiry-mode">
+            <view class="mode-btn" :class="{'mode-btn--active': form.expiryMode === 'normal'}" @tap="onChangeMode('normal')">普通效期</view>
+            <view class="mode-btn" :class="{'mode-btn--active': form.expiryMode === 'after_opening'}" @tap="onChangeMode('after_opening')">开封后效期</view>
+            <view class="mode-btn" :class="{'mode-btn--active': form.expiryMode === 'dual'}" @tap="onChangeMode('dual')">双效期</view>
+          </view>
+          <view class="form-divider" />
+        </view>
+
+        <!-- 生产日期 & 保质期 -->
+        <view class="form-group" v-if="form.expiryMode === 'normal' || form.expiryMode === 'dual'">
           <view class="form-row">
             <view class="form-col">
               <text class="form-label">生产日期</text>
@@ -95,7 +106,6 @@
             <view class="form-col">
               <text class="form-label">保质期</text>
               <view class="form-shelf-row">
-                <!-- 伪输入框：未聚焦时显示 <text> -->
                 <view class="fake-shelf-wrap" @tap="shelfFocused = true">
                   <text
                     v-if="!shelfFocused"
@@ -112,7 +122,7 @@
                     @blur="shelfFocused = false"
                   />
                 </view>
-                <view class="form-unit-select" @tap="onPickUnit">
+                <view class="form-unit-select" @tap="onPickUnit('normal')">
                   <text class="form-select-value">{{ form.shelfUnitLabel }}</text>
                   <image class="form-select-arrow-icon form-select-arrow-icon--down" src="/static/icons/add-xiaxuanze.svg" mode="aspectFit" />
                 </view>
@@ -121,11 +131,58 @@
           </view>
           <view class="form-divider" />
         </view>
-
-        <!-- 自动计算到期日 -->
-        <view class="form-expire-display" v-if="computedExpireDate">
-          <text class="form-expire-display__label">到期日（自动计算）</text>
+        
+        <!-- 自动计算包装到期日 -->
+        <view class="form-expire-display" v-if="(form.expiryMode === 'normal' || form.expiryMode === 'dual') && computedExpireDate">
+          <text class="form-expire-display__label">包装到期日（自动计算）</text>
           <text class="form-expire-display__value">{{ computedExpireDate }}</text>
+        </view>
+
+        <!-- 开封日期 & 开封后保质期 -->
+        <view class="form-group" v-if="form.expiryMode === 'after_opening' || form.expiryMode === 'dual'">
+          <view class="form-row">
+            <view class="form-col">
+              <text class="form-label">开封日期</text>
+              <picker mode="date" :value="form.openDate" @change="onOpenDateChange">
+                <view class="form-date-row">
+                  <text class="form-select-value">{{ form.openDate || '请选择' }}</text>
+                  <image class="form-select-arrow-icon" src="/static/icons/add-xuanze.svg" mode="aspectFit" />
+                </view>
+              </picker>
+            </view>
+            <view class="form-col">
+              <text class="form-label">开封后保质期</text>
+              <view class="form-shelf-row">
+                <view class="fake-shelf-wrap" @tap="afterShelfFocused = true">
+                  <text
+                    v-if="!afterShelfFocused"
+                    class="fake-input-text fake-input-text--center"
+                    :class="{ 'fake-input-text--placeholder': !form.afterOpeningShelfLife }"
+                  >{{ form.afterOpeningShelfLife || '' }}</text>
+                  <input
+                    v-else
+                    class="form-input form-input--shelf"
+                    v-model="form.afterOpeningShelfLife"
+                    type="number"
+                    :focus="true"
+                    placeholder=""
+                    @blur="afterShelfFocused = false"
+                  />
+                </view>
+                <view class="form-unit-select" @tap="onPickUnit('after_opening')">
+                  <text class="form-select-value">{{ form.afterOpeningShelfUnitLabel }}</text>
+                  <image class="form-select-arrow-icon form-select-arrow-icon--down" src="/static/icons/add-xiaxuanze.svg" mode="aspectFit" />
+                </view>
+              </view>
+            </view>
+          </view>
+          <view class="form-divider" />
+        </view>
+
+        <!-- 自动计算开封后到期日 -->
+        <view class="form-expire-display" v-if="(form.expiryMode === 'after_opening' || form.expiryMode === 'dual') && computedOpenedExpireDate">
+          <text class="form-expire-display__label">开封后到期日（自动计算）</text>
+          <text class="form-expire-display__value">{{ computedOpenedExpireDate }}</text>
         </view>
 
         <!-- 当前状态 -->
@@ -174,9 +231,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { settingsService } from '../../services/settingsService.js'
-import { calculateExpiryDate } from '../../utils/dateUtils.js'
+import { categoryService } from '../../services/categoryService.js'
+import { draftService } from '../../services/draftService.js'
+import { calculateExpiryDate, calculateAfterOpeningDate, determineActiveExpiry } from '../../utils/dateUtils.js'
+
+const currentDraftId = ref('')
 
 const previewImage = ref('/static/icons/add-Yogurt Bottle Cutout.svg')
 const imgRotation = ref(0)
@@ -184,18 +246,28 @@ const isScanning = ref(false)
 const isSaving = ref(false)
 const nameFocused = ref(false)
 const shelfFocused = ref(false)
+const afterShelfFocused = ref(false)
 
 const originalImagePath = ref('')
 const processStatus = ref<'idle' | 'success' | 'fallback' | 'error'>('idle')
+const hasManuallyChangedMode = ref(false)
 
 const form = ref({
   name: '',
   category: '',
   categoryLabel: '',
+  expiryMode: 'normal',
+  
   produceDate: '',
   shelfLife: '',
   shelfUnit: 'day', // day, month, year
   shelfUnitLabel: '天',
+  
+  openDate: '',
+  afterOpeningShelfLife: '',
+  afterOpeningShelfUnit: 'month',
+  afterOpeningShelfUnitLabel: '月',
+  
   status: 'pending', // pending, using
   reminderDays: 7,
 })
@@ -205,12 +277,48 @@ const statusOptions = ref([
   { key: 'using', label: '使用中' },
 ])
 
-onMounted(() => {
-  const settings = settingsService.getSettings()
-  if (settings) {
-    form.value.reminderDays = settings.defaultReminderDays
+onLoad((options) => {
+  if (options && options.draftId) {
+    currentDraftId.value = options.draftId
+    loadDraft(options.draftId)
   }
 })
+
+onMounted(() => {
+  const settings = settingsService.getSettings()
+  if (settings && !currentDraftId.value) {
+    form.value.reminderDays = settings.defaultRemindDays !== undefined ? settings.defaultRemindDays : 7
+  }
+})
+
+function loadDraft(id: string) {
+  const draft = draftService.getDraft(id)
+  if (!draft) return
+  
+  // 恢复基础表单
+  if (draft.formSnapshot) {
+    Object.assign(form.value, draft.formSnapshot)
+  } else {
+    form.value.name = draft.name || ''
+    form.value.category = draft.categoryId || ''
+    form.value.categoryLabel = draft.categoryName || ''
+    form.value.expiryMode = draft.expiryMode || 'normal'
+    form.value.produceDate = draft.productionDate || ''
+    form.value.shelfLife = draft.shelfLifeValue ? draft.shelfLifeValue.toString() : ''
+    form.value.shelfUnit = draft.shelfLifeUnit || 'day'
+    form.value.openDate = draft.openDate || ''
+    form.value.afterOpeningShelfLife = draft.afterOpeningShelfLifeValue ? draft.afterOpeningShelfLifeValue.toString() : ''
+    form.value.afterOpeningShelfUnit = draft.afterOpeningShelfUnit || 'month'
+    form.value.status = draft.status || 'pending'
+    form.value.reminderDays = draft.remindDays !== undefined ? draft.remindDays : 7
+  }
+  
+  if (draft.originalImageUrl) {
+    originalImagePath.value = draft.originalImageUrl
+    previewImage.value = draft.displayImageUrl || draft.cutoutImageUrl || draft.originalImageUrl
+    processStatus.value = draft.imageProcessStatus || 'success'
+  }
+}
 
 const computedExpireDate = computed(() => {
   if (!form.value.produceDate || !form.value.shelfLife) return ''
@@ -219,16 +327,62 @@ const computedExpireDate = computed(() => {
   return calculateExpiryDate(form.value.produceDate, val, form.value.shelfUnit)
 })
 
+const computedOpenedExpireDate = computed(() => {
+  if (!form.value.openDate || !form.value.afterOpeningShelfLife) return ''
+  const val = parseInt(form.value.afterOpeningShelfLife)
+  if (isNaN(val) || val <= 0) return ''
+  return calculateAfterOpeningDate(form.value.openDate, val, form.value.afterOpeningShelfUnit)
+})
+
+
+function isFormDirty() {
+  if (originalImagePath.value) return true
+  if (form.value.name) return true
+  if (form.value.category) return true
+  if (form.value.produceDate) return true
+  if (form.value.openDate) return true
+  if (form.value.shelfLife) return true
+  if (form.value.afterOpeningShelfLife) return true
+  return false
+}
+
+function saveAsDraft() {
+  let shelfVal = parseInt(form.value.shelfLife)
+  let afterShelfVal = parseInt(form.value.afterOpeningShelfLife)
+  
+  draftService.saveDraft({
+    id: currentDraftId.value || undefined,
+    source: 'add',
+    name: form.value.name,
+    categoryId: form.value.category,
+    categoryName: form.value.categoryLabel,
+    expiryMode: form.value.expiryMode,
+    productionDate: form.value.produceDate,
+    shelfLifeValue: isNaN(shelfVal) ? undefined : shelfVal,
+    shelfLifeUnit: form.value.shelfUnit,
+    expiryDate: computedExpireDate.value,
+    openDate: form.value.openDate,
+    afterOpeningShelfLifeValue: isNaN(afterShelfVal) ? undefined : afterShelfVal,
+    afterOpeningShelfUnit: form.value.afterOpeningShelfUnit,
+    openedExpiryDate: computedOpenedExpireDate.value,
+    remindDays: form.value.reminderDays,
+    status: form.value.status,
+    originalImageUrl: originalImagePath.value,
+    displayImageUrl: previewImage.value,
+    imageProcessStatus: processStatus.value,
+    formSnapshot: { ...form.value } // 完整保留UI字段
+  })
+}
 
 function onBack() {
-  if (form.value.name || form.value.produceDate) {
-    uni.showModal({
-      title: '提示',
-      content: '有未保存的内容，是否放弃离开？',
-      confirmText: '离开',
-      cancelText: '取消',
+  if (isFormDirty()) {
+    uni.showActionSheet({
+      itemList: ['保存草稿并离开', '放弃离开'],
       success(res) {
-        if (res.confirm) {
+        if (res.tapIndex === 0) {
+          saveAsDraft()
+          uni.navigateBack()
+        } else if (res.tapIndex === 1) {
           uni.navigateBack()
         }
       }
@@ -283,36 +437,56 @@ function onUseOriginal() {
 }
 
 function onPickCategory() {
+  const cats = categoryService.getCategories()
+  const names = cats.map(c => c.name)
   uni.showActionSheet({
-    itemList: ['食品', '药品', '美妆', '日化', '母婴'],
+    itemList: names,
     success(res) {
-      const map = ['食品', '药品', '美妆', '日化', '母婴']
-      const keyMap = ['food', 'medicine', 'beauty', 'daily', 'baby']
-      form.value.categoryLabel = map[res.tapIndex]
-      form.value.category = keyMap[res.tapIndex]
+      const selectedCat = cats[res.tapIndex]
+      form.value.categoryLabel = selectedCat.name
+      form.value.category = selectedCat.id
+      
+      // PRD: 如果 categoryService 中已有 defaultExpiryMode，且用户未手动切换过效期方式，则优先使用分类配置
+      if (selectedCat.defaultExpiryMode && !hasManuallyChangedMode.value) {
+        form.value.expiryMode = selectedCat.defaultExpiryMode
+      }
     },
   })
+}
+
+function onChangeMode(mode: string) {
+  form.value.expiryMode = mode
+  hasManuallyChangedMode.value = true
 }
 
 function onProduceDateChange(e: any) {
   form.value.produceDate = e.detail.value
 }
 
-function onPickUnit() {
+function onOpenDateChange(e: any) {
+  form.value.openDate = e.detail.value
+}
+
+function onPickUnit(target: 'normal' | 'after_opening') {
   uni.showActionSheet({
     itemList: ['天', '月', '年'],
     success(res) {
       const map = ['天', '月', '年']
       const keyMap = ['day', 'month', 'year']
-      form.value.shelfUnitLabel = map[res.tapIndex]
-      form.value.shelfUnit = keyMap[res.tapIndex]
+      if (target === 'normal') {
+        form.value.shelfUnitLabel = map[res.tapIndex]
+        form.value.shelfUnit = keyMap[res.tapIndex]
+      } else {
+        form.value.afterOpeningShelfUnitLabel = map[res.tapIndex]
+        form.value.afterOpeningShelfUnit = keyMap[res.tapIndex]
+      }
     },
   })
 }
 
 function onPickReminder() {
   const settings = settingsService.getSettings()
-  const customDays = settings.customReminderDays || [0, 3, 7, 14, 30]
+  const customDays = settings.remindDayOptions || [0, 1, 3, 7, 30]
   
   const itemList = customDays.map(d => d === 0 ? '不提醒' : `提前 ${d} 天`)
   
@@ -327,30 +501,50 @@ function onPickReminder() {
 function onSave() {
   if (isSaving.value) return
   
-  // Validation
+  // Validation based on expiryMode
   if (!form.value.name) {
     return uni.showToast({ title: '请输入物品名称', icon: 'none' })
   }
   if (!form.value.category) {
     return uni.showToast({ title: '请选择分类', icon: 'none' })
   }
-  if (!form.value.produceDate) {
-    return uni.showToast({ title: '请选择生产日期', icon: 'none' })
+  
+  if (form.value.expiryMode === 'normal' || form.value.expiryMode === 'dual') {
+    if (!form.value.produceDate) {
+      return uni.showToast({ title: '请选择生产日期', icon: 'none' })
+    }
+    const shelfVal = parseInt(form.value.shelfLife)
+    if (isNaN(shelfVal) || shelfVal <= 0) {
+      return uni.showToast({ title: '请输入有效的保质期', icon: 'none' })
+    }
+    if (!computedExpireDate.value) {
+      return uni.showToast({ title: '无法计算到期日', icon: 'none' })
+    }
   }
-  const shelfVal = parseInt(form.value.shelfLife)
-  if (isNaN(shelfVal) || shelfVal <= 0) {
-    return uni.showToast({ title: '请输入有效的保质期', icon: 'none' })
+
+  if (form.value.expiryMode === 'after_opening' || (form.value.expiryMode === 'dual' && form.value.status === 'using')) {
+    if (!form.value.openDate) {
+      return uni.showToast({ title: '请选择开封日期', icon: 'none' })
+    }
+    const shelfVal = parseInt(form.value.afterOpeningShelfLife)
+    if (isNaN(shelfVal) || shelfVal <= 0) {
+      return uni.showToast({ title: '请输入有效的开封后保质期', icon: 'none' })
+    }
+    if (!computedOpenedExpireDate.value) {
+      return uni.showToast({ title: '无法计算开封后到期日', icon: 'none' })
+    }
   }
-  if (!computedExpireDate.value) {
-    return uni.showToast({ title: '无法计算到期日', icon: 'none' })
-  }
+
   if (form.value.reminderDays < 0 || form.value.reminderDays > 365) {
     return uni.showToast({ title: '提醒天数无效', icon: 'none' })
   }
 
   isSaving.value = true
   
-  const newItem = {
+  const shelfVal = parseInt(form.value.shelfLife) || 0
+  const afterShelfVal = parseInt(form.value.afterOpeningShelfLife) || 0
+
+  const preItem = {
     name: form.value.name,
     categoryId: form.value.category,
     categoryName: form.value.categoryLabel,
@@ -358,17 +552,33 @@ function onSave() {
     displayImageUrl: previewImage.value,
     imageProcessStatus: processStatus.value,
     stickerRotation: imgRotation.value,
+    
+    expiryMode: form.value.expiryMode,
     productionDate: form.value.produceDate,
     shelfLifeValue: shelfVal,
     shelfLifeUnit: form.value.shelfUnit,
     expiryDate: computedExpireDate.value,
+    
+    openDate: form.value.openDate,
+    afterOpeningShelfLifeValue: afterShelfVal,
+    afterOpeningShelfLifeUnit: form.value.afterOpeningShelfUnit,
+    openedExpiryDate: computedOpenedExpireDate.value,
+    
     status: form.value.status,
     remindDays: form.value.reminderDays,
   }
 
-  const success = itemService.addItem(newItem)
+  // Calculate active date properly
+  const activeInfo = determineActiveExpiry(preItem)
+  preItem.activeExpiryDate = activeInfo.date
+  preItem.activeExpirySource = activeInfo.source
+
+  const success = itemService.addItem(preItem)
   
   if (success) {
+    if (currentDraftId.value) {
+      draftService.deleteDraft(currentDraftId.value)
+    }
     uni.showToast({ title: '已收入物品库~', icon: 'success' })
     setTimeout(() => uni.navigateBack(), 1000)
   } else {
@@ -668,6 +878,30 @@ view, text, input, button {
   gap: 8rpx;
   padding-left: 16rpx;
   border-left: 2rpx solid $color-line;
+}
+
+.form-expiry-mode {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 16rpx;
+  margin-top: 16rpx;
+  margin-bottom: 24rpx;
+}
+.mode-btn {
+  flex: 1;
+  text-align: center;
+  padding: 12rpx 0;
+  border-radius: 12rpx;
+  background-color: $color-bg-light;
+  color: $color-text-secondary;
+  font-size: 26rpx;
+  transition: all 0.2s ease;
+}
+.mode-btn--active {
+  background-color: $color-primary;
+  color: #FFF;
+  font-weight: 600;
 }
 
 .form-expire-display {

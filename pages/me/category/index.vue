@@ -20,17 +20,20 @@
           v-for="(cat, index) in categoryList" 
           :key="cat.id" 
           class="category-card"
+          :class="{ 'is-dragging': dragIndex === index }"
+          :style="dragIndex === index ? `transform: translateY(${dragY}px); z-index: 999; position: relative; box-shadow: 0 16rpx 48rpx rgba(0,0,0,0.1);` : 'transition: transform 0.2s; z-index: 1; position: relative;'"
         >
-          <!-- 背景色块与图标 -->
-          <view class="category-card__icon-wrap" :style="{ background: cat.bgColor }">
-            <image v-if="cat.icon" class="category-card__icon" :src="cat.icon" mode="aspectFit" />
+          <view class="category-card__icon-wrap" :style="{ background: cat.backgroundColor }">
+            <view v-if="cat.icon" class="category-card__icon-box">
+              <image class="category-card__icon" :src="cat.icon" :style="{ filter: 'drop-shadow(100px 0 0 ' + cat.iconColor + ')' }" mode="aspectFit" />
+            </view>
             <view v-else class="category-card__icon-placeholder" :style="{ background: cat.iconColor }"></view>
           </view>
           
           <!-- 信息 -->
           <view class="category-card__info">
             <text class="category-card__name">{{ cat.name }}</text>
-            <text class="category-card__count">{{ cat.count }} 件物品</text>
+            <text class="category-card__count">{{ cat.itemCount }} 件物品</text>
           </view>
           
           <!-- 操作区 -->
@@ -44,7 +47,12 @@
               <image class="action-btn__icon" src="/static/icons/me-category-shanchu.svg" mode="aspectFit" />
             </view>
             <!-- 拖拽手柄 -->
-            <view class="action-btn drag-handle">
+            <view class="action-btn drag-handle"
+              @touchstart.stop.prevent="onDragStart($event, index)"
+              @touchmove.stop.prevent="onDragMove"
+              @touchend.stop="onDragEnd"
+              @touchcancel.stop="onDragEnd"
+            >
               <image class="action-btn__icon action-btn__icon--drag" src="/static/icons/me-category-tuodong.svg" mode="aspectFit" />
             </view>
           </view>
@@ -69,41 +77,95 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { categoryService } from '../../../services/categoryService.js'
 
-interface CategoryItem {
-  id: string
-  name: string
-  count: number
-  bgColor: string
-  iconColor: string
-  icon?: string
+const categoryList = ref<any[]>([])
+
+// 拖拽相关状态
+const dragIndex = ref(-1)
+const dragY = ref(0)
+let startY = 0
+let itemHeightPx = 0
+
+onShow(() => {
+  loadCategories()
+})
+
+function initDrag() {
+  const sys = uni.getSystemInfoSync()
+  // 156 (card height) + 20 (gap) = 176rpx
+  itemHeightPx = 176 * (sys.windowWidth / 750)
 }
 
-const categoryList = ref<CategoryItem[]>([
-  { id: '1', name: '食品', count: 24, bgColor: '#F4F3F1', iconColor: '#8E4D33', icon: '/static/icons/me-category-shipin.svg' },
-  { id: '2', name: '药品', count: 12, bgColor: '#E9EDEA', iconColor: '#536251', icon: '/static/icons/me-category-yaopin.svg' },
-  { id: '3', name: '美妆', count: 38, bgColor: '#F4EFEA', iconColor: '#8E4D33', icon: '/static/icons/me-category-meizhuang.svg' },
-  { id: '4', name: '日化', count: 15, bgColor: '#EEF1EE', iconColor: '#665D51', icon: '/static/icons/me-category-rihua.svg' },
-  { id: '5', name: '母婴', count: 0, bgColor: '#EEE1D1', iconColor: '#665D51', icon: '/static/icons/me-category-muying.svg' },
-  { id: '6', name: '其他', count: 5, bgColor: '#E9E8E6', iconColor: '#444842', icon: '/static/icons/me-category-qita.svg' },
-])
+function onDragStart(e: any, index: number) {
+  if (itemHeightPx === 0) initDrag()
+  dragIndex.value = index
+  startY = e.touches[0].clientY
+  dragY.value = 0
+  uni.vibrateShort({ type: 'light' })
+}
+
+function onDragMove(e: any) {
+  if (dragIndex.value === -1) return
+  const currentY = e.touches[0].clientY
+  dragY.value = currentY - startY
+  
+  const moveSlots = Math.round(dragY.value / itemHeightPx)
+  if (moveSlots !== 0) {
+    let targetIndex = dragIndex.value + moveSlots
+    if (targetIndex < 0) targetIndex = 0
+    if (targetIndex >= categoryList.value.length) targetIndex = categoryList.value.length - 1
+    
+    if (targetIndex !== dragIndex.value) {
+      const list = [...categoryList.value]
+      const temp = list[dragIndex.value]
+      list.splice(dragIndex.value, 1)
+      list.splice(targetIndex, 0, temp)
+      categoryList.value = list
+      
+      const actualMovedSlots = targetIndex - dragIndex.value
+      dragIndex.value = targetIndex
+      startY += actualMovedSlots * itemHeightPx
+      dragY.value = currentY - startY
+      uni.vibrateShort({ type: 'light' })
+    }
+  }
+}
+
+function onDragEnd() {
+  if (dragIndex.value !== -1) {
+    dragIndex.value = -1
+    dragY.value = 0
+  }
+}
+
+function loadCategories() {
+  categoryList.value = categoryService.getCategories()
+}
 
 function goBack() {
   uni.navigateBack()
 }
 
-function onEditCategory(cat: CategoryItem) {
+function onEditCategory(cat: any) {
   uni.navigateTo({ url: `/pages/me/category/edit?id=${cat.id}&name=${encodeURIComponent(cat.name)}` })
 }
 
-function onDeleteCategory(cat: CategoryItem) {
+function onDeleteCategory(cat: any) {
   uni.showModal({
     title: '确认删除',
     content: `确定要删除分类“${cat.name}”吗？`,
     confirmColor: '#D98A6C',
     success: (res) => {
       if (res.confirm) {
-        categoryList.value = categoryList.value.filter(item => item.id !== cat.id)
+        const result = categoryService.deleteCategory(cat.id)
+        if (result.success) {
+          uni.showToast({ title: '已删除', icon: 'success' })
+          loadCategories()
+        } else {
+          uni.showToast({ title: result.message, icon: 'none' })
+        }
       }
     }
   })
@@ -114,6 +176,11 @@ function onAddCategory() {
 }
 
 function onSaveSettings() {
+  // 保存排序
+  categoryList.value.forEach((cat, index) => {
+    categoryService.updateCategory(cat.id, { sortOrder: index + 1 })
+  })
+  
   uni.showToast({ title: '已保存', icon: 'success' })
   setTimeout(() => {
     uni.navigateBack()
@@ -228,9 +295,17 @@ $shadow-card: 0 8rpx 48rpx rgba(51, 54, 52, 0.08);
     flex-shrink: 0;
   }
 
+  &__icon-box {
+    width: 40rpx;
+    height: 40rpx;
+    overflow: hidden;
+  }
+
   &__icon {
     width: 40rpx;
     height: 40rpx;
+    transform: translateX(-100px);
+    display: block;
   }
 
   &__icon-placeholder {

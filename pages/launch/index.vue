@@ -46,6 +46,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
+import { authService } from '../../services/authService.js'
+
 // 设计稿中协议默认勾选
 const agreed = ref(true)
 
@@ -53,12 +55,22 @@ function onToggleAgreement() {
   agreed.value = !agreed.value
 }
 
-function onWxLogin() {
+async function onWxLogin() {
   if (!agreed.value) {
     uni.showToast({ title: '请先同意用户协议与隐私政策', icon: 'none' })
     return
   }
-  uni.switchTab({ url: '/pages/index/index' })
+  
+  try {
+    await authService.login()
+    uni.switchTab({ url: '/pages/index/index' })
+  } catch (err) {
+    uni.showToast({ 
+      title: err.message || '登录失败',
+      icon: 'none',
+      duration: 2000
+    })
+  }
 }
 
 function onGuest() {

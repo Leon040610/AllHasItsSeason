@@ -61,12 +61,19 @@
   </view>
 </template>
 
-<script setup lang="ts">
 import { ref } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { authService } from '../../../services/authService.js'
 
 const form = ref({
   avatarUrl: '',
-  nickname: 'Zenith Collector'
+  nickname: ''
+})
+
+onShow(() => {
+  const user = authService.getUser()
+  form.value.avatarUrl = user.avatarUrl || ''
+  form.value.nickname = user.nickname || '微信用户'
 })
 
 function goBack() {
@@ -89,6 +96,7 @@ function onLogout() {
     confirmColor: '#536251',
     success: (res) => {
       if (res.confirm) {
+        authService.logout()
         uni.showToast({ title: '已退出', icon: 'success' })
         setTimeout(() => {
           uni.navigateBack()
@@ -99,11 +107,11 @@ function onLogout() {
 }
 
 function onSave() {
-  if (!form.value.nickname.trim()) {
-    uni.showToast({ title: '请输入昵称', icon: 'none' })
-    return
-  }
-  uni.showToast({ title: '保存成功', icon: 'success' })
+  authService.updateProfile({
+    avatarUrl: form.value.avatarUrl,
+    nickname: form.value.nickname
+  })
+  uni.showToast({ title: '已保存', icon: 'success' })
   setTimeout(() => {
     uni.navigateBack()
   }, 1000)

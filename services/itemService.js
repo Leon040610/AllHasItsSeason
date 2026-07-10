@@ -14,7 +14,26 @@ class ItemService {
   init() {
     const storedItems = localRepository.get(ITEMS_KEY);
     if (storedItems) {
-      this.items = storedItems;
+      let migrated = false;
+      this.items = storedItems.map(item => {
+        if (!item.expiryMode) {
+          migrated = true;
+          return {
+            ...item,
+            expiryMode: 'normal',
+            openDate: '',
+            afterOpeningShelfLifeValue: 0,
+            afterOpeningShelfLifeUnit: 'month',
+            openedExpiryDate: '',
+            activeExpiryDate: item.expiryDate || null,
+            activeExpirySource: 'normal'
+          };
+        }
+        return item;
+      });
+      if (migrated) {
+        this._save();
+      }
     } else {
       this.items = [];
     }

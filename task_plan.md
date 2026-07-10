@@ -1,32 +1,41 @@
-# Task Plan: Data-Driven Refactoring
+# P0.1 Multi-Expiry Implementation Plan
 
-## Goal
-Transform the current static UI uni-app into a data-driven application. First phase uses local storage, second phase uses WeChat Cloud development. 
+## Objectives
+Implement the multi-expiry model (`normal`, `after_opening`, `dual`) to accurately track item shelf lives locally as per PRD V1.3.6.
 
-## Phases
-1. [x] **Phase 1: Research and Planning**
-   - Read PRD, design specs, and current uni-app codebase.
-   - Analyze current page structure and mock data.
-   - Design data model, directory structure, local storage strategy, and cloud transition strategy.
-   - Output `implementation_plan.md` for user approval.
+## Execution Checklist
 
-2. [x] **Phase 2: Establish Base Architecture (Local Storage)**
-   - Create root directories: `/services`, `/repositories`, `/models`, `/utils`.
-   - Implement `/repositories/localRepository.js` using `uni.getStorageSync` / `uni.setStorageSync` with explicit keys.
-   - Implement `ItemModel.js` and `DataConverter.js` for ViewModel generation.
-   - Implement `/services/itemService.js` and `/services/settingsService.js` (including backward compatibility).
+### Phase 1: Data Model & Utils [x]
+- [x] Update `models/ItemModel.js`: Add `expiryMode`, `productionDate`, `shelfLifeValue`, `shelfLifeUnit`, `openDate`, `afterOpeningShelfLifeValue`, `afterOpeningShelfLifeUnit`, `activeExpiryDate`, `activeExpirySource`, `lastEditedAt`.
+- [x] Update `utils/dateUtils.js`: Add `calculateAfterOpeningDate` and `determineActiveExpiry` to compute the active expiry date safely based on state and mode.
+- [x] Update `models/DataConverter.js`: Map new model fields to ViewModel (e.g., `daysLeft`, `statusLabel`, `displayStatus`).
 
-3. [x] **Phase 3: Refactor Core Items Loop (P0)**
-   - Refactor `pages/add/index.vue` and `pages/detail/edit/index.vue` with strict form validation and true data saving.
-   - Refactor `pages/detail/index.vue` to fetch data by ID, handle fallback on fail, add double confirmation for delete/done.
-   - Refactor `pages/library/index.vue` to fetch list from service via `onShow` and apply ViewModel filtering.
-   - Refactor `pages/index/index.vue` to fetch dashboard data and calculate metrics from real items.
+### Phase 2: Service Migration [x]
+- [x] Update `services/itemService.js`: Migrate old single-expiry items to normal mode on load.
+- [x] Update `services/categoryService.js`: Add `defaultExpiryMode` for categories (food/daily/other -> normal, beauty/medicine/baby -> dual).
 
-4. [ ] **Phase 4: Refactor Settings and Light Features (P1)**
-   - Connect reminder settings to `settingsService`.
-   - Connect category settings to `categoryService`.
-   - Update data management page to show local data status.
+### Phase 3: Add Item Page [x]
+- [x] Update `pages/add/index.vue`: Add expiryMode segment control.
+- [x] Implement conditional display of normal vs after_opening fields.
+- [x] Default expiryMode based on selected category.
+- [x] Validate required fields on save and calculate date fields.
 
-5. [ ] **Phase 5: Cloud Development Transition Readiness**
-   - Harden `App.vue` `wx.cloud.init()` logic.
-   - Stub `/repositories/wechatCloudRepository.js` (without implementing full sync).
+### Phase 4: Edit Item Page [x]
+- [x] Update `pages/detail/edit/index.vue`: Add expiryMode segment control.
+- [x] Support modifying productionDate, shelfLife, openDate, afterOpeningShelfLife, and recalculate expiry dates.
+- [x] Check if `status` changes from pending to using, and prompt for `openDate` if missing.
+- [x] Save updates, update `timeline`, `lastEditedAt`.
+
+### Phase 5: Item Detail Page [x]
+- [x] Update `pages/detail/index.vue`: Display multi-expiry fields based on expiryMode.
+- [x] Show prompt if fields are missing.
+- [x] Update layout to match PRD dates.
+
+### Phase 6: Index & Library Pages [x]
+- [x] Update `pages/index/index.vue`: Ensure near-expire/expire counts are based on `activeExpiryDate`.
+- [x] Ensure incomplete items do not falsely appear as near-expire.
+- [x] Update `pages/library/index.vue`: Ensure filter and sort handles `null` correctly.
+- [x] Verify deleted items are hidden and done items don't alert.
+
+### Phase 7: Expiry Calculator [x]
+- [x] Implement Calculator tools page to calculate dates based on the two calculation modes.

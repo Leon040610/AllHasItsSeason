@@ -233,6 +233,7 @@ $top-height: 120rpx;
   }
 
   &__desc {
+    font-family: 'Noto Serif SC', serif;
     font-size: 26rpx;
     color: $color-text-secondary;
   }

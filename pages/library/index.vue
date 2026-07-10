@@ -183,6 +183,14 @@ const allItems = ref<any[]>([])
 
 onShow(() => {
   allItems.value = itemService.getViewItems()
+
+  // 读取并应用跳转参数
+  const filter = uni.getStorageSync('library_filter')
+  if (filter) {
+    if (filter.category) activeCategoryKey.value = filter.category
+    if (filter.status) activeStatusKey.value = filter.status
+    uni.removeStorageSync('library_filter')
+  }
 })
 
 const filteredItems = computed(() => {
@@ -193,8 +201,8 @@ const filteredItems = computed(() => {
   if (activeStatusKey.value !== 'all') {
     // 动态判断状态
     result = result.filter(i => {
-      if (activeStatusKey.value === 'expired') return i.daysLeft < 0
-      if (activeStatusKey.value === 'near_expire') return i.daysLeft >= 0 && i.daysLeft <= i.remindDays
+      if (activeStatusKey.value === 'expired') return i.displayStatus !== 'incomplete' && i.daysLeft !== null && i.daysLeft < 0
+      if (activeStatusKey.value === 'near_expire') return i.displayStatus !== 'incomplete' && i.daysLeft !== null && i.daysLeft >= 0 && i.daysLeft <= i.remindDays
       if (activeStatusKey.value === 'using') return i.status === 'using'
       if (activeStatusKey.value === 'pending') return i.status === 'pending'
       return true

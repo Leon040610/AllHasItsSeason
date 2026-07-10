@@ -187,15 +187,11 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { authService } from '../../services/authService.js'
+import { draftService } from '../../services/draftService.js'
 
-interface User {
-  isLoggedIn: boolean
-  nickname: string
-  uid: string
-  avatarUrl: string
-}
-
-const user = reactive<User>({
+const user = reactive({
   isLoggedIn: false,
   nickname: '',
   uid: '',
@@ -203,11 +199,28 @@ const user = reactive<User>({
 })
 
 const defaultDays = ref(7)
-const draftCount = ref(2)
+const draftCount = ref(0)
 
-function onWxLogin() {
-  // 微信登录逻辑
-  uni.showToast({ title: '登录中...', icon: 'loading' })
+onShow(() => {
+  const currentUser = authService.getUser()
+  user.isLoggedIn = currentUser.isLoggedIn
+  user.nickname = currentUser.nickname
+  user.uid = currentUser.uid
+  user.avatarUrl = currentUser.avatarUrl
+  
+  draftCount.value = draftService.getDrafts().length
+})
+
+async function onWxLogin() {
+  try {
+    const loggedInUser = await authService.login()
+    user.isLoggedIn = loggedInUser.isLoggedIn
+    user.nickname = loggedInUser.nickname
+    user.uid = loggedInUser.uid
+    user.avatarUrl = loggedInUser.avatarUrl
+  } catch (err) {
+    uni.showToast({ title: err.message || '登录失败', icon: 'none' })
+  }
 }
 
 function onReminderSettings() {

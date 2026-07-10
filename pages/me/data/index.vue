@@ -24,14 +24,17 @@
             <text class="overview-card__stat-value">{{ stats.itemCount }}</text>
           </view>
           <view class="overview-card__stat">
+            <text class="overview-card__stat-label">分类数</text>
+            <text class="overview-card__stat-value">{{ stats.categoryCount }}</text>
+          </view>
+          <view class="overview-card__stat">
             <text class="overview-card__stat-label">草稿数</text>
-            <text class="overview-card__stat-value overview-card__stat-value--warn">{{ stats.draftCount }}</text>
+            <text class="overview-card__stat-value" :class="{'overview-card__stat-value--warn': stats.draftCount > 0}">{{ stats.draftCount }}</text>
           </view>
         </view>
         <view class="overview-card__divider" />
         <view class="overview-card__sync-row">
-          <image class="overview-card__sync-icon-img" src="/static/icons/data-success-shangcitongbu.svg" mode="aspectFit" />
-          <text class="overview-card__sync-time">最近同步：{{ stats.lastSyncTime }}</text>
+          <text class="overview-card__sync-time">云端备份：{{ syncStatusText }}</text>
         </view>
       </view>
 
@@ -80,18 +83,37 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue'
+import { reactive, computed } from 'vue'
+import { onShow } from '@dcloudio/uni-app'
+import { itemService } from '../../../services/itemService.js'
+import { categoryService } from '../../../services/categoryService.js'
+import { syncService } from '../../../services/syncService.js'
 
 interface DataStats {
   itemCount: number
+  categoryCount: number
   draftCount: number
-  lastSyncTime: string
 }
 
 const stats = reactive<DataStats>({
-  itemCount: 34,
-  draftCount: 2,
-  lastSyncTime: '2026-06-27 10:30',
+  itemCount: 0,
+  categoryCount: 0,
+  draftCount: 0,
+})
+
+const syncStatusText = computed(() => {
+  const syncSet = syncService.getSettings()
+  if (!syncSet.syncEnabled) {
+    return '暂未开启云同步'
+  }
+  return syncSet.syncStatus === 'syncing' ? '同步中' : '同步完成'
+})
+
+onShow(() => {
+  const syncStats = syncService.getSyncStats()
+  stats.itemCount = syncStats.itemCount
+  stats.categoryCount = syncStats.categoryCount
+  stats.draftCount = syncStats.draftCount
 })
 
 function onBack() {
@@ -99,7 +121,12 @@ function onBack() {
 }
 
 function onSyncCloud() {
-  uni.navigateTo({ url: '/pages/me/data/syncing' })
+  if (typeof wx === 'undefined' || !wx.cloud) {
+    uni.showToast({ title: '云同步能力暂未配置，请先完成云开发配置', icon: 'none' })
+    return
+  }
+  // uni.navigateTo({ url: '/pages/me/data/syncing' })
+  uni.showToast({ title: 'P1.5 阶段暂不实现真实云同步', icon: 'none' })
 }
 
 function onExportData() {
