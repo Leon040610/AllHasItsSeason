@@ -369,11 +369,12 @@ function onBack() {
 
   if (hasChanges) {
     uni.showModal({
-      title: '提示',
-      content: '有未保存的修改',
-      cancelText: '放弃修改',
-      cancelColor: '#D98A6C',
+      title: '还没保存修改',
+      content: '这件好物的信息还没更新，要先继续看一眼吗？',
+      cancelText: '放弃这次',
+      cancelColor: '#A69B8D',
       confirmText: '继续编辑',
+      confirmColor: '#8A9A86',
       success(res) {
         if (res.cancel) {
           uni.navigateBack()

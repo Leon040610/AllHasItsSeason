@@ -1,5 +1,5 @@
 import { localDraftRepository } from '../repositories/localDraftRepository.js'
-import { generateId } from '../utils/idGenerator.js'
+import { generateUUID } from '../utils/uuid.js'
 import { dateUtils } from '../utils/dateUtils.js'
 import { itemService } from './itemService.js'
 
@@ -16,35 +16,64 @@ class DraftService {
   }
 
   getDrafts() {
+    this.init()
     return this.drafts
   }
 
   getDraft(id) {
+    this.init()
     return this.drafts.find(d => d.id === id)
   }
 
   computeMissingFields(draft) {
     const missing = []
-    if (!draft.name) missing.push('名称')
-    if (!draft.categoryId) missing.push('分类')
-    if (!draft.displayImageUrl) missing.push('图片')
+    if (!draft.name) missing.push('待补名称')
     
+    // categoryId / categoryName is required
+    if (!draft.categoryId && !draft.categoryName) missing.push('待补分类')
+    
+    // displayImageUrl and originalImageUrl both absent
+    if (!draft.displayImageUrl && !draft.originalImageUrl) missing.push('缺失图片')
+    
+    let hasExpiry = false
+    let hasAfterOpening = false
+
     if (draft.expiryMode === 'normal' || draft.expiryMode === 'dual') {
-      if (!draft.productionDate && !draft.expiryDate) {
-        missing.push('普通效期')
+      if (draft.expiryDate || (draft.productionDate && draft.shelfLifeValue && draft.shelfLifeUnit)) {
+        hasExpiry = true
       }
     }
+
     if (draft.expiryMode === 'after_opening' || draft.expiryMode === 'dual') {
-      if (!draft.afterOpeningShelfLifeValue && !draft.openedExpiryDate) {
-        missing.push('开封效期')
+      if (draft.openedExpiryDate || (draft.openDate && draft.afterOpeningShelfLifeValue && draft.afterOpeningShelfLifeUnit)) {
+        hasAfterOpening = true
       }
     }
+
+    if (draft.expiryMode === 'normal') {
+      if (!hasExpiry) missing.push('待确认到期日')
+    } else if (draft.expiryMode === 'after_opening') {
+      if (!hasAfterOpening) missing.push('待补开封效期')
+    } else if (draft.expiryMode === 'dual') {
+      if (!hasExpiry) missing.push('待确认到期日')
+      if (draft.status === 'using' && !hasAfterOpening) missing.push('待补开封效期')
+    } else {
+      // Default fallback if expiryMode is empty or invalid
+      if (!draft.expiryDate && !(draft.productionDate && draft.shelfLifeValue)) {
+        missing.push('待确认到期日')
+      }
+    }
+
     return missing
   }
 
   saveDraft(draftData) {
+    this.init() // Ensure we have latest data before saving
     const now = new Date().toISOString()
     let draft = this.drafts.find(d => d.id === draftData.id)
+    
+    // Force source to 'add' for all drafts in this version
+    draftData.source = 'add'
     
     if (draft) {
       // Update existing
@@ -55,7 +84,7 @@ class DraftService {
       // Create new
       draft = {
         ...draftData,
-        id: draftData.id || generateId(),
+        id: draftData.id || generateUUID(),
         createdAt: now,
         updatedAt: now
       }

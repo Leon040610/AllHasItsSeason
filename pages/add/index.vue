@@ -277,6 +277,9 @@ const statusOptions = ref([
   { key: 'using', label: '使用中' },
 ])
 
+let initialFormSnapshot = ''
+let initialImgSnapshot = ''
+
 onLoad((options) => {
   if (options && options.draftId) {
     currentDraftId.value = options.draftId
@@ -288,6 +291,8 @@ onMounted(() => {
   const settings = settingsService.getSettings()
   if (settings && !currentDraftId.value) {
     form.value.reminderDays = settings.defaultRemindDays !== undefined ? settings.defaultRemindDays : 7
+    initialFormSnapshot = JSON.stringify(form.value)
+    initialImgSnapshot = originalImagePath.value
   }
 })
 
@@ -308,10 +313,14 @@ function loadDraft(id: string) {
     form.value.shelfUnit = draft.shelfLifeUnit || 'day'
     form.value.openDate = draft.openDate || ''
     form.value.afterOpeningShelfLife = draft.afterOpeningShelfLifeValue ? draft.afterOpeningShelfLifeValue.toString() : ''
-    form.value.afterOpeningShelfUnit = draft.afterOpeningShelfUnit || 'month'
+    form.value.afterOpeningShelfUnit = draft.afterOpeningShelfLifeUnit || draft.afterOpeningShelfUnit || 'month'
     form.value.status = draft.status || 'pending'
     form.value.reminderDays = draft.remindDays !== undefined ? draft.remindDays : 7
   }
+  
+  hasManuallyChangedMode.value = true // Prevent auto override when loading draft
+  initialFormSnapshot = JSON.stringify(form.value)
+  initialImgSnapshot = originalImagePath.value
   
   if (draft.originalImageUrl) {
     originalImagePath.value = draft.originalImageUrl
@@ -336,13 +345,9 @@ const computedOpenedExpireDate = computed(() => {
 
 
 function isFormDirty() {
-  if (originalImagePath.value) return true
-  if (form.value.name) return true
-  if (form.value.category) return true
-  if (form.value.produceDate) return true
-  if (form.value.openDate) return true
-  if (form.value.shelfLife) return true
-  if (form.value.afterOpeningShelfLife) return true
+  if (originalImagePath.value !== initialImgSnapshot) return true
+  const currentSnapshot = JSON.stringify(form.value)
+  if (currentSnapshot !== initialFormSnapshot) return true
   return false
 }
 
@@ -363,7 +368,7 @@ function saveAsDraft() {
     expiryDate: computedExpireDate.value,
     openDate: form.value.openDate,
     afterOpeningShelfLifeValue: isNaN(afterShelfVal) ? undefined : afterShelfVal,
-    afterOpeningShelfUnit: form.value.afterOpeningShelfUnit,
+    afterOpeningShelfLifeUnit: form.value.afterOpeningShelfUnit,
     openedExpiryDate: computedOpenedExpireDate.value,
     remindDays: form.value.reminderDays,
     status: form.value.status,
@@ -376,13 +381,19 @@ function saveAsDraft() {
 
 function onBack() {
   if (isFormDirty()) {
-    uni.showActionSheet({
-      itemList: ['保存草稿并离开', '放弃离开'],
+    uni.showModal({
+      title: '先留一份草稿吗？',
+      content: '这件好物还没收纳完，小管家可以先替你留着。',
+      cancelText: '不留了',
+      cancelColor: '#A69B8D',
+      confirmText: '存草稿',
+      confirmColor: '#8A9A86',
       success(res) {
-        if (res.tapIndex === 0) {
+        if (res.confirm) {
           saveAsDraft()
-          uni.navigateBack()
-        } else if (res.tapIndex === 1) {
+          uni.showToast({ title: '已替你留在草稿箱', icon: 'success' })
+          setTimeout(() => uni.navigateBack(), 1000)
+        } else if (res.cancel) {
           uni.navigateBack()
         }
       }

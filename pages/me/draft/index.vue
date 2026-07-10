@@ -20,15 +20,16 @@
           <text class="summary-row__count">共 {{ drafts.length }} 个草稿</text>
           <text class="summary-row__hint">管理待完善的物品</text>
         </view>
-        <view class="summary-row__batch-btn" @tap="onBatchManage">
-          <text class="summary-row__batch-text">批量管理</text>
+        <view class="summary-row__batch-btn" @tap="onToggleBatch">
+          <text class="summary-row__batch-text">{{ isBatchMode ? '退出管理' : '批量管理' }}</text>
         </view>
       </view>
 
       <!-- 空状态 -->
       <view v-if="drafts.length === 0" class="empty-state">
         <image class="empty-state__icon" src="/static/icons/library-kongzhuangtai.svg" mode="aspectFit" />
-        <text class="empty-state__text">暂无草稿，去添加物品吧</text>
+        <text class="empty-state__text">没有待完善的草稿</text>
+        <text class="empty-state__hint">没收纳完的好物，会暂时留在这里。</text>
       </view>
 
       <!-- 草稿列表 -->
@@ -36,8 +37,15 @@
         <view v-for="draft in drafts" :key="draft.id" class="draft-card">
           <!-- 上半：物品信息 -->
           <view class="draft-card__main">
+            <!-- 批量选择框 -->
+            <view v-if="isBatchMode" class="draft-card__checkbox" @tap="onToggleSelect(draft.id)">
+              <view class="checkbox-circle" :class="{ 'checkbox-circle--checked': selectedIds.includes(draft.id) }">
+                <view v-if="selectedIds.includes(draft.id)" class="checkbox-inner" />
+              </view>
+            </view>
+            
             <!-- 图片区 -->
-            <view class="draft-card__img-wrap" :style="{ background: draft.imgBg }">
+            <view class="draft-card__img-wrap" :style="{ background: draft.imgBg }" @tap="isBatchMode ? onToggleSelect(draft.id) : null">
               <image
                 v-if="draft.displayImageUrl || draft.originalImageUrl"
                 class="draft-card__img"
@@ -59,29 +67,41 @@
                   :key="tag"
                   class="draft-tag"
                 >
-                  <text class="draft-tag__text">待补全{{ tag }}</text>
+                  <text class="draft-tag__text">{{ tag }}</text>
                 </view>
               </view>
             </view>
           </view>
+          
+          <block v-if="!isBatchMode">
+            <!-- 分割线 -->
+            <view class="draft-card__divider" />
 
-          <!-- 分割线 -->
-          <view class="draft-card__divider" />
-
-          <!-- 下半：操作按钮 -->
-          <view class="draft-card__actions">
-            <view class="draft-card__btn-delete" @tap="onDelete(draft)">
-              <text class="draft-card__btn-delete-text">删除</text>
+            <!-- 下半：操作按钮 -->
+            <view class="draft-card__actions">
+              <view class="draft-card__btn-delete" @tap="onDelete(draft)">
+                <text class="draft-card__btn-delete-text">删除</text>
+              </view>
+              <view class="draft-card__btn-edit" @tap="onContinueEdit(draft)">
+                <text class="draft-card__btn-edit-text">继续编辑</text>
+              </view>
             </view>
-            <view class="draft-card__btn-edit" @tap="onContinueEdit(draft)">
-              <text class="draft-card__btn-edit-text">继续编辑</text>
-            </view>
-          </view>
+          </block>
         </view>
       </view>
-
+      
       <view class="safe-bottom" />
     </scroll-view>
+
+    <!-- 批量操作底部栏 -->
+    <view v-if="isBatchMode" class="batch-bar">
+      <view class="batch-bar__btn batch-bar__btn--cancel" @tap="onToggleBatch">
+        <text class="batch-bar__btn-text">取消</text>
+      </view>
+      <view class="batch-bar__btn batch-bar__btn--delete" :class="{'batch-bar__btn--disabled': selectedIds.length === 0}" @tap="onBatchDelete">
+        <text class="batch-bar__btn-text batch-bar__btn-text--primary">清理所选 ({{ selectedIds.length }})</text>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -92,8 +112,12 @@ import { draftService } from '../../../services/draftService.js'
 import { dateUtils } from '../../../utils/dateUtils.js'
 
 const drafts = ref<any[]>([])
+const isBatchMode = ref(false)
+const selectedIds = ref<string[]>([])
 
 onShow(() => {
+  isBatchMode.value = false
+  selectedIds.value = []
   loadDrafts()
 })
 
@@ -107,7 +131,7 @@ function loadDrafts() {
     }
     return {
       ...d,
-      name: d.name || '未命名物品',
+      name: d.name || '未命名好物',
       imgBg: '#F4F3F1',
       lastEditTime
     }
@@ -118,28 +142,77 @@ function onBack() {
   uni.navigateBack()
 }
 
-function onBatchManage() {
-  uni.showToast({ title: '批量管理功能即将上线', icon: 'none' })
+function onToggleBatch() {
+  isBatchMode.value = !isBatchMode.value
+  if (!isBatchMode.value) {
+    selectedIds.value = []
+  }
 }
 
-function onDelete(draft: DraftItem) {
+function onToggleSelect(id: string) {
+  const idx = selectedIds.value.indexOf(id)
+  if (idx > -1) {
+    selectedIds.value.splice(idx, 1)
+  } else {
+    selectedIds.value.push(id)
+  }
+}
+
+function onBatchDelete() {
+  if (selectedIds.value.length === 0) {
+    return uni.showToast({ title: '先选一下要清理的草稿', icon: 'none' })
+  }
   uni.showModal({
-    title: '确认删除此草稿？',
-    content: '删除后无法恢复，请确认。',
+    title: '清理这些草稿吗？',
+    content: '清理后就不能从草稿箱找回了。',
+    cancelText: '再想想',
+    cancelColor: '#8A9A86',
+    confirmText: '清理',
+    confirmColor: '#D98A6C',
+    success(res) {
+      if (res.confirm) {
+        let allSuccess = true
+        selectedIds.value.forEach(id => {
+          const result = draftService.deleteDraft(id)
+          if (!result.success) allSuccess = false
+        })
+        if (allSuccess) {
+          uni.showToast({ title: '清理成功', icon: 'success' })
+        } else {
+          uni.showToast({ title: '草稿暂时没清理成功，再试一下', icon: 'none' })
+        }
+        selectedIds.value = []
+        loadDrafts()
+        if (drafts.value.length === 0) {
+          isBatchMode.value = false
+        }
+      }
+    }
+  })
+}
+
+function onDelete(draft: any) {
+  uni.showModal({
+    title: '删除这份草稿吗？',
+    content: '删除后，小管家就不再替你保留这次填写啦。',
+    cancelText: '再想想',
+    cancelColor: '#8A9A86',
     confirmText: '删除',
     confirmColor: '#D98A6C',
-    cancelText: '取消',
     success(res) {
       if (res.confirm) {
         draftService.deleteDraft(draft.id)
         loadDrafts()
-        uni.showToast({ title: '草稿已删除', icon: 'none' })
+        uni.showToast({ title: '已清理这份草稿', icon: 'none' })
       }
     },
   })
 }
 
 function onContinueEdit(draft: any) {
+  if (draft.source && draft.source !== 'add') {
+    return uni.showToast({ title: '这份草稿暂时不能继续编辑', icon: 'none' })
+  }
   uni.navigateTo({ url: `/pages/add/index?draftId=${draft.id}` })
 }
 </script>
@@ -257,7 +330,7 @@ $top-height: 120rpx;
 
   &__batch-btn {
     background: rgba(51, 54, 52, 0.08);
-    border-radius: $radius-full;
+    border-radius: 9999rpx;
     padding: 12rpx 32rpx;
   }
 
@@ -285,8 +358,18 @@ $top-height: 120rpx;
   &__main {
     display: flex;
     flex-direction: row;
-    gap: 0;
     padding: 32rpx;
+    align-items: center;
+  }
+
+  &__checkbox {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60rpx;
+    height: 160rpx;
+    margin-right: 20rpx;
+    flex-shrink: 0;
   }
 
   &__img-wrap {
@@ -299,6 +382,7 @@ $top-height: 120rpx;
     align-items: center;
     justify-content: center;
     margin-right: 32rpx;
+    background: #F4F3F1;
   }
 
   &__img {
@@ -335,6 +419,10 @@ $top-height: 120rpx;
     font-size: 34rpx;
     font-weight: 700;
     color: $color-text;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
   }
 
   &__time {
@@ -428,10 +516,99 @@ $top-height: 120rpx;
   &__text {
     font-size: 28rpx;
     color: $color-text-secondary;
+    font-weight: 700;
+  }
+
+  &__hint {
+    margin-top: 12rpx;
+    font-size: 24rpx;
+    color: $color-text-secondary;
   }
 }
 
 .safe-bottom {
-  height: 80rpx;
+  height: 200rpx;
+}
+
+/* 批量选择框 */
+.checkbox-circle {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: $radius-full;
+  border: 2rpx solid rgba(51, 54, 52, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+
+  &--checked {
+    background: #8A9A86;
+    border-color: #8A9A86;
+  }
+}
+
+.checkbox-inner {
+  width: 24rpx;
+  height: 12rpx;
+  border-left: 3rpx solid #fff;
+  border-bottom: 3rpx solid #fff;
+  transform: rotate(-45deg);
+  margin-top: -6rpx;
+}
+
+/* 批量操作底部栏 */
+.batch-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 160rpx;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: #FAF9F7;
+  box-shadow: 0 -4rpx 24rpx rgba(51, 54, 52, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-left: 48rpx;
+  padding-right: 48rpx;
+  z-index: 100;
+
+  &__btn {
+    height: 88rpx;
+    border-radius: $radius-full;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    &--cancel {
+      width: 240rpx;
+      border: 2rpx solid $color-line;
+      background: #FFFFFF;
+    }
+
+    &--delete {
+      flex: 1;
+      margin-left: 32rpx;
+      background: $color-primary-dark;
+      box-shadow: 0 4rpx 16rpx rgba(83, 98, 81, 0.25);
+    }
+
+    &--disabled {
+      opacity: 0.4;
+      box-shadow: none;
+    }
+  }
+
+  &__btn-text {
+    font-family: 'Noto Serif SC', serif;
+    font-size: 32rpx;
+    color: $color-text;
+    font-weight: 500;
+
+    &--primary {
+      color: #fff;
+      font-weight: 700;
+    }
+  }
 }
 </style>

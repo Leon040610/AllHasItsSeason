@@ -1,18 +1,14 @@
-feat: 实现多维度效期管理 (常态/开封/双重效期) 及数据链路改造
+feat: 新增草稿箱批量清理与脏表单存草稿挽留机制并优化逻辑
 
-- 效期数据模型与计算 (models/ & utils/)：
-  1. 重构 ItemModel，新增 `expiryMode`、`openDate`、`afterOpeningShelfLife` 等开封效期相关核心字段
-  2. 新增 `dateUtils.js` 中的 `calculateAfterOpeningDate` 与 `determineActiveExpiry` 计算逻辑，根据开封状态和效期模式动态计算激活的到期日 (activeExpiryDate)
-  3. 升级 `DataConverter.js` 以输出正确的展示层文字标签及效期状态，并兼容缺失信息的待完善状态 (incomplete)
-- 历史数据兼容与分类配置 (services/)：
-  1. 重构 `itemService.js`，在系统初始化时，自动将单效期历史数据升级为常态效期 (normal) 模式
-  2. 重构 `categoryService.js`，增加分类与默认效期模式的映射联动（如美妆/药品/母婴默认为双重效期）
-- 界面设计与交互适配 (pages/)：
-  1. 添加页 (add) 和编辑页 (edit)：增加效期模式的分段选择器，支持根据选择模式动态展示常态保质期、开封保质期及开封日期，并在保存时执行实时效期与状态校验
-  2. 详情页 (detail)：根据效期模式条件渲染不同的日期卡片组合，并对信息不全的物品进行“待完善信息”警告提示
-  3. 首页与物品库页 (index & library)：优化过期/临期过滤逻辑，在统计中排查信息不全的物品，防止误报
-  4. 效期计算器 (tools/calculator)：升级为双 Tab 交互面板，独立支持常态与开封后保质期的计算
-- 新增基础服务架构 (repositories/ & services/)：
-  1. 引入 `authService.js`、`syncService.js`、`draftService.js` 与 `localDraftRepository.js` 准备为下一阶段的数据同步及草稿管理功能提供服务
+- 草稿箱模块 (pages/me/draft/index.vue & services/draftService.js)：
+  1. 新增批量管理模式，支持多选草稿并进行一键“批量清理”，优化批量删除与单项删除的确认弹窗与交互文案
+  2. 优化 `computeMissingFields` 缺失项判定逻辑，根据不同的效期模式 (常态/开封/双重) 精确提示具体缺失的属性（如“待确认到期日”、“待补开封效期”），使缺失项说明更精确温和
+  3. 规范化草稿的数据源字段映射
+- 添加与编辑模块 (pages/add/ & pages/detail/edit/)：
+  1. 重构添加物品页的脏数据检测方法 `isFormDirty`，使用初始状态的 JSON 快照与当前数据进行深度比对
+  2. 实现脏表单返回时的“存草稿挽留弹窗”（先留一份草稿吗？），支持一键“存草稿”并安全退出，防止用户录入数据意外丢失
+  3. 优化编辑详情页未保存返回时的挽留提示文案（还没保存修改）
+- 数据同步模块 (pages/me/data/success.vue)：
+  1. 修复同步成功页缺失的 `<script setup lang="ts">` 声明，解决 Vue 编译警告
 
-影响范围：全站所有页面的效期管理业务逻辑及底层数据结构
+影响范围：草稿箱列表管理、物品添加与编辑流程、数据同步模块
