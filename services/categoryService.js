@@ -18,9 +18,9 @@ class CategoryService {
       cats = [
         { id: 'food', name: '食品', backgroundColor: '#F4F3F1', iconColor: '#8E4D33', iconKey: 'shipin', defaultExpiryMode: 'normal', sortOrder: 1, isSystem: true, isDeleted: false, createdAt: now, updatedAt: now },
         { id: 'daily', name: '日化', backgroundColor: '#EEF1EE', iconColor: '#665D51', iconKey: 'rihua', defaultExpiryMode: 'normal', sortOrder: 2, isSystem: true, isDeleted: false, createdAt: now, updatedAt: now },
-        { id: 'beauty', name: '护肤美妆', backgroundColor: '#F4EFEA', iconColor: '#8E4D33', iconKey: 'meizhuang', defaultExpiryMode: 'dual', sortOrder: 3, isSystem: true, isDeleted: false, createdAt: now, updatedAt: now },
+        { id: 'beauty', name: '美妆', backgroundColor: '#F4EFEA', iconColor: '#8E4D33', iconKey: 'meizhuang', defaultExpiryMode: 'dual', sortOrder: 3, isSystem: true, isDeleted: false, createdAt: now, updatedAt: now },
         { id: 'medicine', name: '药品', backgroundColor: '#E9EDEA', iconColor: '#536251', iconKey: 'yaopin', defaultExpiryMode: 'dual', sortOrder: 4, isSystem: true, isDeleted: false, createdAt: now, updatedAt: now },
-        { id: 'baby', name: '母婴', backgroundColor: '#F4F3F1', iconColor: '#665D51', iconKey: 'yaopin', defaultExpiryMode: 'dual', sortOrder: 5, isSystem: true, isDeleted: false, createdAt: now, updatedAt: now },
+        { id: 'baby', name: '母婴', backgroundColor: '#F4F3F1', iconColor: '#665D51', iconKey: 'fenlei9', defaultExpiryMode: 'dual', sortOrder: 5, isSystem: true, isDeleted: false, createdAt: now, updatedAt: now },
         { id: 'other', name: '其他', backgroundColor: '#F4F3F1', iconColor: '#444842', iconKey: 'qita', defaultExpiryMode: 'normal', sortOrder: 99, isSystem: true, isDeleted: false, createdAt: now, updatedAt: now }
       ];
       localRepository.set(CATEGORIES_KEY, cats);
@@ -63,6 +63,19 @@ class CategoryService {
           };
           c.iconColor = fixMap[c.id] || '#8E4D33';
         }
+        
+        // Migrate "护肤美妆" to "美妆"
+        if (c.id === 'beauty' && c.name === '护肤美妆') {
+          migrated = true;
+          c.name = '美妆';
+        }
+        
+        // Migrate "母婴" icon to smile
+        if (c.id === 'baby' && c.iconKey === 'yaopin') {
+          migrated = true;
+          c.iconKey = 'fenlei9';
+        }
+
         return c;
       });
 

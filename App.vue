@@ -1,83 +1,91 @@
 <script>
-import { cloudEnvID } from '@/env'
+import { cloudRuntimeService } from '@/services/cloudRuntimeService.js'
 
 const FONT_FAMILY = 'Noto Serif SC'
+let fontLoadAttempted = false
 
 /**
  * 加载 Noto Serif SC 子集字体（真机生效，开发工具系统已有该字体可忽略）
- *
- * 流程：将包内字体上传到云存储 → 用返回的 fileID 加载字体
- * wx.cloud.uploadFile 是幂等操作，相同 cloudPath 会覆盖，不会重复报错
+ * 仅在云运行时就绪后调用，失败时回退系统字体，不影响启动
  */
 function loadCustomFont() {
-	if (typeof wx === 'undefined' || !wx.loadFontFace) {
-		console.log('[字体] 非微信环境，跳过字体加载')
-		return
-	}
+  if (fontLoadAttempted) return
+  fontLoadAttempted = true
 
-	const tempPath = `${wx.env.USER_DATA_PATH}/noto-serif-sc-subset.woff2`
-	const fs = wx.getFileSystemManager()
+  if (typeof wx === 'undefined' || !wx.loadFontFace) {
+    console.log('[字体] 缺少 wx.loadFontFace，跳过字体加载')
+    return
+  }
+  if (!wx.env || !wx.env.USER_DATA_PATH) {
+    console.log('[字体] 缺少 wx.env.USER_DATA_PATH，跳过字体加载')
+    return
+  }
+  if (!wx.getFileSystemManager) {
+    console.log('[字体] 缺少 wx.getFileSystemManager，跳过字体加载')
+    return
+  }
+  if (!cloudRuntimeService.isReady()) {
+    console.log('[字体] 云开发未就绪，跳过字体加载')
+    return
+  }
 
-	console.log('[字体] 开始加载 Noto Serif SC...')
+  const tempPath = `${wx.env.USER_DATA_PATH}/noto-serif-sc-subset.woff2`
+  const fs = wx.getFileSystemManager()
+  const localFontPath = 'static/fonts/noto-serif-sc-subset.woff2'
 
-	// Step 1: 将小程序包内的字体复制到用户可写目录
-	fs.copyFile({
-		srcPath: 'static/fonts/noto-serif-sc-subset.woff2',
-		destPath: tempPath,
-		success: () => {
-			console.log('[字体] 复制到用户目录成功')
+  // 检查本地包内字体文件是否存在
+  try {
+    fs.accessSync(localFontPath)
+  } catch (e) {
+    console.log('[字体] 本地字体文件不存在，跳过字体加载')
+    return
+  }
 
-			// Step 2: 上传到云存储（幂等，已有同名文件会覆盖）
-			wx.cloud.uploadFile({
-				cloudPath: 'fonts/noto-serif-sc-subset.woff2',
-				filePath: tempPath,
-				success: (upRes) => {
-					console.log('[字体] 云存储上传成功, fileID:', upRes.fileID)
+  console.log('[字体] 开始加载 Noto Serif SC...')
 
-					// Step 3: 用 cloud:// fileID 加载字体
-					wx.loadFontFace({
-						family: FONT_FAMILY,
-						source: `url("${upRes.fileID}")`,
-						global: true,
-						success: () => {
-							console.log('[字体] Noto Serif SC 加载成功!')
-						},
-						fail: (err) => {
-							console.error('[字体] loadFontFace 失败:', JSON.stringify(err))
-						}
-					})
-				},
-				fail: (err) => {
-					console.error('[字体] 上传云存储失败:', JSON.stringify(err))
-				}
-			})
-		},
-		fail: (err) => {
-			console.error('[字体] 复制本地字体失败:', JSON.stringify(err))
-		}
-	})
+  fs.copyFile({
+    srcPath: localFontPath,
+    destPath: tempPath,
+    success: () => {
+      console.log('[字体] 复制到用户目录成功')
+      wx.cloud.uploadFile({
+        cloudPath: 'fonts/noto-serif-sc-subset.woff2',
+        filePath: tempPath,
+        success: (upRes) => {
+          console.log('[字体] 云存储上传成功')
+          wx.loadFontFace({
+            family: FONT_FAMILY,
+            source: `url("${upRes.fileID}")`,
+            global: true,
+            success: () => {
+              console.log('[字体] Noto Serif SC 加载成功!')
+            },
+            fail: () => {
+              console.error('[字体] loadFontFace 失败')
+            }
+          })
+        },
+        fail: () => {
+          console.error('[字体] 上传云存储失败')
+        }
+      })
+    },
+    fail: () => {
+      console.error('[字体] 复制本地字体失败')
+    }
+  })
 }
 
 export default {
-	onLaunch() {
-		// 1. 初始化云开发（必须在字体加载之前，uploadFile 依赖云开发初始化）
-		if (typeof wx !== 'undefined' && wx.cloud) {
-			try {
-				wx.cloud.init({
-					env: cloudEnvID,
-					traceUser: true
-				})
-				console.log('[云开发] 初始化成功, env:', cloudEnvID)
-			} catch (e) {
-				console.warn('[云开发] 初始化失败:', e)
-			}
-		}
-
-		// 2. 加载自定义字体（真机需要，开发工具使用系统安装的同名字体）
-		loadCustomFont()
-	},
-	onShow() {},
-	onHide() {}
+  onLaunch() {
+    cloudRuntimeService.init().then((res) => {
+      if (res.status === 'ready') {
+        loadCustomFont()
+      }
+    })
+  },
+  onShow() {},
+  onHide() {}
 }
 </script>
 

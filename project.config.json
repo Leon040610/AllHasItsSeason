@@ -1,0 +1,35 @@
+{
+  "miniprogramRoot": "unpackage/dist/dev/mp-weixin/",
+  "cloudfunctionRoot": "cloudfunctions/",
+  "appid": "wx0b856ea61cc9fde1",
+  "setting": {
+    "es6": false,
+    "minified": false,
+    "postcss": false,
+    "compileWorklet": false,
+    "uglifyFileName": false,
+    "uploadWithSourceMap": true,
+    "enhance": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
+  },
+  "condition": {},
+  "compileType": "miniprogram",
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
+}

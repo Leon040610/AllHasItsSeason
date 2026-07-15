@@ -107,12 +107,20 @@ function onLogout() {
   })
 }
 
-function onSave() {
-  authService.updateProfile({
-    avatarUrl: form.value.avatarUrl,
-    nickname: form.value.nickname
-  })
-  uni.showToast({ title: '已保存', icon: 'success' })
+async function onSave() {
+  const trimmedNickname = (form.value.nickname || '').trim()
+  if (!trimmedNickname) {
+    uni.showToast({ title: '昵称不能为空', icon: 'none' })
+    return
+  }
+
+  // 头像：本阶段只更新本地，不上传云端
+  authService.updateProfile({ avatarUrl: form.value.avatarUrl })
+
+  // 昵称：本地优先保存，异步同步云端（失败时本地保留，服务内部会 toast 提示）
+  await authService.updateNickname(trimmedNickname)
+
+  uni.showToast({ title: '修改已保存', icon: 'success' })
   setTimeout(() => {
     uni.navigateBack()
   }, 1000)

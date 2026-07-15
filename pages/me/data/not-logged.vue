@@ -64,13 +64,18 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { authService } from '../../../services/authService.js'
 
 function onBack() {
   uni.navigateBack()
 }
 
+const isLoggingIn = ref(false)
+
 async function onLogin() {
+  if (isLoggingIn.value) return
+  isLoggingIn.value = true
   try {
     await authService.login()
     uni.showToast({ title: '登录成功', icon: 'success' })
@@ -78,7 +83,12 @@ async function onLogin() {
       uni.redirectTo({ url: '/pages/me/data/index' })
     }, 1000)
   } catch (err) {
-    uni.showToast({ title: err.message || '登录失败', icon: 'none' })
+    const msg = err.message === 'login_in_progress'
+      ? '登录中，请稍候'
+      : (err.message || '暂时没登录成功，也可以先逛逛')
+    uni.showToast({ title: msg, icon: 'none' })
+  } finally {
+    isLoggingIn.value = false
   }
 }
 

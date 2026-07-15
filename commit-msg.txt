@@ -1,14 +1,19 @@
-feat: 新增草稿箱批量清理与脏表单存草稿挽留机制并优化逻辑
+feat: 引入微信云开发运行时与安全用户登录同步机制
 
-- 草稿箱模块 (pages/me/draft/index.vue & services/draftService.js)：
-  1. 新增批量管理模式，支持多选草稿并进行一键“批量清理”，优化批量删除与单项删除的确认弹窗与交互文案
-  2. 优化 `computeMissingFields` 缺失项判定逻辑，根据不同的效期模式 (常态/开封/双重) 精确提示具体缺失的属性（如“待确认到期日”、“待补开封效期”），使缺失项说明更精确温和
-  3. 规范化草稿的数据源字段映射
-- 添加与编辑模块 (pages/add/ & pages/detail/edit/)：
-  1. 重构添加物品页的脏数据检测方法 `isFormDirty`，使用初始状态的 JSON 快照与当前数据进行深度比对
-  2. 实现脏表单返回时的“存草稿挽留弹窗”（先留一份草稿吗？），支持一键“存草稿”并安全退出，防止用户录入数据意外丢失
-  3. 优化编辑详情页未保存返回时的挽留提示文案（还没保存修改）
-- 数据同步模块 (pages/me/data/success.vue)：
-  1. 修复同步成功页缺失的 `<script setup lang="ts">` 声明，解决 Vue 编译警告
+- 云开发环境与配置 (cloudRuntimeService.js & project.config.json)：
+  1. 新增 `cloudRuntimeService.js` 管理微信云开发环境的单例初始化，支持非微信环境与缺省配置下的本地降级
+  2. 新增 `project.config.json` 声明小程序项目云开发目录及云函数配置
+  3. 重构 App.vue，调用 `cloudRuntimeService.init()` 代替原有的直接初始化逻辑
+- 安全用户登录与云数据库同步 (authService.js & wechatCloudUserRepository.js)：
+  1. 新增 `wechatCloudUserRepository.js` 充当唯一的云端用户 I/O 适配层，杜绝页面层直调 `wx.cloud.callFunction`
+  2. 重构 `authService.js`，严格执行白名单存储，禁止在本地持久化缓存敏感的 `openid`，同时增加防范重复登录的锁机制
+  3. 支持将用户昵称修改异步同步至云端，且网络失败时本地不回滚以保证体验
+- 云函数开发 (cloudfunctions/login/)：
+  1. 新增 login 云函数，负责在服务端安全解析 `OPENID`、注册新用户或返回已有用户档案 (UID/昵称/头像)
+- 登录交互与防御 (pages/)：
+  1. 为启动页 (pages/launch/) 和我的主页 (pages/me/) 登录按钮增加 `isLoggingIn` 状态锁，防止网络延时下的重复并发登录
+  2. 捕获登录异常并转换成更友好的提示文案（如“暂时没登录成功，也可以先逛逛”）
+- 安全合规规范 (SECURITY.md)：
+  1. 更新安全指南，明确禁止缓存 openid 及 ownerKey 等敏感信息的隐私红线
 
-影响范围：草稿箱列表管理、物品添加与编辑流程、数据同步模块
+影响范围：云开发环境生命周期、微信登录流程及用户基础信息修改同步

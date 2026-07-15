@@ -55,21 +55,26 @@ function onToggleAgreement() {
   agreed.value = !agreed.value
 }
 
+const isLoggingIn = ref(false)
+
 async function onWxLogin() {
   if (!agreed.value) {
     uni.showToast({ title: '请先同意用户协议与隐私政策', icon: 'none' })
     return
   }
-  
+  if (isLoggingIn.value) return
+  isLoggingIn.value = true
+
   try {
     await authService.login()
     uni.switchTab({ url: '/pages/index/index' })
   } catch (err) {
-    uni.showToast({ 
-      title: err.message || '登录失败',
-      icon: 'none',
-      duration: 2000
-    })
+    const msg = err.message === 'login_in_progress'
+      ? '登录中，请稍候'
+      : (err.message || '暂时没登录成功，也可以先逛逛')
+    uni.showToast({ title: msg, icon: 'none', duration: 2000 })
+  } finally {
+    isLoggingIn.value = false
   }
 }
 
