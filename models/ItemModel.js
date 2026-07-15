@@ -35,7 +35,12 @@ export function createItem(data) {
     }],
     createdAt: data.createdAt || now,
     updatedAt: now,
-    lastEditedAt: data.lastEditedAt || now
+    lastEditedAt: data.lastEditedAt || now,
+
+    // Sync fields
+    syncStatus: data.syncStatus || 'pending', // pending, synced, failed
+    lastSyncedAt: data.lastSyncedAt || null,
+    syncError: data.syncError || ''
   };
 }
 
@@ -43,5 +48,7 @@ function formatDateMonthDay(timestamp) {
   const d = new Date(timestamp);
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
-  return `${m}-${day}`;
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${m}.${day} ${h}:${min}`;
 }

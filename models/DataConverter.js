@@ -103,7 +103,7 @@ export const DataConverter = {
       activeExpirySourceLabel: activeSource === 'opened' ? '开封后效期更早' : (activeSource === 'unopened' ? '包装效期更早' : ''),
       
       timeline: safeItem.timeline,
-      remindDays: safeItem.remindDays
+      remindDays: safeItem.remindDays !== undefined ? safeItem.remindDays : 7
     };
   }
 };

@@ -1,9 +1,9 @@
-const DRAFTS_KEY = 'allhas_drafts_v1'
+import { STORAGE_KEYS } from '../utils/storageKeys.js'
 
 export const localDraftRepository = {
   getDrafts() {
     try {
-      const data = uni.getStorageSync(DRAFTS_KEY)
+      const data = uni.getStorageSync(STORAGE_KEYS.DRAFTS)
       return data ? JSON.parse(data) : []
     } catch (e) {
       console.error('getDrafts failed', e)
@@ -13,7 +13,7 @@ export const localDraftRepository = {
 
   saveDrafts(drafts) {
     try {
-      uni.setStorageSync(DRAFTS_KEY, JSON.stringify(drafts))
+      uni.setStorageSync(STORAGE_KEYS.DRAFTS, JSON.stringify(drafts))
     } catch (e) {
       console.error('saveDrafts failed', e)
     }

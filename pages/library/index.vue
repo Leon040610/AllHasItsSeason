@@ -112,8 +112,8 @@
     </view>
 
     <!-- FAB -->
-    <view class="fab" @tap="onAdd">
-      <image class="fab__icon-img" src="/static/icons/library-add.svg" mode="aspectFit" />
+    <view class="fab" :style="fabStyle" @longpress="onFabLongPress" @touchstart="onFabTouchStart" @touchmove.stop.prevent="onFabTouchMove" @touchend="onFabTouchEnd" @tap="onAdd">
+      <image class="fab__icon-img" src="/static/icons/index-add.svg" mode="aspectFit" />
     </view>
 
     <!-- 底部 TabBar -->
@@ -181,7 +181,85 @@ const statusFilters = ref<Filter[]>([
 
 const allItems = ref<any[]>([])
 
+// ====== FAB 拖拽逻辑 ======
+const sysInfo = uni.getSystemInfoSync()
+const windowWidth = sysInfo.windowWidth
+const windowHeight = sysInfo.windowHeight
+const fabW = uni.upx2px(112)
+const safeBottom = sysInfo.safeAreaInsets ? sysInfo.safeAreaInsets.bottom : 0
+
+const defaultX = windowWidth - fabW - uni.upx2px(48)
+const defaultY = windowHeight - uni.upx2px(132) - safeBottom - uni.upx2px(40) - fabW
+
+const fabX = ref(defaultX)
+const fabY = ref(defaultY)
+const isSnapping = ref(false)
+
+let isDraggable = false
+let isMoved = false
+let touchStartX = 0
+let touchStartY = 0
+let fabStartX = 0
+let fabStartY = 0
+
+const fabStyle = computed(() => {
+  return `transform: translate(${fabX.value}px, ${fabY.value}px); transition: ${isSnapping.value ? 'transform 0.3s ease-out' : 'none'};`
+})
+
+function onFabLongPress() {
+  isDraggable = true
+  uni.vibrateShort()
+}
+
+function onFabTouchStart(e: any) {
+  touchStartX = e.touches[0].clientX
+  touchStartY = e.touches[0].clientY
+  fabStartX = fabX.value
+  fabStartY = fabY.value
+  isMoved = false
+  isSnapping.value = false
+}
+
+function onFabTouchMove(e: any) {
+  if (!isDraggable) return
+  isMoved = true
+  let newX = fabStartX + (e.touches[0].clientX - touchStartX)
+  let newY = fabStartY + (e.touches[0].clientY - touchStartY)
+  
+  if (newX < 0) newX = 0
+  if (newX > windowWidth - fabW) newX = windowWidth - fabW
+  if (newY < 0) newY = 0
+  if (newY > windowHeight - fabW) newY = windowHeight - fabW
+  
+  fabX.value = newX
+  fabY.value = newY
+}
+
+function onFabTouchEnd() {
+  if (!isDraggable) return
+  isDraggable = false
+  isSnapping.value = true
+  
+  if (fabX.value + fabW / 2 < windowWidth / 2) {
+    fabX.value = uni.upx2px(48)
+  } else {
+    fabX.value = windowWidth - fabW - uni.upx2px(48)
+  }
+  
+  uni.setStorageSync('fab_position', { x: fabX.value, y: fabY.value })
+  
+  setTimeout(() => {
+    isSnapping.value = false
+  }, 300)
+}
+
 onShow(() => {
+  const saved = uni.getStorageSync('fab_position')
+  if (saved) {
+    fabX.value = saved.x
+    fabY.value = saved.y
+  }
+
   allItems.value = itemService.getViewItems()
 
   // 读取并应用跳转参数
@@ -254,6 +332,10 @@ function onItemTap(item: any) {
 }
 
 function onAdd() {
+  if (isMoved) {
+    isMoved = false
+    return
+  }
   uni.navigateTo({ url: '/pages/add/index?mode=manual' })
 }
 
@@ -331,7 +413,7 @@ $top-height: 120rpx;
   height: 100vh;
   box-sizing: border-box;
   padding-top: calc($top-height + var(--status-bar-height, 44rpx));
-  padding-bottom: 160rpx;
+  padding-bottom: calc(132rpx + env(safe-area-inset-bottom) + 32rpx);
 }
 
 .scroll-body {
@@ -572,8 +654,8 @@ $top-height: 120rpx;
 /* FAB */
 .fab {
   position: fixed;
-  right: 48rpx;
-  bottom: calc(132rpx + 40rpx);
+  left: 0;
+  top: 0;
   width: 112rpx;
   height: 112rpx;
   border-radius: $radius-full;
@@ -585,8 +667,8 @@ $top-height: 120rpx;
   z-index: 50;
 
   &__icon-img {
-    width: 48rpx;
-    height: 48rpx;
+    width: 44rpx;
+    height: 44rpx;
   }
 }
 

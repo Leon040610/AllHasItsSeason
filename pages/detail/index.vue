@@ -179,13 +179,12 @@ let currentId = ''
 
 const pureStatusLabel = computed(() => {
   if (!item.value) return ''
-  let label = item.value.statusLabel
-  if (label.includes('使用中')) return '使用中'
-  if (label.includes('已用完')) return '已用完'
-  if (label.includes('已删除')) return '已删除'
-  if (label.includes('已过期')) return '已过期'
-  if (label.includes('还有')) return '待取用'
-  return label
+  if (item.value.displayStatus === 'expired') return '已过期'
+  if (item.value.displayStatus === 'incomplete') return '待补全'
+  if (item.value.status === 'using') return '使用中'
+  if (item.value.status === 'done') return '已用完'
+  if (item.value.status === 'deleted') return '已删除'
+  return '待取用'
 })
 
 onLoad((options: any) => {

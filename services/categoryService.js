@@ -1,7 +1,8 @@
 import { localRepository } from '../repositories/localRepository.js';
 import { itemService } from './itemService.js';
+import { STORAGE_KEYS } from '../utils/storageKeys.js';
 
-const CATEGORIES_KEY = 'allhas_categories_v1';
+const CATEGORIES_KEY = STORAGE_KEYS.CATEGORIES;
 
 class CategoryService {
   constructor() {
@@ -45,9 +46,23 @@ class CategoryService {
             defaultExpiryMode: c.defaultExpiryMode || (['medicine', 'beauty', 'baby'].includes(c.id) ? 'dual' : 'normal'),
             isSystem: c.isSystem !== undefined ? c.isSystem : !!c.isDefault,
             isDeleted: c.isDeleted || false,
+            syncStatus: c.syncStatus || 'pending',
+            lastSyncedAt: c.lastSyncedAt || null,
+            syncError: c.syncError || '',
             createdAt: c.createdAt || Date.now(),
             updatedAt: c.updatedAt || Date.now()
           };
+        }
+
+        if (!c.syncStatus) {
+          migrated = true;
+          c.syncStatus = 'pending';
+          c.lastSyncedAt = null;
+          c.syncError = '';
+        }
+        if (c.isDeleted === undefined) {
+          migrated = true;
+          c.isDeleted = false;
         }
         
         // Force fix white iconColor for system categories that got saved incorrectly
@@ -107,6 +122,16 @@ class CategoryService {
       .sort((a, b) => a.sortOrder - b.sortOrder);
   }
 
+  getAllCategoriesForSync() {
+    this.init();
+    return this.categories;
+  }
+
+  getPendingCategoriesForSync() {
+    this.init();
+    return this.categories.filter(c => c.syncStatus === 'pending' || c.syncStatus === 'failed');
+  }
+
   addCategory(data) {
     this.init();
     const newCat = {
@@ -119,6 +144,9 @@ class CategoryService {
       sortOrder: this.categories.length + 1,
       isSystem: false,
       isDeleted: false,
+      syncStatus: 'pending',
+      lastSyncedAt: null,
+      syncError: '',
       createdAt: Date.now(),
       updatedAt: Date.now(),
       ...data
@@ -136,6 +164,7 @@ class CategoryService {
     this.categories[index] = {
       ...this.categories[index],
       ...data,
+      syncStatus: 'pending',
       updatedAt: Date.now()
     };
     

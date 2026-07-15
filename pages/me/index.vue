@@ -347,7 +347,7 @@ $top-height: 120rpx;
 .scroll-body {
   flex: 1;
   padding-top: calc($top-height + var(--status-bar-height, 44rpx));
-  padding-bottom: $tab-height;
+  padding-bottom: calc(132rpx + env(safe-area-inset-bottom) + 32rpx);
   height: 100vh;
   box-sizing: border-box;
 }

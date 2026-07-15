@@ -106,7 +106,13 @@ const syncStatusText = computed(() => {
   if (!syncSet.syncEnabled) {
     return '暂未开启云同步'
   }
-  return syncSet.syncStatus === 'syncing' ? '同步中' : '同步完成'
+  if (syncSet.syncStatus === 'syncing') return '同步中'
+  if (syncSet.lastSyncAt) {
+    const d = new Date(syncSet.lastSyncAt)
+    const timeStr = `${(d.getMonth()+1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
+    return syncSet.syncStatus === 'error' ? `同步失败 (${timeStr})` : `同步成功 (${timeStr})`
+  }
+  return '同步完成'
 })
 
 onShow(() => {
@@ -125,8 +131,7 @@ function onSyncCloud() {
     uni.showToast({ title: '云同步能力暂未配置，请先完成云开发配置', icon: 'none' })
     return
   }
-  // uni.navigateTo({ url: '/pages/me/data/syncing' })
-  uni.showToast({ title: 'P1.5 阶段暂不实现真实云同步', icon: 'none' })
+  uni.navigateTo({ url: '/pages/me/data/syncing' })
 }
 
 function onExportData() {

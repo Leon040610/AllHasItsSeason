@@ -23,7 +23,7 @@
             <image class="sync-icon-text-img" src="/static/icons/data-syncing-tongbu.svg" mode="aspectFit" />
           </view>
         </view>
-        <text class="sync-title">正在同步中...</text>
+        <text class="sync-title">正在同步中</text>
         <text class="sync-desc">我们正在为您整理家庭物品清单，并将{{ '\n' }}其安全地加密同步至云端。</text>
       </view>
 
@@ -39,7 +39,7 @@
               </view>
               <view class="progress-item__info">
                 <text class="progress-item__label">云端备份同步</text>
-                <text class="progress-item__sub">同步中...</text>
+                <text class="progress-item__sub">同步中</text>
               </view>
               <text class="progress-item__percent">{{ syncProgress }}%</text>
             </view>
@@ -88,7 +88,10 @@
     <!-- 底部操作区 -->
     <view class="bottom-actions">
       <view class="btn-confirming">
-        <image class="btn-confirming__spinner-img" src="/static/icons/data-syncing-querentongbuzhong1.svg" mode="aspectFit" />
+        <view class="btn-confirming__spinner-wrap">
+          <image class="btn-confirming__spinner-bg" src="/static/icons/data-syncing-querentongbuzhong2.svg" mode="aspectFit" />
+          <image class="btn-confirming__spinner-img" src="/static/icons/data-syncing-querentongbuzhong1.svg" mode="aspectFit" />
+        </view>
         <text class="btn-confirming__text">确认同步中</text>
       </view>
       <view class="btn-cancel" @tap="onCancelSync">
@@ -104,16 +107,45 @@ import { syncService } from '../../../services/syncService.js'
 
 const syncProgress = ref(0)
 let timer: ReturnType<typeof setInterval> | null = null
+let isCancelled = false
 
-onMounted(() => {
+onMounted(async () => {
   const settings = syncService.getSettings()
   syncProgress.value = settings.syncProgress || 0
   
-  // Real sync loop would poll status here, but P1.5 does not have real sync.
-  // timer = setInterval(() => { ... }, 1000)
+  // Real sync loop
+  try {
+    // start fake progress animation up to 80%
+    timer = setInterval(() => {
+      if (syncProgress.value < 80) syncProgress.value += 5
+    }, 200)
+    
+    const res = await syncService.syncItems()
+    if (isCancelled) return
+    
+    // complete progress
+    if (timer) clearInterval(timer)
+    syncProgress.value = 100
+    
+    setTimeout(() => {
+      if (!isCancelled) {
+        uni.redirectTo({ url: '/pages/me/data/success' })
+      }
+    }, 800)
+  } catch (err: any) {
+    if (isCancelled) return
+    if (timer) clearInterval(timer)
+    
+    if (err.message === 'not_logged_in') {
+      uni.redirectTo({ url: '/pages/me/data/not-logged' })
+    } else {
+      uni.redirectTo({ url: '/pages/me/data/no-sync' })
+    }
+  }
 })
 
 onUnmounted(() => {
+  isCancelled = true
   if (timer) clearInterval(timer)
 })
 
@@ -247,6 +279,7 @@ $bottom-h: 240rpx;
   inset: 0;
   border-radius: $radius-full;
   border: 4rpx dashed rgba(138, 154, 134, 0.35);
+  animation: rotate-ccw 8s linear infinite;
 }
 
 .sync-icon-circle {
@@ -262,6 +295,7 @@ $bottom-h: 240rpx;
 .sync-icon-text-img {
   width: 56rpx;
   height: 56rpx;
+  animation: rotate-ccw 2.5s linear infinite;
 }
 
 .sync-title {
@@ -448,10 +482,23 @@ $bottom-h: 240rpx;
   justify-content: center;
   gap: 16rpx;
 
-  &__spinner-img {
+  &__spinner-wrap {
+    position: relative;
     width: 36rpx;
     height: 36rpx;
-    opacity: 0.7;
+  }
+
+  &__spinner-bg,
+  &__spinner-img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  &__spinner-img {
+    animation: rotate-ccw 1s linear infinite;
   }
 
   &__text {
@@ -459,6 +506,15 @@ $bottom-h: 240rpx;
     font-size: 34rpx;
     font-weight: 700;
     color: #fff;
+  }
+}
+
+@keyframes rotate-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
   }
 }
 

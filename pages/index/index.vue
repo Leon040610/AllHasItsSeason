@@ -114,7 +114,7 @@
     </scroll-view>
 
     <!-- 悬浮添加按钮 -->
-    <view class="fab" @tap="onManualAdd">
+    <view class="fab" :style="fabStyle" @longpress="onFabLongPress" @touchstart="onFabTouchStart" @touchmove.stop.prevent="onFabTouchMove" @touchend="onFabTouchEnd" @tap="onManualAdd">
       <image class="fab__icon-img" src="/static/icons/index-add.svg" mode="aspectFit" />
     </view>
 
@@ -168,6 +168,12 @@ const greetingText = computed(() => {
 })
 
 onShow(() => {
+  const saved = uni.getStorageSync('fab_position')
+  if (saved) {
+    fabX.value = saved.x
+    fabY.value = saved.y
+  }
+
   // 从服务层获取最新数据
   const allViewItems = itemService.getViewItems()
   
@@ -211,11 +217,87 @@ onShow(() => {
   })
 })
 
+// ====== FAB 拖拽逻辑 ======
+const sysInfo = uni.getSystemInfoSync()
+const windowWidth = sysInfo.windowWidth
+const windowHeight = sysInfo.windowHeight
+const fabW = uni.upx2px(112)
+const safeBottom = sysInfo.safeAreaInsets ? sysInfo.safeAreaInsets.bottom : 0
+
+const defaultX = windowWidth - fabW - uni.upx2px(48)
+const defaultY = windowHeight - uni.upx2px(132) - safeBottom - uni.upx2px(40) - fabW
+
+const fabX = ref(defaultX)
+const fabY = ref(defaultY)
+const isSnapping = ref(false)
+
+let isDraggable = false
+let isMoved = false
+let touchStartX = 0
+let touchStartY = 0
+let fabStartX = 0
+let fabStartY = 0
+
+const fabStyle = computed(() => {
+  return `transform: translate(${fabX.value}px, ${fabY.value}px); transition: ${isSnapping.value ? 'transform 0.3s ease-out' : 'none'};`
+})
+
+function onFabLongPress() {
+  isDraggable = true
+  uni.vibrateShort()
+}
+
+function onFabTouchStart(e: any) {
+  touchStartX = e.touches[0].clientX
+  touchStartY = e.touches[0].clientY
+  fabStartX = fabX.value
+  fabStartY = fabY.value
+  isMoved = false
+  isSnapping.value = false
+}
+
+function onFabTouchMove(e: any) {
+  if (!isDraggable) return
+  isMoved = true
+  let newX = fabStartX + (e.touches[0].clientX - touchStartX)
+  let newY = fabStartY + (e.touches[0].clientY - touchStartY)
+  
+  if (newX < 0) newX = 0
+  if (newX > windowWidth - fabW) newX = windowWidth - fabW
+  if (newY < 0) newY = 0
+  if (newY > windowHeight - fabW) newY = windowHeight - fabW
+  
+  fabX.value = newX
+  fabY.value = newY
+}
+
+function onFabTouchEnd() {
+  if (!isDraggable) return
+  isDraggable = false
+  isSnapping.value = true
+  
+  if (fabX.value + fabW / 2 < windowWidth / 2) {
+    fabX.value = uni.upx2px(48)
+  } else {
+    fabX.value = windowWidth - fabW - uni.upx2px(48)
+  }
+  
+  uni.setStorageSync('fab_position', { x: fabX.value, y: fabY.value })
+  
+  setTimeout(() => {
+    isSnapping.value = false
+  }, 300)
+}
+
 function onPhotoScan() {
   uni.navigateTo({ url: '/pages/add/index?mode=photo' })
 }
 
 function onManualAdd() {
+  if (isMoved) {
+    isMoved = false
+    return
+  }
   uni.navigateTo({ url: '/pages/add/index?mode=manual' })
 }
 
@@ -321,7 +403,8 @@ $top-height:          120rpx;
   flex: 1;
   // 顶部高度 = 自定义导航栏高度 + 状态栏高度
   padding-top: calc(#{$top-height} + var(--status-bar-height, 44rpx));
-  padding-bottom: 140rpx;
+  // 底部留出 Tab 栏和安全区的高度
+  padding-bottom: calc(132rpx + env(safe-area-inset-bottom) + 32rpx);
   height: 100vh;
   box-sizing: border-box;
 }
@@ -659,8 +742,8 @@ $top-height:          120rpx;
 // 设计稿：size-56px=112rpx，bg #536251，bottom-101px=202rpx，right-32px=64rpx
 .fab {
   position: fixed;
-  right: 64rpx;
-  bottom: calc(110rpx + 40rpx);
+  left: 0;
+  top: 0;
   width: 112rpx;
   height: 112rpx;
   border-radius: $radius-full;

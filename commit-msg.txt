@@ -1,19 +1,18 @@
-feat: 引入微信云开发运行时与安全用户登录同步机制
+feat: 实现云端数据同步架构 MVP 与数据管理界面接入
 
-- 云开发环境与配置 (cloudRuntimeService.js & project.config.json)：
-  1. 新增 `cloudRuntimeService.js` 管理微信云开发环境的单例初始化，支持非微信环境与缺省配置下的本地降级
-  2. 新增 `project.config.json` 声明小程序项目云开发目录及云函数配置
-  3. 重构 App.vue，调用 `cloudRuntimeService.init()` 代替原有的直接初始化逻辑
-- 安全用户登录与云数据库同步 (authService.js & wechatCloudUserRepository.js)：
-  1. 新增 `wechatCloudUserRepository.js` 充当唯一的云端用户 I/O 适配层，杜绝页面层直调 `wx.cloud.callFunction`
-  2. 重构 `authService.js`，严格执行白名单存储，禁止在本地持久化缓存敏感的 `openid`，同时增加防范重复登录的锁机制
-  3. 支持将用户昵称修改异步同步至云端，且网络失败时本地不回滚以保证体验
-- 云函数开发 (cloudfunctions/login/)：
-  1. 新增 login 云函数，负责在服务端安全解析 `OPENID`、注册新用户或返回已有用户档案 (UID/昵称/头像)
-- 登录交互与防御 (pages/)：
-  1. 为启动页 (pages/launch/) 和我的主页 (pages/me/) 登录按钮增加 `isLoggingIn` 状态锁，防止网络延时下的重复并发登录
-  2. 捕获登录异常并转换成更友好的提示文案（如“暂时没登录成功，也可以先逛逛”）
-- 安全合规规范 (SECURITY.md)：
-  1. 更新安全指南，明确禁止缓存 openid 及 ownerKey 等敏感信息的隐私红线
+- 云端同步架构 (cloudfunctions/syncData/ & repositories/wechatCloudSyncRepository.js)：
+  1. 新增 `syncData` 云函数，支持 `pull`（拉取）、`upsert`（双向合并更新）与 `log`（日志记录）三大同步机制
+  2. 实现安全计算 `ownerKey` 与确定的云端文档 ID，确保不泄露 openid 及敏感账户标识
+  3. 服务端采用 `runTransaction` 事务串行处理，按 `updatedAt` 时间戳进行“最后写入胜出”冲突合并，若云端数据较新则返回供本地合并覆盖
+- 核心同步控制 (services/syncService.js & utils/storageKeys.js)：
+  1. 新增 `syncService.js` 控制整体双向同步逻辑，包括分批（每批上限 20 条）上行更新、本地回写数据库合并及云端日志上传
+  2. 新增 `utils/storageKeys.js` 统一归档管理全小程序的所有本地 `localStorage` 缓存 Key，避免键名冲突与漂移
+  3. 全局各业务服务类均切换为引入统一的 Storage Key
+- 数据管理界面功能接入 (pages/me/data/ 各子页面)：
+  1. 首页 (index.vue)：根据同步状态显示真实统计，计算待同步、已同步物品件数
+  2. 同步中页 (syncing.vue)：接入 `syncItems()` 动态调用流程，显示真实步骤（图片压缩、清理、云端同步），并处理同步中网络防呆与退出机制
+  3. 成功页 (success.vue)：从云同步结果中解析真实统计数据（物品件数、节省空间等）并展示
+- 模型与其它修正：
+  1. 在 `ItemModel.js` 中补齐 `updatedAt` 等同步核心属性，确保多处页面数据字段对齐
 
-影响范围：云开发环境生命周期、微信登录流程及用户基础信息修改同步
+影响范围：云同步逻辑、微信云开发适配层、数据管理（同步交互）模块界面

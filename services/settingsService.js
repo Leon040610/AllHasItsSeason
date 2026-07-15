@@ -1,6 +1,7 @@
 import { localRepository } from '../repositories/localRepository.js';
+import { STORAGE_KEYS } from '../utils/storageKeys.js';
 
-const SETTINGS_KEY = 'allhas_user_settings_v1';
+const SETTINGS_KEY = STORAGE_KEYS.USER_SETTINGS;
 
 class SettingsService {
   constructor() {
@@ -23,6 +24,9 @@ class SettingsService {
         remindDayOptions: oldCustomDays || [0, 1, 3, 7, 30],
         defaultRemindDays: oldDefaultDays !== '' ? Number(oldDefaultDays) : 7,
         remindTime: oldDefaultTime || '10:00',
+        syncStatus: 'pending',
+        lastSyncedAt: null,
+        syncError: '',
         updatedAt: Date.now()
       };
       
@@ -47,6 +51,12 @@ class SettingsService {
         settings.inAppEnabled = true;
         migrated = true;
       }
+      if (settings.syncStatus === undefined) {
+        settings.syncStatus = 'pending';
+        settings.lastSyncedAt = null;
+        settings.syncError = '';
+        migrated = true;
+      }
       if (migrated) {
         settings.updatedAt = Date.now();
         localRepository.set(SETTINGS_KEY, settings);
@@ -60,8 +70,23 @@ class SettingsService {
     return this.settings;
   }
 
+  getSettingsForSync() {
+    if (!this.settings) this.init();
+    return this.settings;
+  }
+
+  hasPendingSettings() {
+    if (!this.settings) this.init();
+    return this.settings.syncStatus === 'pending' || this.settings.syncStatus === 'failed';
+  }
+
   updateSettings(newSettings) {
-    this.settings = { ...this.settings, ...newSettings, updatedAt: Date.now() };
+    this.settings = { 
+      ...this.settings, 
+      ...newSettings, 
+      syncStatus: 'pending',
+      updatedAt: Date.now() 
+    };
     return localRepository.set(SETTINGS_KEY, this.settings);
   }
 }

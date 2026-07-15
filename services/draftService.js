@@ -10,19 +10,56 @@ class DraftService {
   }
 
   init() {
-    this.drafts = localDraftRepository.getDrafts()
+    let rawDrafts = localDraftRepository.getDrafts()
+    let migrated = false
+    
+    this.drafts = rawDrafts.map(d => {
+      let changed = false
+      const draft = { ...d }
+      if (!draft.syncStatus) {
+        draft.syncStatus = 'pending'
+        draft.lastSyncedAt = null
+        draft.syncError = ''
+        changed = true
+      }
+      if (draft.isDeleted === undefined) {
+        draft.isDeleted = false
+        changed = true
+      }
+      if (!draft.updatedAt) {
+        draft.updatedAt = new Date().toISOString()
+        changed = true
+      }
+      if (changed) migrated = true
+      return draft
+    })
+    
+    if (migrated) {
+      localDraftRepository.saveDrafts(this.drafts)
+    }
+
     // Sort by updatedAt descending
     this.drafts.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
   }
 
   getDrafts() {
     this.init()
-    return this.drafts
+    return this.drafts.filter(d => !d.isDeleted)
   }
 
   getDraft(id) {
     this.init()
-    return this.drafts.find(d => d.id === id)
+    return this.drafts.find(d => d.id === id && !d.isDeleted)
+  }
+
+  getAllDraftsForSync() {
+    this.init()
+    return this.drafts
+  }
+
+  getPendingDraftsForSync() {
+    this.init()
+    return this.drafts.filter(d => d.syncStatus === 'pending' || d.syncStatus === 'failed')
   }
 
   computeMissingFields(draft) {
@@ -79,12 +116,17 @@ class DraftService {
       // Update existing
       Object.assign(draft, draftData)
       draft.updatedAt = now
+      draft.syncStatus = 'pending'
       draft.missingFields = this.computeMissingFields(draft)
     } else {
       // Create new
       draft = {
         ...draftData,
         id: draftData.id || generateUUID(),
+        syncStatus: 'pending',
+        lastSyncedAt: null,
+        syncError: '',
+        isDeleted: false,
         createdAt: now,
         updatedAt: now
       }
@@ -100,7 +142,9 @@ class DraftService {
   deleteDraft(id) {
     const index = this.drafts.findIndex(d => d.id === id)
     if (index > -1) {
-      this.drafts.splice(index, 1)
+      this.drafts[index].isDeleted = true
+      this.drafts[index].syncStatus = 'pending'
+      this.drafts[index].updatedAt = new Date().toISOString()
       localDraftRepository.saveDrafts(this.drafts)
       return { success: true }
     }
@@ -108,8 +152,18 @@ class DraftService {
   }
 
   clearDrafts() {
-    this.drafts = []
-    localDraftRepository.saveDrafts(this.drafts)
+    let changed = false
+    this.drafts.forEach(d => {
+      if (!d.isDeleted) {
+        d.isDeleted = true
+        d.syncStatus = 'pending'
+        d.updatedAt = new Date().toISOString()
+        changed = true
+      }
+    })
+    if (changed) {
+      localDraftRepository.saveDrafts(this.drafts)
+    }
     return { success: true }
   }
 }

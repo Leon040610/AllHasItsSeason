@@ -73,6 +73,13 @@ onShow(() => {
   const settings = syncService.getSettings()
   syncResult.itemCount = settings.syncedItemCount || 0
   syncResult.savedSpace = settings.savedStorageSize || '0'
+  
+  if (settings.lastSyncAt) {
+    const d = new Date(settings.lastSyncAt)
+    lastSyncLabel.value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  } else {
+    lastSyncLabel.value = '刚刚'
+  }
 })
 
 function onBack() {
