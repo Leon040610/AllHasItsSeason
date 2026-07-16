@@ -231,12 +231,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onShow, onLoad } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { settingsService } from '../../services/settingsService.js'
 import { categoryService } from '../../services/categoryService.js'
 import { draftService } from '../../services/draftService.js'
 import { cloudStorageService } from '../../services/cloudStorageService.js'
+import { ocrSessionService } from '../../services/ocrSessionService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, determineActiveExpiry } from '../../utils/dateUtils.js'
 
 const currentDraftId = ref('')
@@ -288,7 +289,54 @@ onLoad((options) => {
     currentDraftId.value = options.draftId
     loadDraft(options.draftId)
   }
+  
+  if (options && options.ocrSessionId) {
+    const session = ocrSessionService.consumeSession(options.ocrSessionId);
+    if (session && session.suggestions) {
+      applyOcrSuggestions(session.suggestions);
+    }
+  }
 })
+
+function applyOcrSuggestions(sug) {
+  let hasFilled = false;
+  
+  if (sug.productionDate && !form.value.produceDate) {
+    form.value.produceDate = sug.productionDate;
+    hasFilled = true;
+  }
+  
+  if (sug.shelfLifeValue && !form.value.shelfLife) {
+    form.value.shelfLife = sug.shelfLifeValue;
+    form.value.shelfUnit = sug.shelfLifeUnit || 'day';
+    hasFilled = true;
+  }
+  
+  if (sug.afterOpeningShelfLifeValue && !form.value.afterOpeningShelfLife) {
+    form.value.afterOpeningShelfLife = sug.afterOpeningShelfLifeValue;
+    form.value.afterOpeningShelfUnit = sug.afterOpeningShelfLifeUnit || 'month';
+    hasFilled = true;
+  }
+
+  // Set unit label to match the form unit
+  const unitMap = { 'year': '年', 'month': '月', 'day': '天' };
+  form.value.shelfUnitLabel = unitMap[form.value.shelfUnit] || '天';
+  form.value.afterOpeningShelfUnitLabel = unitMap[form.value.afterOpeningShelfUnit] || '月';
+
+  if (sug.productNameCandidate && !form.value.name) {
+    form.value.name = sug.productNameCandidate;
+    hasFilled = true;
+  }
+
+  if (hasFilled) {
+    // Check if we need to show expiryDateReference warning
+    if (sug.expiryDateReference && !form.value.produceDate && !form.value.shelfLife) {
+      uni.showToast({ title: `识别到有效期至 ${sug.expiryDateReference}，请核对生产日期和保质期`, icon: 'none', duration: 4000 });
+    } else {
+      uni.showToast({ title: '已帮你填入识别到的效期信息，保存前再核对一下吧', icon: 'none', duration: 3000 });
+    }
+  }
+}
 
 onMounted(() => {
   const settings = settingsService.getSettings()

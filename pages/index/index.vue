@@ -165,6 +165,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { categoryService } from '../../services/categoryService.js'
 import { syncService } from '../../services/syncService.js'
+import { recognitionService } from '../../services/recognitionService.js'
 
 const focusItems = ref<any[]>([])
 const categories = ref<any[]>([])
@@ -335,7 +336,61 @@ function onFabTouchEnd() {
 }
 
 function onPhotoScan() {
-  uni.navigateTo({ url: '/pages/add/index?mode=photo' })
+  const consent = uni.getStorageSync('allhas_ocr_consent_v1');
+  if (consent && consent.accepted) {
+    executePhotoScan();
+  } else {
+    uni.showModal({
+      title: '先确认一下拍照识字',
+      content: '为了识别包装上的效期信息，拍下的标签照片会提交给微信服务市场的文字识别服务处理。识别结果只会帮你填写表单。',
+      cancelText: '手动填写',
+      confirmText: '开始识别',
+      success: (res) => {
+        if (res.confirm) {
+          uni.setStorageSync('allhas_ocr_consent_v1', {
+            accepted: true,
+            policyVersion: 1,
+            acceptedAt: Date.now()
+          });
+          executePhotoScan();
+        } else {
+          uni.navigateTo({ url: '/pages/add/index?mode=manual' });
+        }
+      }
+    });
+  }
+}
+
+let isScanning = false;
+function executePhotoScan() {
+  if (isScanning) return;
+  
+  uni.chooseImage({
+    count: 1,
+    sourceType: ['camera'],
+    sizeType: ['compressed'],
+    success: async (chooseRes) => {
+      isScanning = true;
+      const tempPath = chooseRes.tempFilePaths[0];
+      
+      uni.showLoading({ title: '正在识别标签信息', mask: true });
+      
+      const res = await recognitionService.recognize(tempPath);
+      
+      uni.hideLoading();
+      isScanning = false;
+      
+      if (res.success) {
+        uni.navigateTo({ url: `/pages/add/index?mode=photo&ocrSessionId=${res.sessionId}` });
+      } else {
+        uni.showToast({ title: '小管家没看清日期，麻烦你手动补一下啦', icon: 'none', duration: 3000 });
+      }
+    },
+    fail: () => {
+      // Quietly fail when user cancels camera
+      isScanning = false;
+    }
+  });
 }
 
 function onManualAdd() {
