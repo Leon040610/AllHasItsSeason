@@ -58,12 +58,15 @@
 </template>
 
 <script setup lang="ts">
+import { syncService } from '../../../services/syncService.js'
+
 function onBack() {
   uni.navigateBack()
 }
 
 function onEnableSync() {
-  uni.navigateTo({ url: '/pages/me/data/syncing' })
+  syncService.updateSettings({ syncEnabled: true })
+  uni.redirectTo({ url: '/pages/me/data/index' })
 }
 </script>
 

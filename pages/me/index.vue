@@ -190,6 +190,7 @@ import { ref, reactive } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { authService } from '../../services/authService.js'
 import { draftService } from '../../services/draftService.js'
+import { syncService } from '../../services/syncService.js'
 
 const user = reactive({
   isLoggedIn: false,
@@ -255,7 +256,12 @@ function onEditProfile() {
 
 function onDataManagement() {
   if (user.isLoggedIn) {
-    uni.navigateTo({ url: '/pages/me/data/index' })
+    const syncSet = syncService.getSettings()
+    if (syncSet.syncEnabled) {
+      uni.navigateTo({ url: '/pages/me/data/index' })
+    } else {
+      uni.navigateTo({ url: '/pages/me/data/no-sync' })
+    }
   } else {
     uni.navigateTo({ url: '/pages/me/data/not-logged' })
   }
@@ -303,7 +309,7 @@ $top-height: 120rpx;
 
 .page {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   background: $color-bg;
   display: flex;
   flex-direction: column;

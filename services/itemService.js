@@ -3,6 +3,7 @@ import { createItem } from '../models/ItemModel.js';
 import { DataConverter } from '../models/DataConverter.js';
 import { generateUUID } from '../utils/uuid.js';
 import { STORAGE_KEYS } from '../utils/storageKeys.js';
+import { normalizeTimestamp } from '../utils/dateUtils.js';
 
 const ITEMS_KEY = STORAGE_KEYS.ITEMS;
 
@@ -36,13 +37,19 @@ class ItemService {
           mapped.lastSyncedAt = null;
           mapped.syncError = '';
         }
-        if (!mapped.createdAt) {
-          changed = true;
-          mapped.createdAt = Date.now();
+        
+        // Normalize timestamps
+        const origCreatedAt = mapped.createdAt;
+        const origUpdatedAt = mapped.updatedAt;
+        mapped.createdAt = normalizeTimestamp(mapped.createdAt, Date.now());
+        mapped.updatedAt = normalizeTimestamp(mapped.updatedAt, Date.now());
+        
+        if (mapped.deletedAt !== undefined) {
+          mapped.deletedAt = normalizeTimestamp(mapped.deletedAt, Date.now());
         }
-        if (!mapped.updatedAt) {
+
+        if (origCreatedAt !== mapped.createdAt || origUpdatedAt !== mapped.updatedAt) {
           changed = true;
-          mapped.updatedAt = Date.now();
         }
         
         if (changed) migrated = true;
@@ -131,6 +138,8 @@ class ItemService {
   addItem(itemData) {
     if (!this.initialized) this.init();
     const newItem = createItem(itemData);
+    newItem.createdAt = Date.now();
+    newItem.updatedAt = Date.now();
     this.items.push(newItem);
     return this._save();
   }
@@ -188,10 +197,13 @@ class ItemService {
         else desc = `修改了 ${changes.join('、')}`;
       }
 
+      // Ensure createdAt is not overwritten
+      const { createdAt, ...restUpdates } = updateData;
+
       // Update data
       this.items[index] = { 
         ...current, 
-        ...updateData,
+        ...restUpdates,
         updatedAt: now,
         lastEditedAt: now,
         syncStatus: 'pending'
@@ -216,9 +228,11 @@ class ItemService {
     if (!this.initialized) this.init();
     const index = this.items.findIndex(i => i.id === id);
     if (index !== -1) {
+      const now = Date.now();
       this.items[index].status = 'deleted';
       this.items[index].syncStatus = 'pending';
-      this.items[index].updatedAt = Date.now();
+      this.items[index].updatedAt = now;
+      this.items[index].deletedAt = now;
       return this._save();
     }
     return false;
@@ -228,12 +242,13 @@ class ItemService {
     if (!this.initialized) this.init();
     const index = this.items.findIndex(i => i.id === id);
     if (index !== -1) {
+      const now = Date.now();
       this.items[index].status = 'done';
       this.items[index].syncStatus = 'pending';
-      this.items[index].updatedAt = Date.now();
+      this.items[index].updatedAt = now;
       this.items[index].timeline.unshift({
         id: generateUUID(),
-        date: this._formatDateMonthDay(Date.now()),
+        date: this._formatDateMonthDay(now),
         desc: '已用完'
       });
       return this._save();

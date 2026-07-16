@@ -5,62 +5,140 @@ const crypto = require('crypto')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
-const itemsCol = db.collection('items')
-const logsCol = db.collection('sync_logs')
 
-/**
- * 生成稳定且不可逆的 ownerKey，必须与 login 保持一致
- */
+const ALLOWED_COLLECTIONS = ['items', 'categories', 'reminder_settings', 'drafts', 'sync_settings']
+
+// 统一跨集合时间戳契约，确保返回 number
+function normalizeTimestamp(value, fallback = 0) {
+  if (value === undefined || value === null || value === '') return fallback
+  if (typeof value === 'number') return value
+  const time = new Date(value).getTime()
+  return isNaN(time) ? fallback : time
+}
+
 function generateOwnerKey(openid, salt) {
   return crypto.createHmac('sha256', salt).update(openid).digest('hex').substring(0, 32)
 }
 
-/**
- * 生成确定的云端文档 ID
- */
-function generateCloudDocumentId(ownerKey, itemId) {
-  const hash = crypto.createHmac('sha256', ownerKey).update(itemId).digest('hex').substring(0, 24)
-  return `item_${hash}`
-}
-
-/**
- * 提取白名单字段，坚决不写入原始图片路径等无关字段
- */
-function extractSafeItem(item, ownerKey) {
-  return {
-    ownerKey,
-    id: item.id,
-    name: item.name || '',
-    brand: item.brand || '',
-    specification: item.specification || '',
-    categoryId: item.categoryId || '',
-    categoryName: item.categoryName || '',
-    status: item.status || 'active',
-    
-    // expiry related
-    expiryMode: item.expiryMode || 'normal',
-    productionDate: item.productionDate || '',
-    shelfLifeValue: typeof item.shelfLifeValue === 'number' ? item.shelfLifeValue : 0,
-    shelfLifeUnit: item.shelfLifeUnit || 'month',
-    expiryDate: item.expiryDate || '',
-    openDate: item.openDate || '',
-    afterOpeningShelfLifeValue: typeof item.afterOpeningShelfLifeValue === 'number' ? item.afterOpeningShelfLifeValue : 0,
-    afterOpeningShelfLifeUnit: item.afterOpeningShelfLifeUnit || 'month',
-    openedExpiryDate: item.openedExpiryDate || '',
-    activeExpiryDate: item.activeExpiryDate || null,
-    activeExpirySource: item.activeExpirySource || 'normal',
-    remindDays: typeof item.remindDays === 'number' ? item.remindDays : 7,
-    
-    notes: item.notes || '',
-    imageProcessStatus: item.imageProcessStatus || 'pending',
-    
-    createdAt: item.createdAt || new Date().toISOString(),
-    updatedAt: item.updatedAt || new Date().toISOString()
+function getCloudDocumentId(collection, ownerKey, recordId) {
+  if (collection === 'items') {
+    // 保持 P2.4 兼容性
+    const hash = crypto.createHmac('sha256', ownerKey).update(recordId).digest('hex').substring(0, 24)
+    return `item_${hash}`
+  } else if (collection === 'reminder_settings' || collection === 'sync_settings') {
+    return `${collection}_${ownerKey}`
+  } else {
+    const hash = crypto.createHmac('sha256', ownerKey).update(recordId).digest('hex').substring(0, 24)
+    return `${collection}_${hash}`
   }
 }
 
+function extractSafePayload(collection, record, ownerKey) {
+  const safeRecord = { ownerKey }
+  
+  const extractTime = (key) => {
+    if (record[key] !== undefined) {
+      safeRecord[key] = normalizeTimestamp(record[key])
+    }
+  }
+
+  if (collection === 'items') {
+    safeRecord.id = record.id
+    safeRecord.name = record.name || ''
+    safeRecord.brand = record.brand || ''
+    safeRecord.specification = record.specification || ''
+    safeRecord.categoryId = record.categoryId || ''
+    safeRecord.categoryName = record.categoryName || ''
+    safeRecord.status = record.status || 'active'
+    safeRecord.expiryMode = record.expiryMode || 'normal'
+    safeRecord.productionDate = record.productionDate || ''
+    safeRecord.shelfLifeValue = typeof record.shelfLifeValue === 'number' ? record.shelfLifeValue : 0
+    safeRecord.shelfLifeUnit = record.shelfLifeUnit || 'month'
+    safeRecord.expiryDate = record.expiryDate || ''
+    safeRecord.openDate = record.openDate || ''
+    safeRecord.afterOpeningShelfLifeValue = typeof record.afterOpeningShelfLifeValue === 'number' ? record.afterOpeningShelfLifeValue : 0
+    safeRecord.afterOpeningShelfLifeUnit = record.afterOpeningShelfLifeUnit || 'month'
+    safeRecord.openedExpiryDate = record.openedExpiryDate || ''
+    safeRecord.activeExpiryDate = record.activeExpiryDate || null
+    safeRecord.activeExpirySource = record.activeExpirySource || 'normal'
+    safeRecord.remindDays = typeof record.remindDays === 'number' ? record.remindDays : 7
+    safeRecord.notes = record.notes || ''
+    safeRecord.imageProcessStatus = record.imageProcessStatus || 'pending'
+    
+    safeRecord.createdAt = normalizeTimestamp(record.createdAt, Date.now())
+    safeRecord.updatedAt = normalizeTimestamp(record.updatedAt, Date.now())
+    extractTime('deletedAt')
+  } 
+  else if (collection === 'categories') {
+    safeRecord.id = record.id
+    safeRecord.name = record.name || ''
+    safeRecord.backgroundColor = record.backgroundColor || '#F4F3F1'
+    safeRecord.iconColor = record.iconColor || '#8E4D33'
+    safeRecord.iconKey = record.iconKey || 'qita'
+    safeRecord.defaultExpiryMode = record.defaultExpiryMode || 'normal'
+    safeRecord.sortOrder = typeof record.sortOrder === 'number' ? record.sortOrder : 99
+    safeRecord.isSystem = !!record.isSystem
+    safeRecord.isDeleted = !!record.isDeleted
+    
+    safeRecord.createdAt = normalizeTimestamp(record.createdAt, Date.now())
+    safeRecord.updatedAt = normalizeTimestamp(record.updatedAt, Date.now())
+    extractTime('deletedAt')
+  }
+  else if (collection === 'reminder_settings') {
+    safeRecord.id = 'default'
+    safeRecord.enabled = !!record.enabled
+    safeRecord.remindDayOptions = Array.isArray(record.remindDayOptions) ? record.remindDayOptions : [0, 1, 3, 7, 30]
+    safeRecord.defaultRemindDays = typeof record.defaultRemindDays === 'number' ? record.defaultRemindDays : 7
+    safeRecord.remindTime = record.remindTime || '10:00'
+    safeRecord.inAppEnabled = record.inAppEnabled !== undefined ? !!record.inAppEnabled : true
+    
+    safeRecord.createdAt = normalizeTimestamp(record.createdAt, Date.now())
+    safeRecord.updatedAt = normalizeTimestamp(record.updatedAt, Date.now())
+  }
+  else if (collection === 'sync_settings') {
+    safeRecord.id = 'default'
+    safeRecord.syncEnabled = !!record.syncEnabled
+    
+    safeRecord.createdAt = normalizeTimestamp(record.createdAt, Date.now())
+    safeRecord.updatedAt = normalizeTimestamp(record.updatedAt, Date.now())
+  }
+  else if (collection === 'drafts') {
+    if (record.source !== 'add') {
+      throw new Error('validation_failed: draft source must be add')
+    }
+    safeRecord.id = record.id
+    safeRecord.name = record.name || ''
+    safeRecord.brand = record.brand || ''
+    safeRecord.specification = record.specification || ''
+    safeRecord.categoryId = record.categoryId || ''
+    safeRecord.categoryName = record.categoryName || ''
+    safeRecord.status = record.status || 'pending'
+    safeRecord.expiryMode = record.expiryMode || ''
+    safeRecord.productionDate = record.productionDate || ''
+    safeRecord.shelfLifeValue = typeof record.shelfLifeValue === 'number' ? record.shelfLifeValue : 0
+    safeRecord.shelfLifeUnit = record.shelfLifeUnit || ''
+    safeRecord.expiryDate = record.expiryDate || ''
+    safeRecord.openDate = record.openDate || ''
+    safeRecord.afterOpeningShelfLifeValue = typeof record.afterOpeningShelfLifeValue === 'number' ? record.afterOpeningShelfLifeValue : 0
+    safeRecord.afterOpeningShelfLifeUnit = record.afterOpeningShelfLifeUnit || ''
+    safeRecord.openedExpiryDate = record.openedExpiryDate || ''
+    safeRecord.activeExpiryDate = record.activeExpiryDate || null
+    safeRecord.activeExpirySource = record.activeExpirySource || ''
+    safeRecord.remindDays = typeof record.remindDays === 'number' ? record.remindDays : 7
+    safeRecord.notes = record.notes || ''
+    safeRecord.source = 'add'
+    safeRecord.isDeleted = !!record.isDeleted
+    
+    safeRecord.createdAt = normalizeTimestamp(record.createdAt, Date.now())
+    safeRecord.updatedAt = normalizeTimestamp(record.updatedAt, Date.now())
+    extractTime('deletedAt')
+  }
+  
+  return safeRecord
+}
+
 exports.main = async (event, context) => {
-  const { action, items, cursor, limit, logData } = event
+  const { action, collection, records, cursor, limit, logData } = event
 
   const wxContext = cloud.getWXContext()
   const OPENID = wxContext.OPENID
@@ -78,119 +156,146 @@ exports.main = async (event, context) => {
   const ownerKey = generateOwnerKey(OPENID, salt)
 
   try {
-    if (action === 'pull') {
-      return await handlePull(ownerKey, cursor, limit || 100)
-    } else if (action === 'upsert') {
-      return await handleUpsert(ownerKey, items || [])
-    } else if (action === 'log') {
+    if (action === 'log') {
       return await handleLog(ownerKey, logData)
+    }
+
+    // 兼容P2.4：如果未传 collection 且 action 为 pull/upsert，默认为 items
+    const targetCollection = collection || 'items'
+
+    if (!ALLOWED_COLLECTIONS.includes(targetCollection)) {
+      return { success: false, message: '非法的集合名' }
+    }
+
+    if (action === 'pull') {
+      return await handlePull(targetCollection, ownerKey, cursor, limit || 100)
+    } else if (action === 'upsert') {
+      // 兼容旧接口 items 参数
+      const inputRecords = records || event.items || []
+      return await handleUpsert(targetCollection, ownerKey, inputRecords)
     } else {
       return { success: false, message: '未知的同步指令' }
     }
   } catch (err) {
     console.error('[syncData] 异常:', err.errCode || err.message || 'unknown')
-    return { success: false, message: '同步服务异常' }
+    return { success: false, message: err.message || '同步服务异常' }
   }
 }
 
-async function handlePull(ownerKey, cursor, limit) {
-  let query = itemsCol.where({ ownerKey })
+async function handlePull(collection, ownerKey, cursor, limit) {
+  let query = db.collection(collection).where({ ownerKey })
   
   if (cursor) {
     query = query.where({ _id: db.command.gt(cursor) })
   }
   
   const res = await query.orderBy('_id', 'asc').limit(limit).get()
-  const fetchedItems = res.data || []
+  const fetchedRecords = res.data || []
   
-  // 去除云端内置字段和 ownerKey 返回给前端
-  const safeItems = fetchedItems.map(doc => {
+  const safeRecords = fetchedRecords.map(doc => {
     const { _id, ownerKey: _drop, _openid, ...rest } = doc
     return rest
   })
   
-  const nextCursor = fetchedItems.length > 0 ? fetchedItems[fetchedItems.length - 1]._id : null
-  const hasMore = fetchedItems.length === limit
+  const nextCursor = fetchedRecords.length > 0 ? fetchedRecords[fetchedRecords.length - 1]._id : null
+  const hasMore = fetchedRecords.length === limit
 
   return {
     success: true,
     data: {
-      items: safeItems,
+      records: safeRecords,
       nextCursor,
       hasMore
     }
   }
 }
 
-async function handleUpsert(ownerKey, items) {
-  if (!Array.isArray(items) || items.length === 0) {
+async function handleUpsert(collection, ownerKey, records) {
+  if (!Array.isArray(records) || records.length === 0) {
     return { success: true, data: { results: [] } }
   }
-  if (items.length > 20) {
+  if (records.length > 20) {
     return { success: false, message: '单次同步超出 20 条限制' }
   }
 
   const results = []
 
-  // 串行执行事务，确保绝对原子性和避免云函数并发事务资源超限
-  for (const item of items) {
-    if (!item.id) continue
+  for (const record of records) {
+    // reminder_settings 和 sync_settings 的 id 强制为 default，其他需要传 id
+    const recordId = (collection === 'reminder_settings' || collection === 'sync_settings') ? 'default' : record.id
+    if (!recordId) continue
     
-    const cloudDocumentId = generateCloudDocumentId(ownerKey, item.id)
-    const safeItem = extractSafeItem(item, ownerKey)
+    let safeRecord
+    try {
+      safeRecord = extractSafePayload(collection, { ...record, id: recordId }, ownerKey)
+    } catch (e) {
+      results.push({
+        id: recordId,
+        outcome: 'failed',
+        errorCode: e.message,
+        conflictCount: 0,
+        record: null
+      })
+      continue
+    }
+
+    const cloudDocumentId = getCloudDocumentId(collection, ownerKey, recordId)
 
     try {
       const outcomeRes = await db.runTransaction(async transaction => {
-        const docRes = await transaction.collection('items').doc(cloudDocumentId).get().catch(() => null)
+        const docRes = await transaction.collection(collection).doc(cloudDocumentId).get().catch(() => null)
         const doc = docRes && docRes.data ? docRes.data : null
 
         if (doc) {
-          const localTime = new Date(safeItem.updatedAt).getTime()
-          const cloudTime = new Date(doc.updatedAt).getTime()
+          const localTime = safeRecord.updatedAt
+          const cloudTime = doc.updatedAt || 0
 
           if (localTime > cloudTime) {
-            await transaction.collection('items').doc(cloudDocumentId).update({ data: safeItem })
+            // 禁止覆盖云端原有的 createdAt
+            if (doc.createdAt !== undefined) {
+              safeRecord.createdAt = doc.createdAt
+            }
+            await transaction.collection(collection).doc(cloudDocumentId).update({ data: safeRecord })
             return {
               outcome: 'updated',
-              item: safeItem,
+              record: safeRecord,
               conflictCount: 0
             }
           } else {
             // 云端胜出 (平局或云端较新)
             return {
               outcome: 'remote_wins',
-              item: doc, // 返回云端数据供本地校正
+              record: doc,
               conflictCount: localTime !== cloudTime ? 1 : 0
             }
           }
         } else {
           // 不存在则创建
-          await transaction.collection('items').doc(cloudDocumentId).set({ data: safeItem })
+          await transaction.collection(collection).doc(cloudDocumentId).set({ data: safeRecord })
           return {
             outcome: 'created',
-            item: safeItem,
+            record: safeRecord,
             conflictCount: 0
           }
         }
       })
       
-      const { _id, ownerKey: _drop, _openid, ...returnedSafeItem } = outcomeRes.item
+      const { _id, ownerKey: _drop, _openid, ...returnedSafeRecord } = outcomeRes.record
       
       results.push({
-        id: item.id,
+        id: recordId,
         outcome: outcomeRes.outcome,
-        updatedAt: returnedSafeItem.updatedAt,
+        updatedAt: returnedSafeRecord.updatedAt,
         conflictCount: outcomeRes.conflictCount,
-        item: returnedSafeItem
+        record: returnedSafeRecord
       })
     } catch (err) {
-      console.error(`[syncData] 事务失败 itemId=${item.id}`, err)
+      console.error(`[syncData] 事务失败 collection=${collection} id=${recordId}`, err)
       results.push({
-        id: item.id,
+        id: recordId,
         outcome: 'failed',
-        updatedAt: safeItem.updatedAt,
         conflictCount: 0,
-        item: null
+        record: null
       })
     }
   }
@@ -206,18 +311,20 @@ async function handleLog(ownerKey, logData) {
   
   const safeLog = {
     ownerKey,
+    operationId: logData.operationId || '',
     status: logData.status || 'unknown',
     reason: logData.reason || '',
-    syncedItemCount: typeof logData.syncedItemCount === 'number' ? logData.syncedItemCount : 0,
+    collectionStats: logData.collectionStats || {},
+    syncedCount: typeof logData.syncedCount === 'number' ? logData.syncedCount : 0,
     conflictCount: typeof logData.conflictCount === 'number' ? logData.conflictCount : 0,
     failedCount: typeof logData.failedCount === 'number' ? logData.failedCount : 0,
-    createdAt: logData.createdAt || new Date().toISOString(),
-    completedAt: new Date().toISOString(),
-    errorMessage: (logData.errorMessage || '').substring(0, 200) // 脱敏截断
+    createdAt: normalizeTimestamp(logData.createdAt, Date.now()),
+    completedAt: normalizeTimestamp(logData.completedAt, Date.now()),
+    errorCode: (logData.errorCode || '').substring(0, 200)
   }
 
   try {
-    await logsCol.add({ data: safeLog })
+    await db.collection('sync_logs').add({ data: safeLog })
   } catch (err) {
     console.error('[syncData] 日志写入失败', err)
   }

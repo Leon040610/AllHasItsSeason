@@ -1,6 +1,6 @@
 import { localDraftRepository } from '../repositories/localDraftRepository.js'
 import { generateUUID } from '../utils/uuid.js'
-import { dateUtils } from '../utils/dateUtils.js'
+import { dateUtils, normalizeTimestamp } from '../utils/dateUtils.js'
 import { itemService } from './itemService.js'
 
 class DraftService {
@@ -26,10 +26,22 @@ class DraftService {
         draft.isDeleted = false
         changed = true
       }
-      if (!draft.updatedAt) {
-        draft.updatedAt = new Date().toISOString()
+      if (!draft.source) {
+        draft.source = 'add'
         changed = true
       }
+      
+      const origCreatedAt = draft.createdAt;
+      const origUpdatedAt = draft.updatedAt;
+      draft.createdAt = normalizeTimestamp(draft.createdAt, Date.now());
+      draft.updatedAt = normalizeTimestamp(draft.updatedAt, Date.now());
+      if (draft.deletedAt !== undefined) {
+        draft.deletedAt = normalizeTimestamp(draft.deletedAt, Date.now());
+      }
+      if (origCreatedAt !== draft.createdAt || origUpdatedAt !== draft.updatedAt) {
+        changed = true
+      }
+      
       if (changed) migrated = true
       return draft
     })
@@ -39,7 +51,7 @@ class DraftService {
     }
 
     // Sort by updatedAt descending
-    this.drafts.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    this.drafts.sort((a, b) => b.updatedAt - a.updatedAt)
   }
 
   getDrafts() {
@@ -54,12 +66,13 @@ class DraftService {
 
   getAllDraftsForSync() {
     this.init()
-    return this.drafts
+    // 强制仅同步 source === 'add'
+    return this.drafts.filter(d => d.source === 'add')
   }
 
   getPendingDraftsForSync() {
     this.init()
-    return this.drafts.filter(d => d.syncStatus === 'pending' || d.syncStatus === 'failed')
+    return this.drafts.filter(d => d.source === 'add' && (d.syncStatus === 'pending' || d.syncStatus === 'failed'))
   }
 
   computeMissingFields(draft) {
@@ -104,17 +117,54 @@ class DraftService {
     return missing
   }
 
+  applySyncResult(syncedDraft, status = 'synced', lastSyncedAt = Date.now(), skipSave = false) {
+    this.init();
+    const index = this.drafts.findIndex(d => d.id === syncedDraft.id);
+    let newDraft = { ...syncedDraft };
+    
+    if (index !== -1) {
+      const local = this.drafts[index];
+      // 本地胜出保留本地图片路径字段
+      const preserveFields = ['originalImageUrl', 'cutoutImageUrl', 'displayImageUrl', 'originalImagePath', 'tempFilePath', 'savedFilePath'];
+      preserveFields.forEach(field => {
+        if (local[field] !== undefined) {
+          newDraft[field] = local[field];
+        }
+      });
+      newDraft.syncStatus = status;
+      newDraft.lastSyncedAt = lastSyncedAt;
+      newDraft.missingFields = this.computeMissingFields(newDraft);
+      this.drafts[index] = newDraft;
+    } else {
+      newDraft.syncStatus = status;
+      newDraft.lastSyncedAt = lastSyncedAt;
+      newDraft.missingFields = this.computeMissingFields(newDraft);
+      this.drafts.push(newDraft);
+    }
+    
+    if (!skipSave) localDraftRepository.saveDrafts(this.drafts);
+  }
+
+  applyBatchSyncResults(syncedDrafts, status = 'synced', lastSyncedAt = Date.now()) {
+    this.init();
+    syncedDrafts.forEach(d => {
+      this.applySyncResult(d, status, lastSyncedAt, true);
+    });
+    localDraftRepository.saveDrafts(this.drafts);
+  }
+
   saveDraft(draftData) {
     this.init() // Ensure we have latest data before saving
-    const now = new Date().toISOString()
+    const now = Date.now()
     let draft = this.drafts.find(d => d.id === draftData.id)
     
     // Force source to 'add' for all drafts in this version
     draftData.source = 'add'
     
     if (draft) {
+      const { createdAt, ...rest } = draftData;
       // Update existing
-      Object.assign(draft, draftData)
+      Object.assign(draft, rest)
       draft.updatedAt = now
       draft.syncStatus = 'pending'
       draft.missingFields = this.computeMissingFields(draft)
@@ -144,7 +194,8 @@ class DraftService {
     if (index > -1) {
       this.drafts[index].isDeleted = true
       this.drafts[index].syncStatus = 'pending'
-      this.drafts[index].updatedAt = new Date().toISOString()
+      this.drafts[index].updatedAt = Date.now()
+      this.drafts[index].deletedAt = Date.now()
       localDraftRepository.saveDrafts(this.drafts)
       return { success: true }
     }
@@ -153,11 +204,13 @@ class DraftService {
 
   clearDrafts() {
     let changed = false
+    const now = Date.now()
     this.drafts.forEach(d => {
       if (!d.isDeleted) {
         d.isDeleted = true
         d.syncStatus = 'pending'
-        d.updatedAt = new Date().toISOString()
+        d.updatedAt = now
+        d.deletedAt = now
         changed = true
       }
     })

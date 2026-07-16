@@ -23,7 +23,7 @@
             <image class="sync-icon-text-img" src="/static/icons/data-syncing-tongbu.svg" mode="aspectFit" />
           </view>
         </view>
-        <text class="sync-title">正在同步中</text>
+        <text class="sync-title">正在同步中<text class="animated-dots">{{ dotsText }}</text></text>
         <text class="sync-desc">我们正在为您整理家庭物品清单，并将{{ '\n' }}其安全地加密同步至云端。</text>
       </view>
 
@@ -39,7 +39,7 @@
               </view>
               <view class="progress-item__info">
                 <text class="progress-item__label">云端备份同步</text>
-                <text class="progress-item__sub">同步中</text>
+                <text class="progress-item__sub">同步中<text class="animated-dots">{{ dotsText }}</text></text>
               </view>
               <text class="progress-item__percent">{{ syncProgress }}%</text>
             </view>
@@ -106,7 +106,9 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { syncService } from '../../../services/syncService.js'
 
 const syncProgress = ref(0)
+const dotsText = ref('')
 let timer: ReturnType<typeof setInterval> | null = null
+let dotsTimer: ReturnType<typeof setInterval> | null = null
 let isCancelled = false
 
 onMounted(async () => {
@@ -119,13 +121,22 @@ onMounted(async () => {
     timer = setInterval(() => {
       if (syncProgress.value < 80) syncProgress.value += 5
     }, 200)
+
+    dotsTimer = setInterval(() => {
+      dotsText.value = dotsText.value.length >= 3 ? '' : dotsText.value + '.'
+    }, 400)
     
-    const res = await syncService.syncItems()
+    const res = await syncService.syncAll({ pushOnly: true })
     if (isCancelled) return
     
     // complete progress
     if (timer) clearInterval(timer)
+    if (dotsTimer) clearInterval(dotsTimer)
+    dotsText.value = '...'
     syncProgress.value = 100
+    
+    // Mark sync as enabled upon successful sync
+    syncService.updateSettings({ syncEnabled: true })
     
     setTimeout(() => {
       if (!isCancelled) {
@@ -135,6 +146,7 @@ onMounted(async () => {
   } catch (err: any) {
     if (isCancelled) return
     if (timer) clearInterval(timer)
+    if (dotsTimer) clearInterval(dotsTimer)
     
     if (err.message === 'not_logged_in') {
       uni.redirectTo({ url: '/pages/me/data/not-logged' })
@@ -147,6 +159,7 @@ onMounted(async () => {
 onUnmounted(() => {
   isCancelled = true
   if (timer) clearInterval(timer)
+  if (dotsTimer) clearInterval(dotsTimer)
 })
 
 function onBack() {
@@ -155,6 +168,7 @@ function onBack() {
 
 function onCancelSync() {
   if (timer) clearInterval(timer)
+  if (dotsTimer) clearInterval(dotsTimer)
   uni.showModal({
     title: '确认取消同步？',
     content: '取消后已同步部分将保留，未完成部分需要重新同步。',
@@ -303,6 +317,14 @@ $bottom-h: 240rpx;
   font-size: 48rpx;
   font-weight: 700;
   color: $color-text;
+  display: flex;
+  align-items: center;
+}
+
+.animated-dots {
+  display: inline-block;
+  width: 1.5em; /* reserve space for 3 dots */
+  text-align: left;
 }
 
 .sync-desc {

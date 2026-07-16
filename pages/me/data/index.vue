@@ -29,7 +29,7 @@
           </view>
           <view class="overview-card__stat">
             <text class="overview-card__stat-label">草稿数</text>
-            <text class="overview-card__stat-value" :class="{'overview-card__stat-value--warn': stats.draftCount > 0}">{{ stats.draftCount }}</text>
+            <text class="overview-card__stat-value overview-card__stat-value--warn">{{ stats.draftCount }}</text>
           </view>
         </view>
         <view class="overview-card__divider" />
@@ -40,12 +40,12 @@
 
       <!-- 操作列表 -->
       <view class="action-list">
-        <!-- 立即同步云端 -->
+        <!-- 同步至云端 -->
         <view class="action-card" @tap="onSyncCloud">
           <view class="action-card__icon-wrap action-card__icon-wrap--primary">
             <image class="action-card__icon-img" src="/static/icons/data-lijitongbuyunduan.svg" mode="aspectFit" />
           </view>
-          <text class="action-card__label">立即同步云端</text>
+          <text class="action-card__label">同步至云端</text>
           <image class="action-card__arrow-icon" src="/static/icons/data-tiaozhuan.svg" mode="aspectFit" />
         </view>
 
@@ -131,6 +131,12 @@ function onSyncCloud() {
     uni.showToast({ title: '云同步能力暂未配置，请先完成云开发配置', icon: 'none' })
     return
   }
+  
+  if (!syncService.hasPendingChanges()) {
+    uni.showToast({ title: '当前已是最新，无需同步', icon: 'none' })
+    return
+  }
+
   uni.navigateTo({ url: '/pages/me/data/syncing' })
 }
 

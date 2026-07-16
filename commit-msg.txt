@@ -1,18 +1,15 @@
-feat: 实现云端数据同步架构 MVP 与数据管理界面接入
+feat: 扩展云同步服务以支持多数据集合 (物品/草稿/分类/提醒/设置) 同步
 
-- 云端同步架构 (cloudfunctions/syncData/ & repositories/wechatCloudSyncRepository.js)：
-  1. 新增 `syncData` 云函数，支持 `pull`（拉取）、`upsert`（双向合并更新）与 `log`（日志记录）三大同步机制
-  2. 实现安全计算 `ownerKey` 与确定的云端文档 ID，确保不泄露 openid 及敏感账户标识
-  3. 服务端采用 `runTransaction` 事务串行处理，按 `updatedAt` 时间戳进行“最后写入胜出”冲突合并，若云端数据较新则返回供本地合并覆盖
-- 核心同步控制 (services/syncService.js & utils/storageKeys.js)：
-  1. 新增 `syncService.js` 控制整体双向同步逻辑，包括分批（每批上限 20 条）上行更新、本地回写数据库合并及云端日志上传
-  2. 新增 `utils/storageKeys.js` 统一归档管理全小程序的所有本地 `localStorage` 缓存 Key，避免键名冲突与漂移
-  3. 全局各业务服务类均切换为引入统一的 Storage Key
-- 数据管理界面功能接入 (pages/me/data/ 各子页面)：
-  1. 首页 (index.vue)：根据同步状态显示真实统计，计算待同步、已同步物品件数
-  2. 同步中页 (syncing.vue)：接入 `syncItems()` 动态调用流程，显示真实步骤（图片压缩、清理、云端同步），并处理同步中网络防呆与退出机制
-  3. 成功页 (success.vue)：从云同步结果中解析真实统计数据（物品件数、节省空间等）并展示
-- 模型与其它修正：
-  1. 在 `ItemModel.js` 中补齐 `updatedAt` 等同步核心属性，确保多处页面数据字段对齐
+- 云端多集合同步机制 (cloudfunctions/syncData/ & repositories/wechatCloudSyncRepository.js)：
+  1. 重构 `syncData` 云函数，增设 `collection` 集合参数，支持对 `items`、`drafts`、`categories`、`reminder_settings`、`sync_settings` 进行统一的安全隔离同步
+  2. 设计并实现 `extractSafePayload` 函数，根据不同的集合策略抽取安全的白名单字段写入数据库
+  3. 修改同步的时间戳字段类型为 Unix 毫秒时间戳，排除异地环境时区对冲突合并判定的影响
+  4. 重构 `wechatCloudSyncRepository` 相关的网络 I/O 接口为通用的 `pullData`/`upsertData` 方法，同时提供老 API 兼容函数
+- 核心同步控制升级 (services/syncService.js)：
+  1. 重构 `syncItems()`，基于可配置的数据源列表循环执行多集合拉取与推送合并，并在同步完成后回写本地缓存
+  2. 引入 `operationId` 统一识别一次同步动作，并细化聚合上报 `collectionStats` 分类数据统计日志
+- 服务与页面逻辑对接：
+  1. 升级分类、草稿、提醒及设置等服务层以支持同步字段适配及 `applySyncResult` 本地合并操作
+  2. 修复 `utils/dateUtils.js` 中毫秒时间戳转换兼容及多处界面状态的展示判定
 
-影响范围：云同步逻辑、微信云开发适配层、数据管理（同步交互）模块界面
+影响范围：云开发同步链路、全站各类数据的持久化与合并合并策略、数据同步模块 UI

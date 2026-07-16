@@ -1,14 +1,14 @@
-import { localRepository } from '../repositories/localRepository.js'
 import { itemService } from './itemService.js'
 import { categoryService } from './categoryService.js'
 import { draftService } from './draftService.js'
+import { settingsService } from './settingsService.js'
 import { authService } from './authService.js'
 import { cloudRuntimeService } from './cloudRuntimeService.js'
 import { wechatCloudSyncRepository } from '../repositories/wechatCloudSyncRepository.js'
 import { STORAGE_KEYS } from '../utils/storageKeys.js'
+import { generateUUID } from '../utils/uuid.js'
 
 const SYNC_KEY = STORAGE_KEYS.SYNC_SETTINGS
-const LOGS_KEY = STORAGE_KEYS.SYNC_LOGS
 
 class SyncService {
   constructor() {
@@ -37,6 +37,12 @@ class SyncService {
         updatedAt: Date.now()
       }
       this.save(settings)
+    } else {
+      // 保证字段完整
+      let migrated = false
+      if (settings.syncEnabled === undefined) { settings.syncEnabled = false; migrated = true }
+      if (settings.syncStatus === undefined) { settings.syncStatus = 'not_logged_in'; migrated = true }
+      if (migrated) this.save(settings)
     }
     
     this.settings = settings
@@ -57,8 +63,16 @@ class SyncService {
   }
 
   updateSettings(updates) {
-    const newSettings = { ...this.getSettings(), ...updates, updatedAt: Date.now() }
+    const newSettings = { ...this.getSettings(), ...updates }
     this.save(newSettings)
+  }
+
+  toggleSync(enabled) {
+    this.updateSettings({ syncEnabled: enabled, updatedAt: Date.now() })
+    if (enabled) {
+      return this.syncAll()
+    }
+    return Promise.resolve()
   }
 
   getSyncStats() {
@@ -78,7 +92,24 @@ class SyncService {
     }
   }
 
-  async syncItems() {
+  // 为保持兼容性
+  async syncItems(options = {}) {
+    return this.syncAll(options)
+  }
+
+  hasPendingChanges() {
+    const categories = categoryService.getPendingCategoriesForSync()
+    const items = itemService.getPendingItemsForSync()
+    const drafts = draftService.getPendingDraftsForSync()
+    const reminderSettings = settingsService.hasPendingSettings()
+    
+    return categories.length > 0 || items.length > 0 || drafts.length > 0 || reminderSettings
+  }
+
+  async syncAll(options = {}) {
+    const force = typeof options === 'boolean' ? options : !!options.force;
+    const pullOnly = typeof options === 'object' ? !!options.pullOnly : false;
+    const pushOnly = typeof options === 'object' ? !!options.pushOnly : false;
     if (this.isSyncing) {
       throw new Error('sync_in_progress')
     }
@@ -88,134 +119,214 @@ class SyncService {
     if (!cloudRuntimeService.isReady()) {
       throw new Error('cloud_not_ready')
     }
+    
+    // 如果没有开启同步（且不是主动点击开启时），则不自动同步
+    if (!this.settings.syncEnabled && !force) {
+      return { syncedItemCount: 0, conflictCount: 0 }
+    }
 
     this.isSyncing = true
     const syncStart = Date.now()
     
-    this.updateSettings({ syncStatus: 'syncing', syncEnabled: true })
+    this.updateSettings({ syncStatus: 'syncing' })
     
     let pullError = null
     let upsertError = null
-    let conflictCount = 0
-    let syncedItemCount = 0
-    let failedCount = 0
+    let totalConflictCount = 0
+    let totalSyncedCount = 0
+    let totalFailedCount = 0
+    let collectionStats = {}
 
-    try {
-      // 1. Pull All items from cloud with pagination
-      let cursor = null
-      let cloudItems = []
-      let hasMore = true
-      
-      while (hasMore) {
-        const pullRes = await wechatCloudSyncRepository.pullItems(cursor, 100)
-        cloudItems = cloudItems.concat(pullRes.items)
-        cursor = pullRes.nextCursor
-        hasMore = pullRes.hasMore
-      }
-
-      // 2. Merge locally
-      const localItems = itemService.getAllItemsForSync()
-      const localMap = new Map(localItems.map(i => [i.id, i]))
-      const applyToLocal = []
-
-      for (const cloudItem of cloudItems) {
-        const localItem = localMap.get(cloudItem.id)
-        if (!localItem) {
-          // New from cloud
-          applyToLocal.push(cloudItem)
-        } else {
-          const localTime = new Date(localItem.updatedAt).getTime()
-          const cloudTime = new Date(cloudItem.updatedAt).getTime()
-          
-          if (localTime <= cloudTime) {
-            // Cloud wins or tie
-            applyToLocal.push(cloudItem)
-            if (localTime !== cloudTime) {
-              conflictCount++
-            }
-          }
-          // if localTime > cloudTime, local wins, it will be picked up below
-        }
-      }
-
-      if (applyToLocal.length > 0) {
-        itemService.applyBatchSyncResults(applyToLocal, 'synced', syncStart)
-        syncedItemCount += applyToLocal.length
-      }
-
-      // 3. Upsert pending items
-      const pendingItems = itemService.getPendingItemsForSync()
-      
-      for (let i = 0; i < pendingItems.length; i += 20) {
-        const chunk = pendingItems.slice(i, i + 20)
-        // take snapshot of chunk
-        const snapshot = chunk.map(item => ({ ...item }))
-        
-        try {
-          const results = await wechatCloudSyncRepository.upsertItems(snapshot)
-          
-          for (const res of results) {
-            if (res.outcome === 'failed' || !res.item) {
-              failedCount++
-              itemService.applySyncResult(chunk.find(c => c.id === res.id), 'failed', null)
-              continue
-            }
-            
-            conflictCount += res.conflictCount
-            
-            // Check for mid-sync edits by reading fresh from itemService
-            const allFresh = itemService.getAllItemsForSync()
-            const currentLocal = allFresh.find(x => x.id === res.id)
-            const snapshotItem = snapshot.find(x => x.id === res.id)
-            
-            if (currentLocal && snapshotItem && currentLocal.updatedAt === snapshotItem.updatedAt) {
-              // No mid-sync edits. Apply the exact outcome returned by cloud
-              itemService.applySyncResult(res.item, 'synced', syncStart)
-              syncedItemCount++
-            } else {
-              // Mid-sync edit happened! Leave it as pending for next sync
-              failedCount++ 
-            }
-          }
-        } catch (err) {
-          console.error('[SyncService] batch upsert failed', err)
-          upsertError = err
-          failedCount += chunk.length
-          // Mark chunk as failed locally without overwriting their content
-          chunk.forEach(item => {
-             itemService.applySyncResult(item, 'failed', null)
+    const collections = [
+      {
+        name: 'sync_settings',
+        service: this,
+        getAllForSync: () => [{ id: 'default', syncEnabled: this.settings.syncEnabled, updatedAt: this.settings.updatedAt }],
+        getPendingForSync: () => {
+          // sync_settings 本身没有 pending 状态，通过云端比对决定。如果有更新，尝试上传
+          // 为了简化，每次都把当前的尝试 upsert
+          return [{ id: 'default', syncEnabled: this.settings.syncEnabled, updatedAt: this.settings.updatedAt }]
+        },
+        applySyncResult: (res, status, lastSyncedAt) => {
+          // 只合并云端的业务字段，绝对不覆盖本地的进度、状态
+          this.updateSettings({ 
+            syncEnabled: res.syncEnabled, 
+            updatedAt: res.updatedAt
           })
         }
+      },
+      {
+        name: 'reminder_settings',
+        service: settingsService,
+        getAllForSync: () => [ { id: 'default', ...settingsService.getSettingsForSync() } ],
+        getPendingForSync: () => settingsService.hasPendingSettings() ? [ { id: 'default', ...settingsService.getSettingsForSync() } ] : [],
+        applySyncResult: (res, status, lastSyncedAt) => settingsService.applySyncResult(res, status, lastSyncedAt)
+      },
+      {
+        name: 'categories',
+        service: categoryService,
+        getAllForSync: () => categoryService.getAllCategoriesForSync(),
+        getPendingForSync: () => categoryService.getPendingCategoriesForSync(),
+        applySyncResult: (res, status, lastSyncedAt) => categoryService.applySyncResult(res, status, lastSyncedAt),
+        applyBatchSyncResults: (res, status, lastSyncedAt) => categoryService.applyBatchSyncResults(res, status, lastSyncedAt)
+      },
+      {
+        name: 'drafts',
+        service: draftService,
+        getAllForSync: () => draftService.getAllDraftsForSync(),
+        getPendingForSync: () => draftService.getPendingDraftsForSync(),
+        applySyncResult: (res, status, lastSyncedAt) => draftService.applySyncResult(res, status, lastSyncedAt),
+        applyBatchSyncResults: (res, status, lastSyncedAt) => draftService.applyBatchSyncResults(res, status, lastSyncedAt)
+      },
+      {
+        name: 'items',
+        service: itemService,
+        getAllForSync: () => itemService.getAllItemsForSync(),
+        getPendingForSync: () => itemService.getPendingItemsForSync(),
+        applySyncResult: (res, status, lastSyncedAt) => itemService.applySyncResult(res, status, lastSyncedAt),
+        applyBatchSyncResults: (res, status, lastSyncedAt) => itemService.applyBatchSyncResults(res, status, lastSyncedAt)
       }
+    ]
+
+    try {
+      const operationId = generateUUID()
+
+      for (const col of collections) {
+        collectionStats[col.name] = { pull: 0, push: 0, conflict: 0, failed: 0 }
+        
+        // 1. Pull
+        if (!pushOnly) {
+          let cursor = null
+          let cloudRecords = []
+          let hasMore = true
+        
+        while (hasMore) {
+          const pullRes = await wechatCloudSyncRepository.pullData(col.name, cursor, 100)
+          cloudRecords = cloudRecords.concat(pullRes.records)
+          cursor = pullRes.nextCursor
+          hasMore = pullRes.hasMore
+        }
+        
+        // 2. Merge Pull Results
+        const localRecords = col.getAllForSync()
+        const localMap = new Map(localRecords.map(r => [r.id, r]))
+        const applyToLocal = []
+
+        for (const cloudRec of cloudRecords) {
+          const localRec = localMap.get(cloudRec.id)
+          if (!localRec) {
+            applyToLocal.push(cloudRec)
+          } else {
+            const localTime = localRec.updatedAt || 0
+            const cloudTime = cloudRec.updatedAt || 0
+            
+            // 云端胜出条件：本地时间小于等于云端时间
+            if (localTime <= cloudTime) {
+              applyToLocal.push(cloudRec)
+              if (localTime !== cloudTime) {
+                totalConflictCount++
+                collectionStats[col.name].conflict++
+              }
+            }
+          }
+        }
+
+          if (applyToLocal.length > 0) {
+            if (col.applyBatchSyncResults) {
+              col.applyBatchSyncResults(applyToLocal, 'synced', syncStart)
+            } else {
+              applyToLocal.forEach(r => col.applySyncResult(r, 'synced', syncStart))
+            }
+            totalSyncedCount += applyToLocal.length
+            collectionStats[col.name].pull += applyToLocal.length
+          }
+        }
+
+        // 3. Push Pending
+        if (!pullOnly) {
+          // 重新获取 pending，因为 merge pull 后有些可能被云端覆盖变成了 synced
+          const pendingRecords = col.getPendingForSync()
+          
+          for (let i = 0; i < pendingRecords.length; i += 20) {
+            const chunk = pendingRecords.slice(i, i + 20)
+            const snapshot = chunk.map(r => ({ ...r }))
+          
+          try {
+            const results = await wechatCloudSyncRepository.upsertData(col.name, snapshot)
+            
+            for (const res of results) {
+              if (res.outcome === 'failed' || !res.record) {
+                totalFailedCount++
+                collectionStats[col.name].failed++
+                if (col.name !== 'sync_settings') {
+                   col.applySyncResult(chunk.find(c => c.id === res.id), 'failed', null)
+                }
+                continue
+              }
+              
+              totalConflictCount += res.conflictCount
+              collectionStats[col.name].conflict += res.conflictCount
+              
+              const allFresh = col.getAllForSync()
+              const currentLocal = allFresh.find(x => x.id === res.id)
+              const snapshotRecord = snapshot.find(x => x.id === res.id)
+              
+              if (currentLocal && snapshotRecord && currentLocal.updatedAt === snapshotRecord.updatedAt) {
+                col.applySyncResult(res.record, 'synced', syncStart)
+                totalSyncedCount++
+                collectionStats[col.name].push++
+              } else {
+                totalFailedCount++ 
+                collectionStats[col.name].failed++
+              }
+            }
+          } catch (err) {
+            console.error(`[SyncService] batch upsert ${col.name} failed`, err)
+            upsertError = err
+            totalFailedCount += chunk.length
+            collectionStats[col.name].failed += chunk.length
+            if (col.name !== 'sync_settings') {
+              chunk.forEach(r => col.applySyncResult(r, 'failed', null))
+            }
+          }
+        }
+      } // end if (!pullOnly)
+    } // end for loop
 
     } catch (err) {
-      console.error('[SyncService] pull failed', err)
+      console.error('[SyncService] pull/upsert overall failed', err)
       pullError = err
     } finally {
       this.isSyncing = false
       
-      const isSuccess = !pullError && !upsertError && failedCount === 0
-      this.updateSettings({
+      const isSuccess = !pullError && !upsertError && totalFailedCount === 0
+      
+      const updates = {
         syncStatus: isSuccess ? 'success' : 'error',
-        lastSyncAt: syncStart,
-        syncedItemCount: this.settings.syncedItemCount + syncedItemCount
-      })
+        syncedItemCount: this.settings.syncedItemCount + totalSyncedCount
+      }
+      if (isSuccess) {
+        updates.lastSyncAt = syncStart
+      }
+      this.updateSettings(updates)
 
-      // Log to cloud
       wechatCloudSyncRepository.logSync({
+        operationId: generateUUID(),
         status: isSuccess ? 'success' : 'error',
-        reason: pullError ? 'pull_error' : (upsertError ? 'upsert_error' : (failedCount > 0 ? 'partial_failure' : 'ok')),
-        syncedItemCount,
-        conflictCount,
-        failedCount,
-        createdAt: new Date(syncStart).toISOString(),
-        errorMessage: (pullError || upsertError || {}).message || ''
+        reason: pullError ? 'pull_error' : (upsertError ? 'upsert_error' : (totalFailedCount > 0 ? 'partial_failure' : 'ok')),
+        collectionStats,
+        syncedCount: totalSyncedCount,
+        conflictCount: totalConflictCount,
+        failedCount: totalFailedCount,
+        createdAt: syncStart,
+        completedAt: Date.now(),
+        errorCode: (pullError || upsertError || {}).message || ''
       })
       
       if (!isSuccess) {
         throw (pullError || upsertError || new Error('sync_partial_failure'))
       }
-      return { syncedItemCount, conflictCount }
+      return { syncedItemCount: totalSyncedCount, conflictCount: totalConflictCount }
     }
   }
 }

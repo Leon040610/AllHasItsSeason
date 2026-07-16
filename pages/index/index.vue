@@ -9,7 +9,14 @@
     </view>
 
     <!-- 滚动主体 -->
-    <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
+    <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false" refresher-enabled="true" :refresher-triggered="isRefreshing" @refresherrefresh="onRefresh" refresher-default-style="none" refresher-background="#F9F8F6">
+      
+      <view slot="refresher" class="custom-refresher">
+        <view class="custom-refresher__dots">
+          <view class="dot"></view><view class="dot"></view><view class="dot"></view>
+        </view>
+        <text class="custom-refresher__text">{{ isSyncEnabled ? '正在进行云端数据同步' : '云端同步未开启' }}</text>
+      </view>
 
       <!-- 问候区 -->
       <view class="greeting-section">
@@ -153,12 +160,15 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { categoryService } from '../../services/categoryService.js'
+import { syncService } from '../../services/syncService.js'
 
 const focusItems = ref<any[]>([])
 const categories = ref<any[]>([])
 
 const nearExpireCount = ref(0)
 const expiredCount = ref(0)
+const isRefreshing = ref(false)
+const isSyncEnabled = ref(false)
 
 const greetingText = computed(() => {
   const hour = new Date().getHours()
@@ -173,7 +183,11 @@ onShow(() => {
     fabX.value = saved.x
     fabY.value = saved.y
   }
+  isSyncEnabled.value = syncService.getSettings().syncEnabled
+  loadData()
+})
 
+function loadData() {
   // 从服务层获取最新数据
   const allViewItems = itemService.getViewItems()
   
@@ -215,7 +229,26 @@ onShow(() => {
       count
     }
   })
-})
+}
+
+async function onRefresh() {
+  if (!isSyncEnabled.value || isRefreshing.value) return
+  isRefreshing.value = true
+  try {
+    const res = await syncService.syncAll({ pullOnly: true })
+    if (res && res.syncedItemCount === 0 && res.conflictCount === 0) {
+      uni.showToast({ title: '当前已是最新，无需同步', icon: 'none' })
+    } else {
+      uni.showToast({ title: '同步成功', icon: 'success' })
+    }
+    loadData()
+  } catch (e) {
+    console.error('Refresh sync failed', e)
+  }
+  setTimeout(() => {
+    isRefreshing.value = false
+  }, 500)
+}
 
 // ====== FAB 拖拽逻辑 ======
 const sysInfo = uni.getSystemInfoSync()
@@ -401,12 +434,45 @@ $top-height:          120rpx;
 // ── 滚动主体 ───────────────────────────────────────────────────────────────
 .scroll-body {
   flex: 1;
-  // 顶部高度 = 自定义导航栏高度 + 状态栏高度
-  padding-top: calc(#{$top-height} + var(--status-bar-height, 44rpx));
+  // 使用 margin-top 使 scroll-view 的物理边界处于顶栏下方，防止下拉刷新被顶栏遮挡
+  margin-top: calc(#{$top-height} + var(--status-bar-height, 44rpx));
+  height: calc(100vh - (#{$top-height} + var(--status-bar-height, 44rpx)));
   // 底部留出 Tab 栏和安全区的高度
   padding-bottom: calc(132rpx + env(safe-area-inset-bottom) + 32rpx);
-  height: 100vh;
   box-sizing: border-box;
+}
+
+/* 自定义下拉刷新 */
+.custom-refresher {
+  width: 750rpx;
+  height: 140rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+}
+.custom-refresher__dots {
+  display: flex;
+  gap: 12rpx;
+}
+.dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #A69B8D;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+.dot:nth-child(1) { animation-delay: -0.32s; }
+.dot:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+.custom-refresher__text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 22rpx;
+  color: #A69B8D;
 }
 
 // ── 问候区 ─────────────────────────────────────────────────────────────────

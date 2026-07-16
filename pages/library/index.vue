@@ -9,7 +9,14 @@
     </view>
 
     <view class="scroll-wrap">
-      <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
+      <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false" refresher-enabled="true" :refresher-triggered="isRefreshing" @refresherrefresh="onRefresh" refresher-default-style="none" refresher-background="#F9F8F6">
+
+        <view slot="refresher" class="custom-refresher">
+          <view class="custom-refresher__dots">
+            <view class="dot"></view><view class="dot"></view><view class="dot"></view>
+          </view>
+          <text class="custom-refresher__text">{{ isSyncEnabled ? '正在进行云端数据同步' : '云端同步未开启' }}</text>
+        </view>
 
         <!-- 搜索栏 -->
         <view class="search-bar" @tap="searchFocused = true">
@@ -150,6 +157,7 @@
 import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
+import { syncService } from '../../services/syncService.js'
 
 interface Filter {
   key: string
@@ -161,6 +169,8 @@ const searchKeyword = ref('')
 const searchFocused = ref(false)
 const activeCategoryKey = ref('all')
 const activeStatusKey = ref('all')
+const isRefreshing = ref(false)
+const isSyncEnabled = ref(false)
 
 const categoryFilters = ref<Filter[]>([
   { key: 'all', label: '全部' },
@@ -260,7 +270,8 @@ onShow(() => {
     fabY.value = saved.y
   }
 
-  allItems.value = itemService.getViewItems()
+  isSyncEnabled.value = syncService.getSettings().syncEnabled
+  loadData()
 
   // 读取并应用跳转参数
   const filter = uni.getStorageSync('library_filter')
@@ -270,6 +281,30 @@ onShow(() => {
     uni.removeStorageSync('library_filter')
   }
 })
+
+function loadData() {
+  allItems.value = itemService.getViewItems()
+}
+
+async function onRefresh() {
+  if (!isSyncEnabled.value || isRefreshing.value) return
+  isRefreshing.value = true
+
+  try {
+    const res = await syncService.syncAll({ pullOnly: true })
+    if (res && res.syncedItemCount === 0 && res.conflictCount === 0) {
+      uni.showToast({ title: '当前已是最新，无需同步', icon: 'none' })
+    } else {
+      uni.showToast({ title: '同步成功', icon: 'success' })
+    }
+    loadData()
+  } catch (e) {
+    console.error('Refresh sync failed', e)
+    uni.showToast({ title: '同步失败', icon: 'none' })
+  } finally {
+    isRefreshing.value = false
+  }
+}
 
 const filteredItems = computed(() => {
   let result = allItems.value
@@ -410,14 +445,47 @@ $top-height: 120rpx;
 
 .scroll-wrap {
   flex: 1;
-  height: 100vh;
+  margin-top: calc(#{$top-height} + var(--status-bar-height, 44rpx));
+  height: calc(100vh - (#{$top-height} + var(--status-bar-height, 44rpx)));
   box-sizing: border-box;
-  padding-top: calc($top-height + var(--status-bar-height, 44rpx));
   padding-bottom: calc(132rpx + env(safe-area-inset-bottom) + 32rpx);
 }
 
 .scroll-body {
   height: 100%;
+}
+
+/* 自定义下拉刷新 */
+.custom-refresher {
+  width: 750rpx;
+  height: 140rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12rpx;
+}
+.custom-refresher__dots {
+  display: flex;
+  gap: 12rpx;
+}
+.dot {
+  width: 10rpx;
+  height: 10rpx;
+  border-radius: 50%;
+  background: #A69B8D;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+.dot:nth-child(1) { animation-delay: -0.32s; }
+.dot:nth-child(2) { animation-delay: -0.16s; }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+.custom-refresher__text {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 22rpx;
+  color: #A69B8D;
 }
 
 /* 搜索框 */

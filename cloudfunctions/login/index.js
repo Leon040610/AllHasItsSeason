@@ -77,7 +77,7 @@ exports.main = async (event, context) => {
  * 处理登录：查询或创建用户档案
  */
 async function handleLogin(ownerKey) {
-  const now = new Date().toISOString()
+  const now = Date.now()
   const uid = generateUid(ownerKey)
 
   // 查询是否已有档案
@@ -128,7 +128,7 @@ async function handleUpdateNickname(ownerKey, nickname) {
     return { success: false, data: null, message: '昵称不能为空' }
   }
   const cleanNickname = nickname.trim().substring(0, 30)
-  const now = new Date().toISOString()
+  const now = Date.now()
 
   await usersCol.where({ ownerKey }).update({
     data: { nickname: cleanNickname, updatedAt: now }

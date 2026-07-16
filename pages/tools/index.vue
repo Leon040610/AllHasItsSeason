@@ -98,7 +98,7 @@ $top-height: 120rpx;
 
 .page {
   width: 100%;
-  height: 100vh;
+  min-height: 100vh;
   background: $color-bg;
   display: flex;
   flex-direction: column;

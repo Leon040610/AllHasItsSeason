@@ -100,3 +100,27 @@ export function getDaysDifference(dateStr1, dateStr2) {
 export function getTodayStr() {
   return formatDate(new Date());
 }
+
+/**
+ * 规范化时间戳，确保返回数字类型 (Unix 毫秒)。
+ * 用于兼容旧版 ISO 字符串时间，并处理缺失或非法的时间。
+ * @param {string|number|Date} value - 待转换的时间
+ * @param {number} fallback - 如果转换失败时的回退时间戳，默认 0
+ * @returns {number} 规范化后的 Unix 毫秒时间戳
+ */
+export function normalizeTimestamp(value, fallback = 0) {
+  if (value === undefined || value === null || value === '') {
+    return fallback;
+  }
+  
+  if (typeof value === 'number') {
+    return value;
+  }
+  
+  const d = new Date(value);
+  const time = d.getTime();
+  if (isNaN(time)) {
+    return fallback;
+  }
+  return time;
+}
