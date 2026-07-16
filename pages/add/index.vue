@@ -236,6 +236,7 @@ import { itemService } from '../../services/itemService.js'
 import { settingsService } from '../../services/settingsService.js'
 import { categoryService } from '../../services/categoryService.js'
 import { draftService } from '../../services/draftService.js'
+import { cloudStorageService } from '../../services/cloudStorageService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, determineActiveExpiry } from '../../utils/dateUtils.js'
 
 const currentDraftId = ref('')
@@ -249,7 +250,9 @@ const shelfFocused = ref(false)
 const afterShelfFocused = ref(false)
 
 const originalImagePath = ref('')
-const processStatus = ref<'idle' | 'success' | 'fallback' | 'error'>('idle')
+const processStatus = ref<'idle' | 'success' | 'fallback' | 'error' | 'uploading' | 'cutting'>('idle')
+const currentImageRevision = ref(0)
+const localImageExt = ref('jpg')
 const hasManuallyChangedMode = ref(false)
 
 const form = ref({
@@ -412,22 +415,24 @@ function onChooseImage() {
       const tempPath = res.tempFilePaths[0]
       originalImagePath.value = tempPath
       processStatus.value = 'idle'
+      currentImageRevision.value += 1
+      const extMatch = tempPath.match(/\.([a-zA-Z0-9]+)$/)
+      localImageExt.value = extMatch ? extMatch[1] : 'jpg'
       
       uni.showLoading({ title: '处理图片中' })
       uni.saveFile({
         tempFilePath: tempPath,
         success: function (saveRes) {
           previewImage.value = saveRes.savedFilePath
-          processStatus.value = 'success'
+          processStatus.value = 'idle' // Keep idle, actual processing will happen in background
           imgRotation.value = 0
           uni.hideLoading()
         },
         fail: function () {
           previewImage.value = tempPath
-          processStatus.value = 'fallback'
+          processStatus.value = 'idle'
           imgRotation.value = 0
           uni.hideLoading()
-          uni.showToast({ title: '图片保存失败，将使用原图', icon: 'none' })
         }
       })
     }
@@ -577,6 +582,9 @@ function onSave() {
     
     status: form.value.status,
     remindDays: form.value.reminderDays,
+    
+    imageRevision: currentImageRevision.value,
+    imageSyncPending: currentImageRevision.value > 0
   }
 
   // Calculate active date properly
@@ -584,17 +592,58 @@ function onSave() {
   preItem.activeExpiryDate = activeInfo.date
   preItem.activeExpirySource = activeInfo.source
 
-  const success = itemService.addItem(preItem)
-  
-  if (success) {
-    if (currentDraftId.value) {
-      draftService.deleteDraft(currentDraftId.value)
+  const proceedSave = (userConsentAccepted) => {
+    const success = itemService.addItem(preItem)
+    if (success) {
+      if (currentDraftId.value) {
+        draftService.deleteDraft(currentDraftId.value)
+      }
+      uni.showToast({ title: '已收入物品库~', icon: 'success' })
+      
+      if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://')) {
+        const settings = settingsService.getSettings()
+        cloudStorageService.executeBackgroundUpload(
+          itemService, 
+          preItem.id, 
+          currentImageRevision.value, 
+          originalImagePath.value, 
+          localImageExt.value,
+          userConsentAccepted,
+          settings.syncEnabled
+        )
+      }
+      setTimeout(() => uni.navigateBack(), 1000)
+    } else {
+      isSaving.value = false
+      uni.showToast({ title: '保存失败，请重试', icon: 'none' })
     }
-    uni.showToast({ title: '已收入物品库~', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 1000)
+  }
+
+  // Handle privacy consent check if there's a new image
+  if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://')) {
+    const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
+    if (!consent || consent.accepted === undefined) {
+      uni.showModal({
+        title: '先确认一下图片整理',
+        content: '为了生成更清晰的物品贴纸，图片会上传至微信云存储，并提交给百度智能云进行背景处理。你也可以继续使用原图。',
+        cancelText: '暂不整理',
+        confirmText: '继续整理',
+        success: function(res) {
+          if (res.confirm) {
+            uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: true, policyVersion: 1, acceptedAt: Date.now() })
+            proceedSave(true)
+          } else {
+            uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: false, policyVersion: 1, acceptedAt: Date.now() })
+            proceedSave(false)
+          }
+        }
+      })
+      return
+    } else {
+      proceedSave(consent.accepted)
+    }
   } else {
-    isSaving.value = false
-    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+    proceedSave(false)
   }
 }
 </script>

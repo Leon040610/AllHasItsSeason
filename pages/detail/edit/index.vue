@@ -201,6 +201,7 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../../services/itemService.js'
 import { settingsService } from '../../../services/settingsService.js'
+import { cloudStorageService } from '../../../services/cloudStorageService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, getDaysDifference, getTodayStr, formatDate, determineActiveExpiry } from '../../../utils/dateUtils.js'
 
 const item = ref<any>(null)
@@ -220,7 +221,9 @@ const nameFocused = ref(false)
 const shelfFocused = ref(false)
 const afterShelfFocused = ref(false)
 const originalImagePath = ref('')
-const processStatus = ref<'idle' | 'success' | 'fallback' | 'error'>('idle')
+const processStatus = ref<'idle' | 'success' | 'fallback' | 'error' | 'uploading' | 'cutting'>('idle')
+const currentImageRevision = ref(0)
+const localImageExt = ref('jpg')
 const isSaving = ref(false)
 
 onLoad((options: any) => {
@@ -392,15 +395,19 @@ function onChooseImage() {
       const tempPath = res.tempFilePaths[0]
       originalImagePath.value = tempPath
       processStatus.value = 'idle'
+      currentImageRevision.value += 1
+      const extMatch = tempPath.match(/\.([a-zA-Z0-9]+)$/)
+      localImageExt.value = extMatch ? extMatch[1] : 'jpg'
       
       uni.showLoading({ title: '处理图片中' })
       uni.saveFile({
         tempFilePath: tempPath,
         success: function (saveRes) {
-          item.value.imageUrl = saveRes.savedFilePath
-          item.value.displayImageUrl = saveRes.savedFilePath
-          processStatus.value = 'success'
-          item.value.rotation = 0
+          if (item.value) {
+            item.value.displayImageUrl = saveRes.savedFilePath
+            item.value.rotation = 0
+          }
+          processStatus.value = 'idle' // Keep idle, processed in background
           uni.hideLoading()
         },
         fail: function () {
@@ -558,6 +565,11 @@ function onSave() {
     status: item.value.status,
     remindDays: item.value.remindDays
   }
+  
+  if (currentImageRevision.value > 0) {
+    updateData.imageRevision = (itemService.getItemById(item.value.id)?.imageRevision || 0) + 1
+    updateData.imageSyncPending = true
+  }
 
   // Active expiry calculation runs naturally through DataConverter when accessed, but we can set it here too if needed, though itemService._save just merges updateData. wait, itemService updates the item. DataConverter calculates it.
   // Actually we need to make sure the underlying ItemModel receives `activeExpiryDate` properly so that DB has it for filtering!
@@ -566,14 +578,55 @@ function onSave() {
   updateData.activeExpiryDate = activeInfo.date
   updateData.activeExpirySource = activeInfo.source
 
-  const success = itemService.updateItem(item.value.id, updateData)
-  
-  if (success) {
-    uni.showToast({ title: '修改已保存', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 800)
+  const proceedSave = (userConsentAccepted) => {
+    const success = itemService.updateItem(item.value.id, updateData)
+    if (success) {
+      uni.showToast({ title: '修改已保存', icon: 'success' })
+      
+      if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://')) {
+        const settings = settingsService.getSettings()
+        cloudStorageService.executeBackgroundUpload(
+          itemService, 
+          item.value.id, 
+          updateData.imageRevision, 
+          originalImagePath.value, 
+          localImageExt.value,
+          userConsentAccepted,
+          settings.syncEnabled
+        )
+      }
+      setTimeout(() => uni.navigateBack(), 800)
+    } else {
+      isSaving.value = false
+      uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+    }
+  }
+
+  // Handle privacy consent check if there's a new image
+  if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://')) {
+    const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
+    if (!consent || consent.accepted === undefined) {
+      uni.showModal({
+        title: '先确认一下图片整理',
+        content: '为了生成更清晰的物品贴纸，图片会上传至微信云存储，并提交给百度智能云进行背景处理。你也可以继续使用原图。',
+        cancelText: '暂不整理',
+        confirmText: '继续整理',
+        success: function(res) {
+          if (res.confirm) {
+            uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: true, policyVersion: 1, acceptedAt: Date.now() })
+            proceedSave(true)
+          } else {
+            uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: false, policyVersion: 1, acceptedAt: Date.now() })
+            proceedSave(false)
+          }
+        }
+      })
+      return
+    } else {
+      proceedSave(consent.accepted)
+    }
   } else {
-    isSaving.value = false
-    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+    proceedSave(false)
   }
 }
 </script>

@@ -63,7 +63,18 @@ function extractSafePayload(collection, record, ownerKey) {
     safeRecord.activeExpirySource = record.activeExpirySource || 'normal'
     safeRecord.remindDays = typeof record.remindDays === 'number' ? record.remindDays : 7
     safeRecord.notes = record.notes || ''
-    safeRecord.imageProcessStatus = record.imageProcessStatus || 'pending'
+    
+    // New P2.7 Image fields
+    safeRecord.imageProcessStatus = record.imageProcessStatus || 'idle'
+    safeRecord.originalImageCloudFileId = record.originalImageCloudFileId || ''
+    safeRecord.cutoutImageCloudFileId = record.cutoutImageCloudFileId || ''
+    safeRecord.displayImageCloudFileId = record.displayImageCloudFileId || ''
+    safeRecord.imageRevision = typeof record.imageRevision === 'number' ? record.imageRevision : 0
+    safeRecord.imageSyncPending = !!record.imageSyncPending
+    safeRecord.imageBackgroundColor = record.imageBackgroundColor || ''
+    safeRecord.beautifyFallbackReason = record.beautifyFallbackReason || ''
+    safeRecord.stickerRotation = typeof record.stickerRotation === 'number' ? record.stickerRotation : 0
+    extractTime('imageUpdatedAt')
     
     safeRecord.createdAt = normalizeTimestamp(record.createdAt, Date.now())
     safeRecord.updatedAt = normalizeTimestamp(record.updatedAt, Date.now())
@@ -350,9 +361,11 @@ async function handleGetLogs(ownerKey, limit) {
       .get()
       
     const logs = res.data.map(doc => {
+      const { _id, _openid, ownerKey: _dropKey, operationId, errorCode, ...rest } = doc
+      
       let safeErrorCode = 'unknown_error'
-      if (doc.errorCode) {
-        const msg = String(doc.errorCode).toLowerCase()
+      if (errorCode) {
+        const msg = String(errorCode).toLowerCase()
         if (msg.includes('network')) safeErrorCode = 'network_error'
         else if (msg.includes('cloud') || msg.includes('timeout')) safeErrorCode = 'cloud_unavailable'
         else if (msg.includes('permission') || msg.includes('auth')) safeErrorCode = 'permission_denied'
@@ -365,14 +378,7 @@ async function handleGetLogs(ownerKey, limit) {
       }
 
       return {
-        status: doc.status,
-        reason: doc.reason,
-        collectionStats: doc.collectionStats,
-        syncedCount: doc.syncedCount,
-        conflictCount: doc.conflictCount,
-        failedCount: doc.failedCount,
-        createdAt: doc.createdAt,
-        completedAt: doc.completedAt,
+        ...rest,
         errorCode: safeErrorCode
       }
     })

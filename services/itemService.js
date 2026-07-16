@@ -264,6 +264,26 @@ class ItemService {
     const min = String(d.getMinutes()).padStart(2, '0');
     return `${m}.${day} ${h}:${min}`;
   }
+
+  updateItemImageState(id, imageRevision, patch) {
+    if (!this.initialized) this.init();
+    const index = this.items.findIndex(i => i.id === id);
+    if (index !== -1) {
+      const current = this.items[index];
+      // Only apply if imageRevision matches (prevent async callback race condition)
+      if (current.imageRevision !== imageRevision) {
+        return false;
+      }
+      this.items[index] = {
+        ...current,
+        ...patch,
+        syncStatus: 'pending',
+        imageUpdatedAt: Date.now()
+      };
+      return this._save();
+    }
+    return false;
+  }
 }
 
 export const itemService = new ItemService();

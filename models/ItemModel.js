@@ -7,10 +7,21 @@ export function createItem(data) {
     name: data.name || '',
     categoryId: data.categoryId || '',
     categoryName: data.categoryName || '',
-    originalImageUrl: data.originalImageUrl || '',
-    cutoutImageUrl: data.cutoutImageUrl || '',
-    displayImageUrl: data.displayImageUrl || '',
-    imageProcessStatus: data.imageProcessStatus || 'idle', // idle, success, fallback, error
+    originalImageUrl: data.originalImageUrl || '', // Keep for local use if unuploaded
+    cutoutImageUrl: data.cutoutImageUrl || '', // Keep for local use
+    displayImageUrl: data.displayImageUrl || '', // Keep for local use
+    
+    // Cloud file IDs
+    originalImageCloudFileId: data.originalImageCloudFileId || '',
+    cutoutImageCloudFileId: data.cutoutImageCloudFileId || '',
+    displayImageCloudFileId: data.displayImageCloudFileId || '',
+    imageUpdatedAt: data.imageUpdatedAt || null,
+    imageRevision: data.imageRevision || 0,
+    imageSyncPending: data.imageSyncPending !== undefined ? data.imageSyncPending : false,
+    imageProcessStatus: data.imageProcessStatus || 'idle', // idle, uploading, cutting, success, fallback, error
+    beautifyFallbackReason: data.beautifyFallbackReason || '',
+    
+    imageBackgroundColor: data.imageBackgroundColor || '',
     stickerRotation: data.stickerRotation !== undefined ? data.stickerRotation : (Math.random() * 4 - 2),
     productionDate: data.productionDate || '',
     shelfLifeValue: data.shelfLifeValue || 0,

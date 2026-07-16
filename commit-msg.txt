@@ -1,16 +1,18 @@
-feat: 优化同步结果记录机制与同步日志页面视觉样式
+feat: 实现物品图片后台异步云端上传与智能抠图背景美化机制
 
-- 同步数据统计优化 (services/syncService.js & pages/me/data/success.vue)：
-  1. 升级 `SyncService.js`，同步成功后将本次动作中物品数、分类数、草稿数及冲突数封装存入 `lastSyncResult` 本地缓存
-  2. 重构同步成功页面 (success.vue)，动态读取并利用无图标卡片排版展示物品数、分类数、草稿数及本次冲突项数，并移除其底部的日志详情入口以精简流程
-- 同步日志页面 UI 精致化 (pages/me/data/logs.vue)：
-  1. 采用 BEM 规范对日志卡片进行重构，定义 `log-card__header`、`log-card__body` 等类以统一对齐布局
-  2. 针对“成功”、“失败”及“已暂停”状态加入独立的主题色类（如 `--success`, `--error`, `--cancelled`），提供更明晰的视觉表达
-  3. 优化安全底边距适配为标准的 `env(safe-area-inset-bottom)`
-- 页面流转与细节优化：
-  1. 移除未登录引导页 (not-logged.vue) 登录成功及同步中页 (syncing.vue) 完成后冗余的定时延迟跳转，使交互更为即时顺畅
-  2. 微调导出占位文案为更温和的“这个功能还在整理中”
-- 首页样式修复 (pages/index/index.vue)：
-  1. 将主页高度由 `min-height: 100vh` 修正为固定的 `height: 100vh`，解决部分机型局部滚动容器溢出的样式缺陷
+- 智能抠图微服务 (cloudfunctions/imageProcess/ & repositories/wechatCloudStorageRepository.js)：
+  1. 新增 `imageProcess` 云函数，支持 `prepareUpload` 与 `processUpload` 两阶段异步事务
+  2. 服务端下载云存储内的原始文件，转换为 Base64 流调用百度 AI 图像分割 API 进行主体抠图，提取出的透明 PNG 回写云存储得到 `cutoutCloudFileId`
+  3. 新增 `wechatCloudStorageRepository.js` 提供小程序文件安全上传 (`uploadFile`) 与临时链接转换 (`getTempFileURL`)
+- 后台上传与生命周期调度 (services/cloudStorageService.js & services/itemService.js)：
+  1. 新增 `cloudStorageService`，设计 `executeBackgroundUpload` 支持“前台无感秒保存，后台静默上传整理图片”异步链路
+  2. 支持五阶段图像处理状态机 (`idle` -> `uploading` -> `cutting` -> `success` | `fallback`)
+  3. 引入图片修订号 (`imageRevision`) 及同步挂起状态，在编辑页提供“重新整理图片”及“使用原图”操作
+- 模型与同步规范扩充 (models/ & cloudfunctions/syncData/)：
+  1. 重构 `ItemModel.js` 及 `DataConverter.js`，包含原图云路径、抠图云路径及降级原因等字段
+  2. 升级 `syncData` 云函数，白名单安全投递新增的图像属性
+- 隐私授权与降级策略 (pages/add/ & pages/detail/edit/)：
+  1. 新增“确认图片整理”的二次隐私授权拦截机制，用户不同意时进入本地降级流程，仅同步原图不触发抠图处理
+  2. 完善多达六类降级情况判定（无网络、配额不足 `quota_exceeded`、未识别主体等），降级时仅警告并展示原图，不阻断保存流程
 
-影响范围：数据同步生命周期管理、数据管理子页面交互样式、首页高度适配
+影响范围：图片美化与处理链路、云存储网络操作、物品保存与编辑流程
