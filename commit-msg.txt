@@ -1,17 +1,16 @@
-feat: 新增同步日志页面并实现同步预检与中断机制
+feat: 优化同步结果记录机制与同步日志页面视觉样式
 
-- 同步控制增强 (services/syncService.js & repositories/wechatCloudSyncRepository.js)：
-  1. 新增 `preflightSync()` 预检机制，支持在正式同步开始前拉取云端统计并与本地数据作差异比对
-  2. 新增 `getSyncLogs()` 接口用于拉取云端历史同步日志
-  3. 新增同步暂停/中断 (cancelRequested) 状态流控，在多集合循环分批拉取和推送之间执行中断检查，确保能优雅中止同步并上传 `cancelled` 状态日志
-- 云端日志与预检测分支 (cloudfunctions/syncData/index.js)：
-  1. 升级云函数，增加 `getLogs`（查询历史同步日志，倒序限制10条）与 `preflight`（统计并返回用户云端各表数据行数）处理分支
-  2. 兼容处理 `cancelled` 同步状态的入库记录
-- 同步日志展示与交互 (pages/me/data/logs.vue & pages.json)：
-  1. 新增同步日志页 (pages/me/data/logs.vue)，以时间卡片排版显示每次同步的耗时、完成件数、冲突数及失败描述，并完成路由注册
-  2. 数据管理主页 (index.vue) 新增“同步日志”跳转入口项
-  3. 优化同步中页 (syncing.vue) 交互，结合多集合进度拆解，支持用户中途点击“取消”安全中止同步
-- 其它细节：
-  1. 修正部分页面在不同同步状态下的 CSS 细节问题
+- 同步数据统计优化 (services/syncService.js & pages/me/data/success.vue)：
+  1. 升级 `SyncService.js`，同步成功后将本次动作中物品数、分类数、草稿数及冲突数封装存入 `lastSyncResult` 本地缓存
+  2. 重构同步成功页面 (success.vue)，动态读取并利用无图标卡片排版展示物品数、分类数、草稿数及本次冲突项数，并移除其底部的日志详情入口以精简流程
+- 同步日志页面 UI 精致化 (pages/me/data/logs.vue)：
+  1. 采用 BEM 规范对日志卡片进行重构，定义 `log-card__header`、`log-card__body` 等类以统一对齐布局
+  2. 针对“成功”、“失败”及“已暂停”状态加入独立的主题色类（如 `--success`, `--error`, `--cancelled`），提供更明晰的视觉表达
+  3. 优化安全底边距适配为标准的 `env(safe-area-inset-bottom)`
+- 页面流转与细节优化：
+  1. 移除未登录引导页 (not-logged.vue) 登录成功及同步中页 (syncing.vue) 完成后冗余的定时延迟跳转，使交互更为即时顺畅
+  2. 微调导出占位文案为更温和的“这个功能还在整理中”
+- 首页样式修复 (pages/index/index.vue)：
+  1. 将主页高度由 `min-height: 100vh` 修正为固定的 `height: 100vh`，解决部分机型局部滚动容器溢出的样式缺陷
 
-影响范围：微信云同步数据控制层、数据管理日志查看页及同步状态管理器
+影响范围：数据同步生命周期管理、数据管理子页面交互样式、首页高度适配

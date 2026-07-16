@@ -116,11 +116,9 @@ onLoad(async (options) => {
     if (res.cancelled) {
       uni.redirectTo({ url: '/pages/me/data/index' })
     } else {
-      setTimeout(() => {
-        if (!isCancelled) {
-          uni.redirectTo({ url: '/pages/me/data/success' })
-        }
-      }, 500)
+      if (!isCancelled) {
+        uni.redirectTo({ url: '/pages/me/data/success' })
+      }
     }
   } catch (err: any) {
     if (isCancelled) return

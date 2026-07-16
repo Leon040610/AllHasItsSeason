@@ -399,7 +399,7 @@ $top-height:          120rpx;
 // ── 根容器 ─────────────────────────────────────────────────────────────────
 .page {
   width: 100%;
-  min-height: 100vh;
+  height: 100vh;
   background: $color-bg;
   display: flex;
   flex-direction: column;

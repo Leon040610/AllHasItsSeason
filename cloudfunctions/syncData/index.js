@@ -350,11 +350,9 @@ async function handleGetLogs(ownerKey, limit) {
       .get()
       
     const logs = res.data.map(doc => {
-      const { _id, _openid, ownerKey: _dropKey, operationId, errorCode, ...rest } = doc
-      
       let safeErrorCode = 'unknown_error'
-      if (errorCode) {
-        const msg = String(errorCode).toLowerCase()
+      if (doc.errorCode) {
+        const msg = String(doc.errorCode).toLowerCase()
         if (msg.includes('network')) safeErrorCode = 'network_error'
         else if (msg.includes('cloud') || msg.includes('timeout')) safeErrorCode = 'cloud_unavailable'
         else if (msg.includes('permission') || msg.includes('auth')) safeErrorCode = 'permission_denied'
@@ -367,7 +365,14 @@ async function handleGetLogs(ownerKey, limit) {
       }
 
       return {
-        ...rest,
+        status: doc.status,
+        reason: doc.reason,
+        collectionStats: doc.collectionStats,
+        syncedCount: doc.syncedCount,
+        conflictCount: doc.conflictCount,
+        failedCount: doc.failedCount,
+        createdAt: doc.createdAt,
+        completedAt: doc.completedAt,
         errorCode: safeErrorCode
       }
     })

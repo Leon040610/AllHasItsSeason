@@ -34,8 +34,20 @@
           <view class="stat-card__icon-wrap">
             <image class="stat-card__icon-img" src="/static/icons/data-success-yiluruwupin.svg" mode="aspectFit" />
           </view>
-          <text class="stat-card__label">总计已同步项</text>
-          <text class="stat-card__value">{{ syncResult.itemCount }}件</text>
+          <text class="stat-card__label">总计物品数</text>
+          <text class="stat-card__value">{{ syncResult.itemCount }}</text>
+        </view>
+        <view class="stat-card stat-card--no-icon">
+          <text class="stat-card__label">分类数</text>
+          <text class="stat-card__value">{{ syncResult.categoryCount }}</text>
+        </view>
+        <view class="stat-card stat-card--no-icon">
+          <text class="stat-card__label">草稿数</text>
+          <text class="stat-card__value">{{ syncResult.draftCount }}</text>
+        </view>
+        <view class="stat-card stat-card--no-icon">
+          <text class="stat-card__label">本次冲突数</text>
+          <text class="stat-card__value">{{ syncResult.conflictCount }}</text>
         </view>
       </view>
     </view>
@@ -45,7 +57,6 @@
       <view class="btn-primary" @tap="onBackToMe">
         <text class="btn-primary__text">回到我的</text>
       </view>
-      <text class="btn-log" @tap="onViewLog">查看同步日志</text>
     </view>
   </view>
 </template>
@@ -58,12 +69,20 @@ import { syncService } from '../../../services/syncService.js'
 const lastSyncLabel = ref('暂无')
 
 const syncResult = reactive({
-  itemCount: 0
+  itemCount: 0,
+  categoryCount: 0,
+  draftCount: 0,
+  conflictCount: 0
 })
 
 onShow(() => {
   const settings = syncService.getSettings()
-  syncResult.itemCount = settings.syncedItemCount || 0
+  if (settings.lastSyncResult) {
+    syncResult.itemCount = settings.lastSyncResult.itemCount || 0
+    syncResult.categoryCount = settings.lastSyncResult.categoryCount || 0
+    syncResult.draftCount = settings.lastSyncResult.draftCount || 0
+    syncResult.conflictCount = settings.lastSyncResult.conflictCount || 0
+  }
   
   if (settings.lastSyncAt) {
     const d = new Date(settings.lastSyncAt)
@@ -79,10 +98,6 @@ function onBack() {
 
 function onBackToMe() {
   uni.switchTab({ url: '/pages/me/index' })
-}
-
-function onViewLog() {
-  uni.navigateTo({ url: '/pages/me/data/logs' })
 }
 </script>
 
@@ -249,12 +264,18 @@ $top-height: 120rpx;
 .stat-card {
   background: $color-card;
   border-radius: $radius-card;
+  padding: 32rpx;
   box-shadow: $shadow-card;
   border: 2rpx solid $color-border;
-  padding: 32rpx 40rpx;
   display: flex;
   align-items: center;
-  gap: 32rpx;
+  gap: 24rpx;
+
+  &--no-icon {
+    padding-left: 48rpx;
+    padding-right: 48rpx;
+    justify-content: space-between;
+  }
 
   &__icon-wrap {
     width: 72rpx;
@@ -273,9 +294,9 @@ $top-height: 120rpx;
   }
 
   &__label {
+    font-size: 28rpx;
+    color: $color-text-secondary;
     flex: 1;
-    font-size: 32rpx;
-    color: $color-text;
   }
 
   &__value {
@@ -284,6 +305,10 @@ $top-height: 120rpx;
     font-weight: 700;
     color: $color-text;
   }
+}
+
+.stat-card--no-icon .stat-card__label {
+  flex: none;
 }
 
 /* 底部操作 */

@@ -385,6 +385,12 @@ class SyncService {
       if (isSuccess && !this.cancelRequested) {
         updates.syncedItemCount = this.settings.syncedItemCount + totalSyncedCount
         updates.lastSyncAt = syncStart
+        updates.lastSyncResult = {
+          itemCount: collectionStats['items'] ? (collectionStats['items'].pull + collectionStats['items'].push) : 0,
+          categoryCount: collectionStats['categories'] ? (collectionStats['categories'].pull + collectionStats['categories'].push) : 0,
+          draftCount: collectionStats['drafts'] ? (collectionStats['drafts'].pull + collectionStats['drafts'].push) : 0,
+          conflictCount: totalConflictCount
+        }
       }
       this.updateSettings(updates)
 

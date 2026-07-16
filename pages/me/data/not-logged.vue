@@ -79,9 +79,7 @@ async function onLogin() {
   try {
     await authService.login()
     uni.showToast({ title: '登录成功', icon: 'success' })
-    setTimeout(() => {
-      uni.redirectTo({ url: '/pages/me/data/index' })
-    }, 1000)
+    uni.redirectTo({ url: '/pages/me/data/index' })
   } catch (err) {
     const msg = err.message === 'login_in_progress'
       ? '登录中，请稍候'
@@ -93,7 +91,7 @@ async function onLogin() {
 }
 
 function onExportLocal() {
-  uni.showToast({ title: '导出功能即将上线', icon: 'none' })
+  uni.showToast({ title: '这个功能还在整理中', icon: 'none' })
 }
 </script>
 
