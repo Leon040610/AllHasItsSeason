@@ -81,6 +81,49 @@ class WechatCloudSyncRepository {
       console.error('[WechatCloudSyncRepository] logSync failed:', err)
     }
   }
+
+  async getSyncLogs(limit = 10) {
+    if (!cloudRuntimeService.isReady()) {
+      throw new Error('cloud_not_ready')
+    }
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'syncData',
+        data: {
+          action: 'getLogs',
+          limit
+        }
+      })
+      if (!res.result || !res.result.success) {
+        throw new Error(res.result ? res.result.message : 'sync_getlogs_failed')
+      }
+      return res.result.data.logs
+    } catch (err) {
+      console.error('[WechatCloudSyncRepository] getSyncLogs failed:', err)
+      throw err
+    }
+  }
+
+  async preflightSync() {
+    if (!cloudRuntimeService.isReady()) {
+      throw new Error('cloud_not_ready')
+    }
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'syncData',
+        data: {
+          action: 'preflight'
+        }
+      })
+      if (!res.result || !res.result.success) {
+        throw new Error(res.result ? res.result.message : 'sync_preflight_failed')
+      }
+      return res.result.data.stats
+    } catch (err) {
+      console.error('[WechatCloudSyncRepository] preflightSync failed:', err)
+      throw err
+    }
+  }
 }
 
 export const wechatCloudSyncRepository = new WechatCloudSyncRepository()

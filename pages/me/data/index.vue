@@ -107,12 +107,13 @@ const syncStatusText = computed(() => {
     return '暂未开启云同步'
   }
   if (syncSet.syncStatus === 'syncing') return '同步中'
+  if (syncSet.syncStatus === 'cancelled') return '同步已取消'
   if (syncSet.lastSyncAt) {
     const d = new Date(syncSet.lastSyncAt)
     const timeStr = `${(d.getMonth()+1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`
     return syncSet.syncStatus === 'error' ? `同步失败 (${timeStr})` : `同步成功 (${timeStr})`
   }
-  return '同步完成'
+  return '未同步'
 })
 
 onShow(() => {
@@ -137,11 +138,11 @@ function onSyncCloud() {
     return
   }
 
-  uni.navigateTo({ url: '/pages/me/data/syncing' })
+  uni.navigateTo({ url: '/pages/me/data/syncing?pushOnly=1' })
 }
 
 function onExportData() {
-  uni.showToast({ title: '导出功能即将上线', icon: 'none' })
+  uni.showToast({ title: '这个功能还在整理中', icon: 'none' })
 }
 
 function onRestoreDraft() {
@@ -149,18 +150,7 @@ function onRestoreDraft() {
 }
 
 function onClearCache() {
-  uni.showModal({
-    title: '确认清理缓存？',
-    content: '仅清理本地图片缓存，不影响物品数据。',
-    confirmText: '清理',
-    confirmColor: '#D98A6C',
-    cancelText: '取消',
-    success(res) {
-      if (res.confirm) {
-        uni.showToast({ title: '缓存已清理', icon: 'success' })
-      }
-    },
-  })
+  uni.showToast({ title: '这个功能还在整理中', icon: 'none' })
 }
 </script>
 

@@ -14,6 +14,8 @@ class SyncService {
   constructor() {
     this.settings = null
     this.isSyncing = false
+    this.currentOperationId = null
+    this.cancelRequested = false
     this.init()
   }
 
@@ -45,6 +47,12 @@ class SyncService {
       if (migrated) this.save(settings)
     }
     
+    // Recovery for stale syncing state
+    if (settings.syncStatus === 'syncing' && !this.isSyncing) {
+      settings.syncStatus = 'cancelled'
+      this.save(settings)
+    }
+    
     this.settings = settings
   }
 
@@ -65,6 +73,16 @@ class SyncService {
   updateSettings(updates) {
     const newSettings = { ...this.getSettings(), ...updates }
     this.save(newSettings)
+  }
+
+  enableSync() {
+    this.updateSettings({ syncEnabled: true, updatedAt: Date.now() })
+  }
+
+  cancelSync(operationId) {
+    if (this.currentOperationId === operationId) {
+      this.cancelRequested = true
+    }
   }
 
   toggleSync(enabled) {
@@ -110,6 +128,8 @@ class SyncService {
     const force = typeof options === 'boolean' ? options : !!options.force;
     const pullOnly = typeof options === 'object' ? !!options.pullOnly : false;
     const pushOnly = typeof options === 'object' ? !!options.pushOnly : false;
+    const onProgress = typeof options === 'object' && typeof options.onProgress === 'function' ? options.onProgress : () => {};
+
     if (this.isSyncing) {
       throw new Error('sync_in_progress')
     }
@@ -126,6 +146,9 @@ class SyncService {
     }
 
     this.isSyncing = true
+    const operationId = generateUUID()
+    this.currentOperationId = operationId
+    this.cancelRequested = false
     const syncStart = Date.now()
     
     this.updateSettings({ syncStatus: 'syncing' })
@@ -136,6 +159,43 @@ class SyncService {
     let totalSyncedCount = 0
     let totalFailedCount = 0
     let collectionStats = {}
+    let logWritten = false
+    
+    let completedUnits = 0
+    let totalUnits = 1
+
+    const reportProgress = (phase, collection, msg) => {
+      onProgress({
+        operationId,
+        phase,
+        collection,
+        completedUnits,
+        totalUnits,
+        percent: Math.min(Math.floor((completedUnits / totalUnits) * 100), 100),
+        message: msg
+      })
+    }
+
+    reportProgress('preflight', '', '正在准备同步...')
+
+    // Preflight check
+    try {
+      const stats = await wechatCloudSyncRepository.preflightSync()
+      if (this.cancelRequested) throw new Error('cancelled')
+      
+      totalUnits = 0
+      if (!pushOnly) {
+        // pull chunks: each collection takes ceil(count / 100) requests
+        totalUnits += Math.ceil((stats['items'] || 0) / 100) || 1
+        totalUnits += Math.ceil((stats['categories'] || 0) / 100) || 1
+        totalUnits += Math.ceil((stats['drafts'] || 0) / 100) || 1
+        totalUnits += Math.ceil((stats['reminder_settings'] || 0) / 100) || 1
+        totalUnits += Math.ceil((stats['sync_settings'] || 0) / 100) || 1
+      }
+    } catch (err) {
+      console.warn('[SyncService] preflight failed', err)
+      totalUnits = 10
+    }
 
     const collections = [
       {
@@ -143,12 +203,9 @@ class SyncService {
         service: this,
         getAllForSync: () => [{ id: 'default', syncEnabled: this.settings.syncEnabled, updatedAt: this.settings.updatedAt }],
         getPendingForSync: () => {
-          // sync_settings 本身没有 pending 状态，通过云端比对决定。如果有更新，尝试上传
-          // 为了简化，每次都把当前的尝试 upsert
           return [{ id: 'default', syncEnabled: this.settings.syncEnabled, updatedAt: this.settings.updatedAt }]
         },
         applySyncResult: (res, status, lastSyncedAt) => {
-          // 只合并云端的业务字段，绝对不覆盖本地的进度、状态
           this.updateSettings({ 
             syncEnabled: res.syncEnabled, 
             updatedAt: res.updatedAt
@@ -188,11 +245,20 @@ class SyncService {
       }
     ]
 
-    try {
-      const operationId = generateUUID()
+    if (!pullOnly) {
+      collections.forEach(col => {
+        const pending = col.getPendingForSync()
+        totalUnits += Math.ceil(pending.length / 20)
+      })
+    }
+    totalUnits += 1 // For log writing
 
+    try {
       for (const col of collections) {
+        if (this.cancelRequested) break
+
         collectionStats[col.name] = { pull: 0, push: 0, conflict: 0, failed: 0 }
+        const colLabel = col.name === 'items' ? '物品' : col.name === 'categories' ? '分类' : col.name === 'drafts' ? '草稿' : '设置'
         
         // 1. Pull
         if (!pushOnly) {
@@ -200,36 +266,42 @@ class SyncService {
           let cloudRecords = []
           let hasMore = true
         
-        while (hasMore) {
-          const pullRes = await wechatCloudSyncRepository.pullData(col.name, cursor, 100)
-          cloudRecords = cloudRecords.concat(pullRes.records)
-          cursor = pullRes.nextCursor
-          hasMore = pullRes.hasMore
-        }
-        
-        // 2. Merge Pull Results
-        const localRecords = col.getAllForSync()
-        const localMap = new Map(localRecords.map(r => [r.id, r]))
-        const applyToLocal = []
+          while (hasMore) {
+            if (this.cancelRequested) break
+            reportProgress('pull', col.name, `正在同步${colLabel}...`)
 
-        for (const cloudRec of cloudRecords) {
-          const localRec = localMap.get(cloudRec.id)
-          if (!localRec) {
-            applyToLocal.push(cloudRec)
-          } else {
-            const localTime = localRec.updatedAt || 0
-            const cloudTime = cloudRec.updatedAt || 0
+            const pullRes = await wechatCloudSyncRepository.pullData(col.name, cursor, 100)
+            cloudRecords = cloudRecords.concat(pullRes.records)
+            cursor = pullRes.nextCursor
+            hasMore = pullRes.hasMore
             
-            // 云端胜出条件：本地时间小于等于云端时间
-            if (localTime <= cloudTime) {
+            completedUnits++
+            reportProgress('pull', col.name, `正在同步${colLabel}...`)
+          }
+          if (this.cancelRequested) break
+        
+          // 2. Merge Pull Results
+          const localRecords = col.getAllForSync()
+          const localMap = new Map(localRecords.map(r => [r.id, r]))
+          const applyToLocal = []
+
+          for (const cloudRec of cloudRecords) {
+            const localRec = localMap.get(cloudRec.id)
+            if (!localRec) {
               applyToLocal.push(cloudRec)
-              if (localTime !== cloudTime) {
-                totalConflictCount++
-                collectionStats[col.name].conflict++
+            } else {
+              const localTime = localRec.updatedAt || 0
+              const cloudTime = cloudRec.updatedAt || 0
+              
+              if (localTime <= cloudTime) {
+                applyToLocal.push(cloudRec)
+                if (localTime !== cloudTime) {
+                  totalConflictCount++
+                  collectionStats[col.name].conflict++
+                }
               }
             }
           }
-        }
 
           if (applyToLocal.length > 0) {
             if (col.applyBatchSyncResults) {
@@ -244,89 +316,107 @@ class SyncService {
 
         // 3. Push Pending
         if (!pullOnly) {
-          // 重新获取 pending，因为 merge pull 后有些可能被云端覆盖变成了 synced
+          if (this.cancelRequested) break
+
           const pendingRecords = col.getPendingForSync()
           
           for (let i = 0; i < pendingRecords.length; i += 20) {
+            if (this.cancelRequested) break
+            reportProgress('push', col.name, `正在上传${colLabel}...`)
+
             const chunk = pendingRecords.slice(i, i + 20)
             const snapshot = chunk.map(r => ({ ...r }))
           
-          try {
-            const results = await wechatCloudSyncRepository.upsertData(col.name, snapshot)
-            
-            for (const res of results) {
-              if (res.outcome === 'failed' || !res.record) {
-                totalFailedCount++
-                collectionStats[col.name].failed++
-                if (col.name !== 'sync_settings') {
-                   col.applySyncResult(chunk.find(c => c.id === res.id), 'failed', null)
+            try {
+              const results = await wechatCloudSyncRepository.upsertData(col.name, snapshot)
+              completedUnits++
+              reportProgress('push', col.name, `正在上传${colLabel}...`)
+              
+              for (const res of results) {
+                if (res.outcome === 'failed' || !res.record) {
+                  totalFailedCount++
+                  collectionStats[col.name].failed++
+                  if (col.name !== 'sync_settings') {
+                     col.applySyncResult(chunk.find(c => c.id === res.id), 'failed', null)
+                  }
+                  continue
                 }
-                continue
+                
+                totalConflictCount += res.conflictCount
+                collectionStats[col.name].conflict += res.conflictCount
+                
+                const allFresh = col.getAllForSync()
+                const currentLocal = allFresh.find(x => x.id === res.id)
+                const snapshotRecord = snapshot.find(x => x.id === res.id)
+                
+                if (currentLocal && snapshotRecord && currentLocal.updatedAt === snapshotRecord.updatedAt) {
+                  col.applySyncResult(res.record, 'synced', syncStart)
+                  totalSyncedCount++
+                  collectionStats[col.name].push++
+                } else {
+                  totalFailedCount++ 
+                  collectionStats[col.name].failed++
+                }
               }
-              
-              totalConflictCount += res.conflictCount
-              collectionStats[col.name].conflict += res.conflictCount
-              
-              const allFresh = col.getAllForSync()
-              const currentLocal = allFresh.find(x => x.id === res.id)
-              const snapshotRecord = snapshot.find(x => x.id === res.id)
-              
-              if (currentLocal && snapshotRecord && currentLocal.updatedAt === snapshotRecord.updatedAt) {
-                col.applySyncResult(res.record, 'synced', syncStart)
-                totalSyncedCount++
-                collectionStats[col.name].push++
-              } else {
-                totalFailedCount++ 
-                collectionStats[col.name].failed++
+            } catch (err) {
+              console.error(`[SyncService] batch upsert ${col.name} failed`, err)
+              upsertError = err
+              totalFailedCount += chunk.length
+              collectionStats[col.name].failed += chunk.length
+              if (col.name !== 'sync_settings') {
+                chunk.forEach(r => col.applySyncResult(r, 'failed', null))
               }
-            }
-          } catch (err) {
-            console.error(`[SyncService] batch upsert ${col.name} failed`, err)
-            upsertError = err
-            totalFailedCount += chunk.length
-            collectionStats[col.name].failed += chunk.length
-            if (col.name !== 'sync_settings') {
-              chunk.forEach(r => col.applySyncResult(r, 'failed', null))
             }
           }
         }
-      } // end if (!pullOnly)
-    } // end for loop
-
+      }
     } catch (err) {
       console.error('[SyncService] pull/upsert overall failed', err)
       pullError = err
     } finally {
       this.isSyncing = false
+      this.currentOperationId = null
       
-      const isSuccess = !pullError && !upsertError && totalFailedCount === 0
+      const isSuccess = !this.cancelRequested && !pullError && !upsertError && totalFailedCount === 0
       
       const updates = {
-        syncStatus: isSuccess ? 'success' : 'error',
-        syncedItemCount: this.settings.syncedItemCount + totalSyncedCount
+        syncStatus: this.cancelRequested ? 'cancelled' : (isSuccess ? 'success' : 'error')
       }
-      if (isSuccess) {
+      if (isSuccess && !this.cancelRequested) {
+        updates.syncedItemCount = this.settings.syncedItemCount + totalSyncedCount
         updates.lastSyncAt = syncStart
       }
       this.updateSettings(updates)
 
-      wechatCloudSyncRepository.logSync({
-        operationId: generateUUID(),
-        status: isSuccess ? 'success' : 'error',
-        reason: pullError ? 'pull_error' : (upsertError ? 'upsert_error' : (totalFailedCount > 0 ? 'partial_failure' : 'ok')),
-        collectionStats,
-        syncedCount: totalSyncedCount,
-        conflictCount: totalConflictCount,
-        failedCount: totalFailedCount,
-        createdAt: syncStart,
-        completedAt: Date.now(),
-        errorCode: (pullError || upsertError || {}).message || ''
-      })
+      reportProgress('log', '', '正在保存同步记录...')
+
+      try {
+        await wechatCloudSyncRepository.logSync({
+          operationId,
+          status: this.cancelRequested ? 'cancelled' : (isSuccess ? 'success' : 'error'),
+          reason: this.cancelRequested ? 'cancelled' : (pullError ? 'pull_error' : (upsertError ? 'upsert_error' : (totalFailedCount > 0 ? 'partial_failure' : 'ok'))),
+          collectionStats,
+          syncedCount: totalSyncedCount,
+          conflictCount: totalConflictCount,
+          failedCount: totalFailedCount,
+          createdAt: syncStart,
+          completedAt: Date.now(),
+          errorCode: (pullError || upsertError || {}).message || ''
+        })
+        logWritten = true
+        completedUnits++
+        reportProgress('log', '', '完成')
+      } catch (err) {
+        console.error('[SyncService] logSync failed', err)
+      }
       
+      if (this.cancelRequested) {
+        return { cancelled: true, syncedItemCount: totalSyncedCount, conflictCount: totalConflictCount, logWritten }
+      }
       if (!isSuccess) {
         throw (pullError || upsertError || new Error('sync_partial_failure'))
       }
-      return { syncedItemCount: totalSyncedCount, conflictCount: totalConflictCount }
+      return { syncedItemCount: totalSyncedCount, conflictCount: totalConflictCount, logWritten }
     }
   }
 }

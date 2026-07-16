@@ -1,15 +1,17 @@
-feat: 扩展云同步服务以支持多数据集合 (物品/草稿/分类/提醒/设置) 同步
+feat: 新增同步日志页面并实现同步预检与中断机制
 
-- 云端多集合同步机制 (cloudfunctions/syncData/ & repositories/wechatCloudSyncRepository.js)：
-  1. 重构 `syncData` 云函数，增设 `collection` 集合参数，支持对 `items`、`drafts`、`categories`、`reminder_settings`、`sync_settings` 进行统一的安全隔离同步
-  2. 设计并实现 `extractSafePayload` 函数，根据不同的集合策略抽取安全的白名单字段写入数据库
-  3. 修改同步的时间戳字段类型为 Unix 毫秒时间戳，排除异地环境时区对冲突合并判定的影响
-  4. 重构 `wechatCloudSyncRepository` 相关的网络 I/O 接口为通用的 `pullData`/`upsertData` 方法，同时提供老 API 兼容函数
-- 核心同步控制升级 (services/syncService.js)：
-  1. 重构 `syncItems()`，基于可配置的数据源列表循环执行多集合拉取与推送合并，并在同步完成后回写本地缓存
-  2. 引入 `operationId` 统一识别一次同步动作，并细化聚合上报 `collectionStats` 分类数据统计日志
-- 服务与页面逻辑对接：
-  1. 升级分类、草稿、提醒及设置等服务层以支持同步字段适配及 `applySyncResult` 本地合并操作
-  2. 修复 `utils/dateUtils.js` 中毫秒时间戳转换兼容及多处界面状态的展示判定
+- 同步控制增强 (services/syncService.js & repositories/wechatCloudSyncRepository.js)：
+  1. 新增 `preflightSync()` 预检机制，支持在正式同步开始前拉取云端统计并与本地数据作差异比对
+  2. 新增 `getSyncLogs()` 接口用于拉取云端历史同步日志
+  3. 新增同步暂停/中断 (cancelRequested) 状态流控，在多集合循环分批拉取和推送之间执行中断检查，确保能优雅中止同步并上传 `cancelled` 状态日志
+- 云端日志与预检测分支 (cloudfunctions/syncData/index.js)：
+  1. 升级云函数，增加 `getLogs`（查询历史同步日志，倒序限制10条）与 `preflight`（统计并返回用户云端各表数据行数）处理分支
+  2. 兼容处理 `cancelled` 同步状态的入库记录
+- 同步日志展示与交互 (pages/me/data/logs.vue & pages.json)：
+  1. 新增同步日志页 (pages/me/data/logs.vue)，以时间卡片排版显示每次同步的耗时、完成件数、冲突数及失败描述，并完成路由注册
+  2. 数据管理主页 (index.vue) 新增“同步日志”跳转入口项
+  3. 优化同步中页 (syncing.vue) 交互，结合多集合进度拆解，支持用户中途点击“取消”安全中止同步
+- 其它细节：
+  1. 修正部分页面在不同同步状态下的 CSS 细节问题
 
-影响范围：云开发同步链路、全站各类数据的持久化与合并合并策略、数据同步模块 UI
+影响范围：微信云同步数据控制层、数据管理日志查看页及同步状态管理器

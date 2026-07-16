@@ -9,7 +9,7 @@
     </view>
 
     <view class="scroll-wrap">
-      <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false" refresher-enabled="true" :refresher-triggered="isRefreshing" @refresherrefresh="onRefresh" refresher-default-style="none" refresher-background="#F9F8F6">
+      <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false" refresher-enabled="true" :refresher-threshold="100" :refresher-triggered="isRefreshing" @refresherrefresh="onRefresh" refresher-default-style="none" refresher-background="transparent">
 
         <view slot="refresher" class="custom-refresher">
           <view class="custom-refresher__dots">
@@ -18,6 +18,7 @@
           <text class="custom-refresher__text">{{ isSyncEnabled ? '正在进行云端数据同步' : '云端同步未开启' }}</text>
         </view>
 
+        <view class="scroll-content">
         <!-- 搜索栏 -->
         <view class="search-bar" @tap="searchFocused = true">
           <image class="search-bar__icon-img" src="/static/icons/library-sousuo.svg" mode="aspectFit" />
@@ -115,6 +116,7 @@
         </view>
 
         <view class="safe-bottom" />
+        </view>
       </scroll-view>
     </view>
 
@@ -287,8 +289,15 @@ function loadData() {
 }
 
 async function onRefresh() {
-  if (!isSyncEnabled.value || isRefreshing.value) return
+  if (isRefreshing.value) return
   isRefreshing.value = true
+  
+  if (!isSyncEnabled.value) {
+    setTimeout(() => {
+      isRefreshing.value = false
+    }, 50)
+    return
+  }
 
   try {
     const res = await syncService.syncAll({ pullOnly: true })
@@ -448,16 +457,17 @@ $top-height: 120rpx;
   margin-top: calc(#{$top-height} + var(--status-bar-height, 44rpx));
   height: calc(100vh - (#{$top-height} + var(--status-bar-height, 44rpx)));
   box-sizing: border-box;
-  padding-bottom: calc(132rpx + env(safe-area-inset-bottom) + 32rpx);
+  background: $color-bg;
 }
 
 .scroll-body {
   height: 100%;
+  background: transparent;
 }
 
 /* 自定义下拉刷新 */
 .custom-refresher {
-  width: 750rpx;
+  width: 100%;
   height: 140rpx;
   display: flex;
   flex-direction: column;
@@ -716,7 +726,7 @@ $top-height: 120rpx;
 }
 
 .safe-bottom {
-  height: 40rpx;
+  height: calc(132rpx + env(safe-area-inset-bottom) + 40rpx);
 }
 
 /* FAB */

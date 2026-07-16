@@ -160,6 +160,14 @@ exports.main = async (event, context) => {
       return await handleLog(ownerKey, logData)
     }
 
+    if (action === 'getLogs') {
+      return await handleGetLogs(ownerKey, limit)
+    }
+
+    if (action === 'preflight') {
+      return await handlePreflight(ownerKey)
+    }
+
     // 兼容P2.4：如果未传 collection 且 action 为 pull/upsert，默认为 items
     const targetCollection = collection || 'items'
 
@@ -330,4 +338,57 @@ async function handleLog(ownerKey, logData) {
   }
   
   return { success: true }
+}
+
+async function handleGetLogs(ownerKey, limit) {
+  const safeLimit = Math.max(1, Math.min(parseInt(limit) || 10, 20))
+  try {
+    const res = await db.collection('sync_logs')
+      .where({ ownerKey })
+      .orderBy('createdAt', 'desc')
+      .limit(safeLimit)
+      .get()
+      
+    const logs = res.data.map(doc => {
+      const { _id, _openid, ownerKey: _dropKey, operationId, errorCode, ...rest } = doc
+      
+      let safeErrorCode = 'unknown_error'
+      if (errorCode) {
+        const msg = String(errorCode).toLowerCase()
+        if (msg.includes('network')) safeErrorCode = 'network_error'
+        else if (msg.includes('cloud') || msg.includes('timeout')) safeErrorCode = 'cloud_unavailable'
+        else if (msg.includes('permission') || msg.includes('auth')) safeErrorCode = 'permission_denied'
+        else if (msg.includes('cancel')) safeErrorCode = 'cancelled'
+        else if (msg.includes('partial')) safeErrorCode = 'partial_failure'
+      } else if (doc.status === 'success') {
+        safeErrorCode = ''
+      } else if (doc.status === 'cancelled') {
+        safeErrorCode = 'cancelled'
+      }
+
+      return {
+        ...rest,
+        errorCode: safeErrorCode
+      }
+    })
+    
+    return { success: true, data: { logs } }
+  } catch (err) {
+    console.error('[syncData] getLogs failed', err)
+    return { success: false, message: '获取日志失败' }
+  }
+}
+
+async function handlePreflight(ownerKey) {
+  try {
+    const stats = {}
+    for (const collection of ALLOWED_COLLECTIONS) {
+      const res = await db.collection(collection).where({ ownerKey }).count()
+      stats[collection] = res.total || 0
+    }
+    return { success: true, data: { stats } }
+  } catch (err) {
+    console.error('[syncData] preflight failed', err)
+    return { success: false, message: '预检失败' }
+  }
 }

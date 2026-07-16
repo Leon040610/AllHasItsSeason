@@ -38,39 +38,13 @@
                 <image class="progress-item__icon-img" src="/static/icons/data-syncing-yunduanbeifentongbu.svg" mode="aspectFit" />
               </view>
               <view class="progress-item__info">
-                <text class="progress-item__label">云端备份同步</text>
-                <text class="progress-item__sub">同步中<text class="animated-dots">{{ dotsText }}</text></text>
+                <text class="progress-item__label">云端数据同步</text>
+                <text class="progress-item__sub">{{ syncMessage }}<text class="animated-dots">{{ dotsText }}</text></text>
               </view>
               <text class="progress-item__percent">{{ syncProgress }}%</text>
             </view>
             <view class="progress-bar">
               <view class="progress-bar__fill" :style="{ width: syncProgress + '%' }" />
-            </view>
-          </view>
-
-          <!-- 图片资源压缩（等待） -->
-          <view class="progress-item">
-            <view class="progress-item__header">
-              <view class="progress-item__icon-wrap progress-item__icon-wrap--muted">
-                <image class="progress-item__icon-img" src="/static/icons/data-syncing-tupianziyuanyasuo.svg" mode="aspectFit" />
-              </view>
-              <view class="progress-item__info">
-                <text class="progress-item__label">图片资源压缩</text>
-              </view>
-              <image class="progress-item__waiting-img" src="/static/icons/data-syncing-jiazai.svg" mode="aspectFit" />
-            </view>
-          </view>
-
-          <!-- 过期记录清理（等待） -->
-          <view class="progress-item">
-            <view class="progress-item__header">
-              <view class="progress-item__icon-wrap progress-item__icon-wrap--muted">
-                <image class="progress-item__icon-img" src="/static/icons/data-syncing-guoqijiluqingli.svg" mode="aspectFit" />
-              </view>
-              <view class="progress-item__info">
-                <text class="progress-item__label">过期记录清理</text>
-              </view>
-              <image class="progress-item__waiting-img" src="/static/icons/data-syncing-jiazai.svg" mode="aspectFit" />
             </view>
           </view>
         </view>
@@ -102,84 +76,92 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onUnmounted } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
 import { syncService } from '../../../services/syncService.js'
 
 const syncProgress = ref(0)
+const syncMessage = ref('准备同步')
 const dotsText = ref('')
-let timer: ReturnType<typeof setInterval> | null = null
 let dotsTimer: ReturnType<typeof setInterval> | null = null
+let currentOperationId: string | null = null
 let isCancelled = false
 
-onMounted(async () => {
-  const settings = syncService.getSettings()
-  syncProgress.value = settings.syncProgress || 0
+onLoad(async (options) => {
+  dotsTimer = setInterval(() => {
+    dotsText.value = dotsText.value.length >= 3 ? '' : dotsText.value + '.'
+  }, 400)
   
-  // Real sync loop
+  const isPushOnly = options && options.pushOnly === '1'
+  
   try {
-    // start fake progress animation up to 80%
-    timer = setInterval(() => {
-      if (syncProgress.value < 80) syncProgress.value += 5
-    }, 200)
-
-    dotsTimer = setInterval(() => {
-      dotsText.value = dotsText.value.length >= 3 ? '' : dotsText.value + '.'
-    }, 400)
+    const res = await syncService.syncAll({
+      force: true,
+      pushOnly: isPushOnly,
+      onProgress: (info) => {
+        if (isCancelled) return
+        currentOperationId = info.operationId
+        syncProgress.value = info.percent
+        syncMessage.value = info.message
+      }
+    })
     
-    const res = await syncService.syncAll({ pushOnly: true })
     if (isCancelled) return
     
-    // complete progress
-    if (timer) clearInterval(timer)
     if (dotsTimer) clearInterval(dotsTimer)
     dotsText.value = '...'
     syncProgress.value = 100
+    syncMessage.value = '同步完成'
     
-    // Mark sync as enabled upon successful sync
-    syncService.updateSettings({ syncEnabled: true })
-    
-    setTimeout(() => {
-      if (!isCancelled) {
-        uni.redirectTo({ url: '/pages/me/data/success' })
-      }
-    }, 800)
+    if (res.cancelled) {
+      uni.redirectTo({ url: '/pages/me/data/index' })
+    } else {
+      setTimeout(() => {
+        if (!isCancelled) {
+          uni.redirectTo({ url: '/pages/me/data/success' })
+        }
+      }, 500)
+    }
   } catch (err: any) {
     if (isCancelled) return
-    if (timer) clearInterval(timer)
     if (dotsTimer) clearInterval(dotsTimer)
     
     if (err.message === 'not_logged_in') {
       uni.redirectTo({ url: '/pages/me/data/not-logged' })
     } else {
-      uni.redirectTo({ url: '/pages/me/data/no-sync' })
+      uni.redirectTo({ url: '/pages/me/data/index' })
     }
   }
 })
 
 onUnmounted(() => {
   isCancelled = true
-  if (timer) clearInterval(timer)
   if (dotsTimer) clearInterval(dotsTimer)
 })
 
 function onBack() {
-  uni.navigateBack()
+  requestCancel()
 }
 
 function onCancelSync() {
-  if (timer) clearInterval(timer)
-  if (dotsTimer) clearInterval(dotsTimer)
+  requestCancel()
+}
+
+function requestCancel() {
   uni.showModal({
-    title: '确认取消同步？',
-    content: '取消后已同步部分将保留，未完成部分需要重新同步。',
-    confirmText: '取消同步',
+    title: '确认暂停同步？',
+    content: '暂停后已同步的部分会保留，剩余部分可以稍后继续。',
+    confirmText: '暂停同步',
     confirmColor: '#D98A6C',
     cancelText: '继续同步',
     success(res) {
       if (res.confirm) {
+        if (currentOperationId) {
+          syncService.cancelSync(currentOperationId)
+        }
         uni.navigateBack()
       }
-    },
+    }
   })
 }
 </script>

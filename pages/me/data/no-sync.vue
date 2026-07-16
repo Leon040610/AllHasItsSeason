@@ -59,13 +59,23 @@
 
 <script setup lang="ts">
 import { syncService } from '../../../services/syncService.js'
+import { authService } from '../../../services/authService.js'
+import { cloudRuntimeService } from '../../../services/cloudRuntimeService.js'
 
 function onBack() {
   uni.navigateBack()
 }
 
 function onEnableSync() {
-  syncService.updateSettings({ syncEnabled: true })
+  if (!authService.isLoggedIn()) {
+    uni.showToast({ title: '请先登录', icon: 'none' })
+    return
+  }
+  if (!cloudRuntimeService.isReady()) {
+    uni.showToast({ title: '云服务未就绪，请稍后再试', icon: 'none' })
+    return
+  }
+  syncService.enableSync()
   uni.redirectTo({ url: '/pages/me/data/index' })
 }
 </script>

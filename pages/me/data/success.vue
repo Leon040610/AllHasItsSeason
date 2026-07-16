@@ -34,15 +34,8 @@
           <view class="stat-card__icon-wrap">
             <image class="stat-card__icon-img" src="/static/icons/data-success-yiluruwupin.svg" mode="aspectFit" />
           </view>
-          <text class="stat-card__label">已录入物品</text>
+          <text class="stat-card__label">总计已同步项</text>
           <text class="stat-card__value">{{ syncResult.itemCount }}件</text>
-        </view>
-        <view class="stat-card">
-          <view class="stat-card__icon-wrap">
-            <image class="stat-card__icon-img" src="/static/icons/data-success-jieshengkongjian.svg" mode="aspectFit" />
-          </view>
-          <text class="stat-card__label">节省空间</text>
-          <text class="stat-card__value">{{ syncResult.savedSpace }}MB</text>
         </view>
       </view>
     </view>
@@ -65,14 +58,12 @@ import { syncService } from '../../../services/syncService.js'
 const lastSyncLabel = ref('暂无')
 
 const syncResult = reactive({
-  itemCount: 0,
-  savedSpace: '0',
+  itemCount: 0
 })
 
 onShow(() => {
   const settings = syncService.getSettings()
   syncResult.itemCount = settings.syncedItemCount || 0
-  syncResult.savedSpace = settings.savedStorageSize || '0'
   
   if (settings.lastSyncAt) {
     const d = new Date(settings.lastSyncAt)
@@ -91,7 +82,7 @@ function onBackToMe() {
 }
 
 function onViewLog() {
-  uni.showToast({ title: '同步日志功能即将上线', icon: 'none' })
+  uni.navigateTo({ url: '/pages/me/data/logs' })
 }
 </script>
 

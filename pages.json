@@ -127,6 +127,13 @@
 			}
 		},
 		{
+			"path": "pages/me/data/logs",
+			"style": {
+				"navigationBarTitleText": "同步日志",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/me/category/index",
 			"style": {
 				"navigationBarTitleText": "分类设置",
