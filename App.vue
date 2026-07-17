@@ -2,67 +2,113 @@
 import { storageScopeService } from '@/utils/storageScopeService.js'
 import { syncService } from '@/services/syncService.js'
 import { cloudRuntimeService } from '@/services/cloudRuntimeService.js'
+import { fontFileId, fontUrl } from '@/env.js'
 
 const FONT_FAMILY = 'Noto Serif SC'
-let fontLoadAttempted = false
+let fontLoadPromise
 
-/**
- * 加载 Noto Serif SC 子集字体（真机生效，开发工具系统已有该字体可忽略）
- * 仅在云开发就绪后调用，失败时回退系统字体，不影响启动
- */
-function loadCustomFont() {
-  if (fontLoadAttempted) return
-  fontLoadAttempted = true
+function supportsFontDataUrl() {
+  const version = wx.getSystemInfoSync().SDKVersion || '0.0.0'
+  const current = version.split('.').map((part) => Number(part) || 0)
+  const minimum = [3, 7, 9]
 
-  if (typeof wx === 'undefined' || !wx.loadFontFace) {
-    console.log('[字体] 缺少 wx.loadFontFace，跳过字体加载')
-    return
+  for (let index = 0; index < minimum.length; index += 1) {
+    if ((current[index] || 0) !== minimum[index]) {
+      return (current[index] || 0) > minimum[index]
+    }
   }
 
-  console.log('[字体] 开始直接加载包内 Noto Serif SC...')
-  
-  // 优先直接读取包内编译好的字体文件，避免文件拷贝和上传带来的网络消耗与权限限制
-  wx.loadFontFace({
-    family: FONT_FAMILY,
-    source: 'url("/static/fonts/noto-serif-sc-subset.woff2")',
-    global: true,
-    scopes: ['app'],
-    success: () => {
-      console.log('[字体] Noto Serif SC 包内直接加载成功!')
-    },
-    fail: (err) => {
-      console.warn('[字体] 包内直接加载失败，尝试从云端备份加载:', JSON.stringify(err))
-      
-      // 备份方案：使用云存储上的备份字体 fileID，免去客户端上传逻辑
-      const backupCloudId = 'cloud://yu-d9gr7snghb66efdb4/fonts/noto-serif-sc-subset.woff2'
-      wx.loadFontFace({
-        family: FONT_FAMILY,
-        source: `url("${backupCloudId}")`,
-        global: true,
-        scopes: ['app'],
-        success: () => {
-          console.log('[字体] Noto Serif SC 从云端备份加载成功!')
-        },
-        fail: (cloudErr) => {
-          console.error('[字体] 字体加载的所有途径均已失败:', JSON.stringify(cloudErr))
-        }
-      })
-    }
+  return true
+}
+
+function downloadFontFile(fileID) {
+  return new Promise((resolve, reject) => {
+    wx.cloud.downloadFile({
+      fileID,
+      success: (res) => resolve(res.tempFilePath),
+      fail: reject
+    })
   })
+}
+
+function readFileAsBase64(filePath) {
+  return new Promise((resolve, reject) => {
+    wx.getFileSystemManager().readFile({
+      filePath,
+      encoding: 'base64',
+      success: (res) => resolve(res.data),
+      fail: reject
+    })
+  })
+}
+
+async function resolveFontSource() {
+  if (fontFileId && fontFileId.startsWith('cloud://')) {
+    if (!supportsFontDataUrl()) {
+      throw new Error('Cloud Storage fonts require WeChat base library 3.7.9 or later')
+    }
+
+    const tempFilePath = await downloadFontFile(fontFileId)
+    const base64 = await readFileAsBase64(tempFilePath)
+    return `data:font/ttf;base64,${base64}`
+  }
+
+  if (/^https:\/\//i.test(fontUrl)) return fontUrl
+  throw new Error('No HTTPS fontUrl or Cloud Storage fontFileId is configured')
+}
+
+function loadCustomFont() {
+  if (fontLoadPromise) return fontLoadPromise
+
+  fontLoadPromise = new Promise((resolve) => {
+    const finish = (loaded) => resolve(loaded)
+
+    if (typeof wx === 'undefined' || !wx.loadFontFace) {
+      console.warn('[font] wx.loadFontFace is unavailable; using the system fallback')
+      finish(false)
+      return
+    }
+
+    const slowLoadWarningId = setTimeout(() => {
+      console.warn('[font] Noto Serif SC is still loading in the background')
+    }, 15000)
+
+    resolveFontSource()
+      .then((source) => {
+        wx.loadFontFace({
+          family: FONT_FAMILY,
+          source: `url("${source}")`,
+          global: true,
+          scopes: ['webview'],
+          success: (res) => {
+            clearTimeout(slowLoadWarningId)
+            console.log('[font] Noto Serif SC registered:', res.status)
+            finish(true)
+          },
+          fail: (err) => {
+            clearTimeout(slowLoadWarningId)
+            console.error('[font] Noto Serif SC could not be registered:', JSON.stringify(err))
+            finish(false)
+          }
+        })
+      })
+      .catch((err) => {
+        clearTimeout(slowLoadWarningId)
+        console.error('[font] Unable to prepare the Cloud Storage font:', err && err.message ? err.message : JSON.stringify(err))
+        finish(false)
+      })
+  })
+
+  return fontLoadPromise
 }
 
 export default {
   onLaunch() {
-    // 1. 运行幂等旧数据迁移
     storageScopeService.runMigration()
-
-    cloudRuntimeService.init().then((res) => {
-      if (res.status === 'ready') {
-        loadCustomFont()
-      }
+    cloudRuntimeService.init().then((runtime) => {
+      if (runtime.status === 'ready') loadCustomFont()
     })
 
-    // 判断登录状态，决定入口页
     const userRaw = uni.getStorageSync('allhas_user_v1')
     let isLoggedIn = false
     if (userRaw) {
@@ -77,7 +123,6 @@ export default {
     }
   },
   onShow() {
-    // 触发前后台切换自动同步
     syncService.scheduleAutoSync({ reason: 'app_onshow' })
   },
   onHide() {}
@@ -85,6 +130,4 @@ export default {
 </script>
 
 <style>
-/* Noto Serif SC 通过 wx.loadFontFace 动态加载（真机），开发工具使用系统安装字体 */
-/* 子集文件: static/fonts/noto-serif-sc-subset.woff2 (604字, 332KB) */
 </style>

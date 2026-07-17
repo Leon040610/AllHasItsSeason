@@ -1,19 +1,20 @@
-feat: 实现多账户数据存储隔离、游客数据合并迁移、自动同步调度与本地图片缓存清理机制
+refactor: 强化多账户存储隔离的竞态防护与循环依赖解耦
 
-- 多账户数据存储隔离 (utils/storageScopeService.js & App.vue)：
-  1. 新增 `storageScopeService.js`，管理当前系统活跃作用域 (`guest` 或 `account::${uid}`)，对全站各数据源 Key 进行多租户隔离前缀转化
-  2. 提供 `runMigration()` 数据升级模块，在 `App.vue` 启动时无损且幂等地将老版本全局 Key 升级至 `guest::` 前缀，并记录迁移日志支持安全回滚
-  3. 重构各数据源接口 (localRepository.js & localDraftRepository.js)，对接隔离键名转换机制
-- 账号数据合并与迁移决策 (services/guestMigrationService.js)：
-  1. 新增 `guestMigrationService.js` 负责决策并执行游客数据向已登录账号数据的合并
-  2. 实现 `hasRealGuestData()` 判定方法，检查游客态是否存在有效的物品、草稿、分类和提醒改动
-  3. 用户登录时触发“开启同步与合并数据”弹窗，点击后先静默拉取云端记录，然后根据 `updatedAt` 规则按最后写入胜出逻辑执行游客到账号的本地数据合并并标记待上传，合并后物理清除临时游客数据
-- 自动同步与网络监测调度 (services/syncService.js)：
-  1. 引入 3 秒防抖 (Debounce) 的后台自动同步引擎 `scheduleAutoSync`，拦截物品增/删/改/用完/图片状态更新，静默拉取最新记录并按条件上传
-  2. 全局注册监听微信网络状态 `onNetworkStatusChange`，网络由离线恢复为在线时，自动补推缓存的待同步数据，保证离线可用与在线高同步
-- 本地图片缓存智能清理 (services/cacheService.js & services/itemService.js)：
-  1. 新增 `cacheService.js` 维护本地图片物理文件注册表 (`allhas_local_file_registry_v1`)，登记大文件的存储大小、版本号及所属角色 (原图/贴纸)
-  2. 设计 `getCleanableFiles()` 筛选符合安全物理清理的文件（必须存在于当前租户且版本已失效，或者已安全同步上云 `imageSyncPending !== true`）
-  3. `clearCache()` 调起微信文件管理器物理删除已上云的本地图片，并调用 `itemService.clearLocalImageCacheRefs()` 更新本地引用指向 `cloud://` 文件ID，安全释放手机存储空间
+- 循环依赖解耦 (utils/authSessionStore.js)：
+  1. 新增 `authSessionStore.js` 轻量模块，提供无依赖的 `isStoredLoggedIn()` 与 `getStoredSession()` 读取函数
+  2. 让 `syncService.js` 改为引用此轻量模块而非 `authService`，从根本上消除 syncService <-> authService 的循环依赖，解决微信小程序打包时的 bundle 运行时错误
+- 多账户作用域竞态防护 (services/syncService.js)：
+  1. 引入 `scopeEpoch` 版本号机制，每次登出/切换账号时递增并触发 `cancelForScopeChange()`，可优雅中止正在进行的旧同步任务
+  2. 同步核心路径中关键 I/O 点（预检、拉取、推送）均插入 `assertOperationCurrent()` 守卫校验，确保作用域切换时正在进行的批次不会把数据写入错误的账号 Scoped Key
+  3. 将 `guestMigrationService` 的动态依赖导入固化为静态 import，并新增 `scheduleAutoSync` 可选项支持测试环境中禁用自动调度
+- 存储隔离范围扩展 (utils/storageScopeService.js & utils/storageKeys.js)：
+  1. 将本地图片文件注册表 `allhas_local_file_registry_v1` 纳入多租户隔离 Key 体系
+  2. 优化各服务的 `localRepository.get/set` 调用，统一引用 `STORAGE_KEYS` 常量
+- 字体资源更新 (static/fonts/)：
+  1. 将字体文件从 woff2 格式替换为 ttf 以兼容部分微信真机渲染环境
+- 细节修复与改进：
+  1. 将"我的"主页的默认昵称改为"万物旅人"
+  2. 登录入口改为静态 import guestMigrationService，避免异步动态导入延迟
+  3. 修正登录错误提示时的错误消息类型守卫
 
-影响范围：数据隔离底层、微信登录合并逻辑、自动同步调度、图片缓存清理交互
+影响范围：登录/注销账号切换流程、数据存储隔离机制、同步任务竞态保护

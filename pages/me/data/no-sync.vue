@@ -61,6 +61,7 @@
 import { syncService } from '../../../services/syncService.js'
 import { authService } from '../../../services/authService.js'
 import { cloudRuntimeService } from '../../../services/cloudRuntimeService.js'
+import { guestMigrationService } from '../../../services/guestMigrationService.js'
 
 function onBack() {
   uni.navigateBack()
@@ -76,12 +77,11 @@ async function onEnableSync() {
     return
   }
   
-  const { guestMigrationService } = await import('../../../services/guestMigrationService.js')
   const user = authService.getUser()
   
   await guestMigrationService.checkAndPromptMerge(user.uid, () => {
-    uni.redirectTo({ url: '/pages/me/data/index' })
-  })
+    uni.redirectTo({ url: '/pages/me/data/syncing' })
+  }, { scheduleAutoSync: false })
 }
 </script>
 

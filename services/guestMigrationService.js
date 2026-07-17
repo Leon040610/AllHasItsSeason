@@ -1,7 +1,9 @@
-// services/guestMigrationService.js
-// 职责：处理游客数据向当前登录账号的合并决策、冲突排重与幂等处理。
-
 import { storageScopeService } from '../utils/storageScopeService.js'
+import { syncService } from './syncService.js'
+import { itemService } from './itemService.js'
+import { categoryService } from './categoryService.js'
+import { draftService } from './draftService.js'
+import { settingsService } from './settingsService.js'
 
 let mergePrompted = false
 let mergeInProgress = false
@@ -68,7 +70,8 @@ export const guestMigrationService = {
   /**
    * 提示用户合并，成功后执行数据迁移并触发后台同步。
    */
-  async checkAndPromptMerge(uid, onComplete) {
+  async checkAndPromptMerge(uid, onComplete, options = {}) {
+    const scheduleAutoSync = options.scheduleAutoSync !== false
     if (mergePrompted || mergeInProgress) {
       if (onComplete) onComplete(false)
       return
@@ -76,8 +79,10 @@ export const guestMigrationService = {
 
     if (!this.hasRealGuestData()) {
       console.log('[GuestMigration] 游客作用域中无真实数据，直接开启同步。')
-      const { syncService } = await import('./syncService.js')
       syncService.enableSync()
+      if (scheduleAutoSync) {
+        syncService.scheduleAutoSync({ reason: 'sync_enabled' })
+      }
       if (onComplete) onComplete(true)
       return
     }
@@ -93,7 +98,6 @@ export const guestMigrationService = {
       confirmColor: '#8A9A86',
       success: async (res) => {
         try {
-          const { syncService } = await import('./syncService.js')
           if (res.confirm) {
             uni.showLoading({ title: '正在合并数据...', mask: true })
             
@@ -114,13 +118,18 @@ export const guestMigrationService = {
             uni.showToast({ title: '已开启同步并合并数据', icon: 'success' })
             
             // 安排首轮自动同步（Debounced 上传合并内容）
-            syncService.scheduleAutoSync({ reason: 'merge_completed' })
+            if (scheduleAutoSync) {
+              syncService.scheduleAutoSync({ reason: 'merge_completed' })
+            }
 
             if (onComplete) onComplete(true)
           } else {
             // "暂不合并"：不合并数据，直接开启账号同步
             syncService.enableSync()
             uni.showToast({ title: '已开启同步，未合并本地记录', icon: 'none' })
+            if (scheduleAutoSync) {
+              syncService.scheduleAutoSync({ reason: 'merge_skipped' })
+            }
             if (onComplete) onComplete(false)
           }
         } catch (err) {
@@ -269,17 +278,11 @@ export const guestMigrationService = {
     uni.removeStorageSync(`${guestPrefix}sync_logs`)
     uni.removeStorageSync(`${guestPrefix}ocr_sessions`)
 
-    // 6. 重新动态挂载业务服务更新内存
-    const { itemService } = await import('./itemService.js')
-    const { categoryService } = await import('./categoryService.js')
-    const { draftService } = await import('./draftService.js')
-    const { settingsService } = await import('./settingsService.js')
-    const { syncService: syncSvc } = await import('./syncService.js')
-
+    // 6. 重新载入内存缓存数据
     itemService.init()
     categoryService.init()
     draftService.init()
     settingsService.init()
-    syncSvc.init()
+    syncService.init()
   }
 }

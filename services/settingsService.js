@@ -132,13 +132,7 @@ class SettingsService {
       syncStatus: 'pending',
       updatedAt: Date.now() 
     };
-    const saved = localRepository.set(SETTINGS_KEY, this.settings);
-    if (saved) {
-      import('./syncService.js').then(({ syncService }) => {
-        syncService.scheduleAutoSync({ reason: 'settings_updated' });
-      });
-    }
-    return saved;
+    return localRepository.set(SETTINGS_KEY, this.settings);
   }
 
   applySyncResult(syncedSettings, status = 'synced', lastSyncedAt = Date.now()) {

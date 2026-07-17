@@ -8,6 +8,7 @@ const BASE_KEY_MAP = {
   'allhas_drafts_v1': 'drafts',
   'allhas_sync_settings_v1': 'sync_settings',
   'allhas_sync_logs_v1': 'sync_logs',
+  'allhas_local_file_registry_v1': 'file_registry',
   'ALLHAS_OCR_SESSIONS': 'ocr_sessions'
 }
 

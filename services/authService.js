@@ -7,6 +7,13 @@
 
 import { wechatCloudUserRepository } from '../repositories/wechatCloudUserRepository.js'
 import { cloudRuntimeService } from './cloudRuntimeService.js'
+import { storageScopeService } from '../utils/storageScopeService.js'
+import { guestMigrationService } from './guestMigrationService.js'
+import { itemService } from './itemService.js'
+import { categoryService } from './categoryService.js'
+import { draftService } from './draftService.js'
+import { settingsService } from './settingsService.js'
+import { syncService } from './syncService.js'
 
 const USER_KEY = 'allhas_user_v1'
 
@@ -89,11 +96,9 @@ class AuthService {
       this._save()
 
       // 2. 再切换活跃作用域到当前账号分区
-      const { storageScopeService } = await import('../utils/storageScopeService.js')
       storageScopeService.setActiveScope(`account::${this.user.uid}`)
 
       // 重置合并标志，允许新登录的合并判断
-      const { guestMigrationService } = await import('./guestMigrationService.js')
       guestMigrationService.setMergePrompted(false)
 
       // 3. 显式重新重置与载入内存缓存数据
@@ -102,9 +107,10 @@ class AuthService {
       return { ...this.user }
     } catch (err) {
       // 登录失败：必须保持 guest 作用域和游客数据不变，不清空本地数据
-      const msg = err.message === 'cloud_not_ready' || err.message === 'cloud_call_failed'
+      const errorMessage = typeof err?.message === 'string' ? err.message : ''
+      const msg = errorMessage === 'cloud_not_ready' || errorMessage === 'cloud_call_failed'
         ? '暂时没登录成功，也可以先逛逛'
-        : (err.message || '暂时没登录成功，也可以先逛逛')
+        : (errorMessage || '暂时没登录成功，也可以先逛逛')
       throw new Error(msg)
     } finally {
       this._loginLock = false
@@ -185,28 +191,24 @@ class AuthService {
   }
 
   async logout() {
-    // 1. 切换作用域回游客
-    const { storageScopeService } = await import('../utils/storageScopeService.js')
-    storageScopeService.setActiveScope('guest')
+    // Stop delayed and in-flight work before changing the storage scope.
+    syncService.cancelForScopeChange()
 
-    // 2. 重置全局用户登录态，禁止使用 clearStorageSync
+    // Keep the device-level session and the active data scope in a consistent order.
     this.user = this._getDefaultUser()
     this._save()
 
-    // 3. 重置所有业务内存服务，重新初始化游客数据
+    storageScopeService.setActiveScope('guest')
+
+    // Reload every in-memory service so pages cannot keep the previous account's data.
     await this._reloadServices()
+    return this.getUser()
   }
 
   /**
    * 显式重置并重新初始化核心服务，更新内存缓存
    */
   async _reloadServices() {
-    const { itemService } = await import('./itemService.js')
-    const { categoryService } = await import('./categoryService.js')
-    const { draftService } = await import('./draftService.js')
-    const { settingsService } = await import('./settingsService.js')
-    const { syncService } = await import('./syncService.js')
-
     itemService.init()
     categoryService.init()
     draftService.init()

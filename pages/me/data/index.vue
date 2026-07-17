@@ -88,6 +88,7 @@ import { onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../../services/itemService.js'
 import { categoryService } from '../../../services/categoryService.js'
 import { syncService } from '../../../services/syncService.js'
+import { cacheService } from '../../../services/cacheService.js'
 
 interface DataStats {
   itemCount: number
@@ -150,7 +151,6 @@ function onRestoreDraft() {
 }
 
 async function onClearCache() {
-  const { cacheService } = await import('../../../services/cacheService.js')
   const { totalSize, files } = cacheService.getCleanableFiles()
   
   if (files.length === 0) {

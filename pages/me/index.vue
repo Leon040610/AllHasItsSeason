@@ -191,10 +191,11 @@ import { onShow } from '@dcloudio/uni-app'
 import { authService } from '../../services/authService.js'
 import { draftService } from '../../services/draftService.js'
 import { syncService } from '../../services/syncService.js'
+import { guestMigrationService } from '../../services/guestMigrationService.js'
 
 const user = reactive({
   isLoggedIn: false,
-  nickname: '',
+  nickname: '万物旅人',
   uid: '',
   avatarUrl: '',
 })
@@ -224,7 +225,6 @@ async function onWxLogin() {
     user.uid = loggedInUser.uid
     user.avatarUrl = loggedInUser.avatarUrl
 
-    const { guestMigrationService } = await import('../../services/guestMigrationService.js')
     await guestMigrationService.checkAndPromptMerge(loggedInUser.uid, () => {
       draftCount.value = draftService.getDrafts().length
     })

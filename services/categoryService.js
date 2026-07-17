@@ -206,9 +206,6 @@ class CategoryService {
     };
     this.categories.push(newCat);
     this._save();
-    import('./syncService.js').then(({ syncService }) => {
-      syncService.scheduleAutoSync({ reason: 'category_added' });
-    });
     return true;
   }
 
@@ -228,9 +225,6 @@ class CategoryService {
     };
     
     this._save();
-    import('./syncService.js').then(({ syncService }) => {
-      syncService.scheduleAutoSync({ reason: 'category_updated' });
-    });
     return true;
   }
 

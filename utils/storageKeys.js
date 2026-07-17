@@ -6,5 +6,6 @@ export const STORAGE_KEYS = {
   DRAFTS: 'allhas_drafts_v1',
   SYNC_SETTINGS: 'allhas_sync_settings_v1',
   SYNC_LOGS: 'allhas_sync_logs_v1',
+  FILE_REGISTRY: 'allhas_local_file_registry_v1',
   USER: 'allhas_user_v1' // from authService.js
 }

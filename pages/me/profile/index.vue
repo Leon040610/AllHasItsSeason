@@ -98,18 +98,22 @@ function onNicknameBlur() {
   // 检测不通过会自动清空输入框，此处不需要额外处理
 }
 
-function onLogout() {
+async function onLogout() {
   uni.showModal({
     title: '提示',
     content: '确定要退出登录吗？',
     confirmColor: '#536251',
-    success: (res) => {
+    success: async (res) => {
       if (res.confirm) {
-        authService.logout()
+        try {
+          await authService.logout()
         uni.showToast({ title: '已退出', icon: 'success' })
         setTimeout(() => {
-          uni.navigateBack()
-        }, 1000)
+          uni.switchTab({ url: '/pages/me/index' })
+        }, 600)
+        } catch (err) {
+          uni.showToast({ title: '退出没有完成，请稍后再试', icon: 'none' })
+        }
       }
     }
   })

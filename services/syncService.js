@@ -5,9 +5,10 @@ import { itemService } from './itemService.js'
 import { categoryService } from './categoryService.js'
 import { draftService } from './draftService.js'
 import { settingsService } from './settingsService.js'
-import { authService } from './authService.js'
 import { cloudRuntimeService } from './cloudRuntimeService.js'
 import { wechatCloudSyncRepository } from '../repositories/wechatCloudSyncRepository.js'
+import { isStoredLoggedIn } from '../utils/authSessionStore.js'
+import { storageScopeService } from '../utils/storageScopeService.js'
 
 const SYNC_KEY = STORAGE_KEYS.SYNC_SETTINGS
 
@@ -38,6 +39,7 @@ class SyncService {
     // 自动同步调度状态
     this.autoSyncTimer = null
     this.syncRequestedAfterCurrent = false
+    this.scopeEpoch = 0
     
     this.init()
     
@@ -50,9 +52,19 @@ class SyncService {
         }
       })
     }
+
+    if (typeof uni !== 'undefined' && uni.$on) {
+      uni.$on('localDataChanged', () => {
+        this.scheduleAutoSync({ reason: 'local_data_changed' })
+      })
+    }
   }
 
   init() {
+    if (!this.isSyncing) {
+      this.cancelRequested = false
+    }
+
     let settings = null
     try {
       settings = localRepository.get(SYNC_KEY)
@@ -106,12 +118,26 @@ class SyncService {
     // 3秒 Debounce 机制，防频繁触发
     this.autoSyncTimer = setTimeout(async () => {
       this.autoSyncTimer = null
-      await this.runScheduledSync()
+      try {
+        await this.runScheduledSync()
+      } catch (err) {
+        console.warn('[AutoSync] Scheduled sync failed safely:', err && err.message ? err.message : err)
+      }
     }, 3000)
   }
 
+  cancelForScopeChange() {
+    if (this.autoSyncTimer) {
+      clearTimeout(this.autoSyncTimer)
+      this.autoSyncTimer = null
+    }
+    this.syncRequestedAfterCurrent = false
+    this.cancelRequested = true
+    this.scopeEpoch += 1
+  }
+
   async runScheduledSync() {
-    if (!authService.isLoggedIn()) return
+    if (!isStoredLoggedIn()) return
     
     const settings = this.getSettings()
     if (!settings || !settings.syncEnabled) return
@@ -215,7 +241,7 @@ class SyncService {
     if (this.isSyncing) {
       throw new Error('sync_in_progress')
     }
-    if (!authService.isLoggedIn()) {
+    if (!isStoredLoggedIn()) {
       throw new Error('not_logged_in')
     }
     if (!cloudRuntimeService.isReady()) {
@@ -229,9 +255,17 @@ class SyncService {
 
     this.isSyncing = true
     const operationId = generateUUID()
+    const operationScope = storageScopeService.getActiveScope()
+    const operationEpoch = this.scopeEpoch
     this.currentOperationId = operationId
     this.cancelRequested = false
     const syncStart = Date.now()
+
+    const assertOperationCurrent = () => {
+      if (operationEpoch !== this.scopeEpoch || operationScope !== storageScopeService.getActiveScope()) {
+        throw new Error('scope_changed')
+      }
+    }
     
     this.updateSettings({ syncStatus: 'syncing' })
     
@@ -263,6 +297,7 @@ class SyncService {
     // Preflight check
     try {
       const stats = await wechatCloudSyncRepository.preflightSync()
+      assertOperationCurrent()
       if (this.cancelRequested) throw new Error('cancelled')
       
       totalUnits = 0
@@ -353,6 +388,7 @@ class SyncService {
             reportProgress('pull', col.name, `正在同步${colLabel}...`)
 
             const pullRes = await wechatCloudSyncRepository.pullData(col.name, cursor, 100)
+            assertOperationCurrent()
             cloudRecords = cloudRecords.concat(pullRes.records)
             cursor = pullRes.nextCursor
             hasMore = pullRes.hasMore
@@ -411,6 +447,7 @@ class SyncService {
           
             try {
               const results = await wechatCloudSyncRepository.upsertData(col.name, snapshot)
+              assertOperationCurrent()
               completedUnits++
               reportProgress('push', col.name, `正在上传${colLabel}...`)
               
@@ -456,8 +493,16 @@ class SyncService {
       console.error('[SyncService] pull/upsert overall failed', err)
       pullError = err
     } finally {
-      this.isSyncing = false
-      this.currentOperationId = null
+      const scopeChanged = operationEpoch !== this.scopeEpoch || operationScope !== storageScopeService.getActiveScope()
+      if (this.currentOperationId === operationId) {
+        this.isSyncing = false
+        this.currentOperationId = null
+      }
+
+      if (scopeChanged) {
+        this.cancelRequested = false
+        return { cancelled: true, reason: 'scope_changed', syncedItemCount: totalSyncedCount, conflictCount: totalConflictCount, logWritten: false }
+      }
       
       const isSuccess = !this.cancelRequested && !pullError && !upsertError && totalFailedCount === 0
       

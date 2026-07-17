@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { authService } from '../../services/authService.js'
+import { guestMigrationService } from '../../services/guestMigrationService.js'
 
 const agreed = ref(true)
 
@@ -48,15 +49,14 @@ async function onWxLogin() {
   isLoggingIn.value = true
   try {
     const loggedUser = await authService.login()
-    const { guestMigrationService } = await import('../../services/guestMigrationService.js')
     await guestMigrationService.checkAndPromptMerge(loggedUser.uid, () => {
       uni.reLaunch({ url: '/pages/index/index' })
     })
   } catch (err) {
-    const msg = err.message === 'login_in_progress'
+    const errorMessage = typeof err?.message === 'string' ? err.message : ''
+    const msg = errorMessage === 'login_in_progress'
       ? '登录中，请稍候...'
-      : (err.message || '暂时无法登录，也可以先逛逛~')
-    uni.showToast({ title: msg, icon: 'none', duration: 2000 })
+      : (errorMessage || '暂时无法登录，也可以先逛逛~')
   } finally {
     isLoggingIn.value = false
   }

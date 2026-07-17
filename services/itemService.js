@@ -4,6 +4,7 @@ import { DataConverter } from '../models/DataConverter.js';
 import { generateUUID } from '../utils/uuid.js';
 import { STORAGE_KEYS } from '../utils/storageKeys.js';
 import { normalizeTimestamp } from '../utils/dateUtils.js';
+import { cacheService } from './cacheService.js';
 
 const ITEMS_KEY = STORAGE_KEYS.ITEMS;
 
@@ -145,13 +146,7 @@ class ItemService {
     // 登记图片缓存
     this._registerFilesForItem(newItem);
     
-    const saved = this._save();
-    if (saved) {
-      import('./syncService.js').then(({ syncService }) => {
-        syncService.scheduleAutoSync({ reason: 'item_added' });
-      });
-    }
-    return saved;
+    return this._save();
   }
 
   updateItem(id, updateData) {
@@ -232,13 +227,7 @@ class ItemService {
       // 登记新旧图片缓存
       this._registerFilesForItem(this.items[index]);
       
-      const saved = this._save();
-      if (saved) {
-        import('./syncService.js').then(({ syncService }) => {
-          syncService.scheduleAutoSync({ reason: 'item_updated' });
-        });
-      }
-      return saved;
+      return this._save();
     }
     return false;
   }
@@ -253,13 +242,7 @@ class ItemService {
       this.items[index].updatedAt = now;
       this.items[index].deletedAt = now;
       
-      const saved = this._save();
-      if (saved) {
-        import('./syncService.js').then(({ syncService }) => {
-          syncService.scheduleAutoSync({ reason: 'item_deleted' });
-        });
-      }
-      return saved;
+      return this._save();
     }
     return false;
   }
@@ -278,13 +261,7 @@ class ItemService {
         desc: '已用完'
       });
       
-      const saved = this._save();
-      if (saved) {
-        import('./syncService.js').then(({ syncService }) => {
-          syncService.scheduleAutoSync({ reason: 'item_done' });
-        });
-      }
-      return saved;
+      return this._save();
     }
     return false;
   }
@@ -318,13 +295,7 @@ class ItemService {
       // 登记新状态图片
       this._registerFilesForItem(this.items[index]);
       
-      const saved = this._save();
-      if (saved) {
-        import('./syncService.js').then(({ syncService }) => {
-          syncService.scheduleAutoSync({ reason: 'image_state_updated' });
-        });
-      }
-      return saved;
+      return this._save();
     }
     return false;
   }
@@ -358,28 +329,26 @@ class ItemService {
 
   _registerFilesForItem(item) {
     if (!item) return;
-    import('./cacheService.js').then(({ cacheService }) => {
-      if (item.originalImageUrl && item.originalImageUrl.startsWith('wxfile://')) {
-        cacheService.registerCachedFile({
-          path: item.originalImageUrl,
-          itemId: item.id,
-          imageRevision: item.imageRevision,
-          role: 'original',
-          cloudFileId: item.originalImageCloudFileId || '',
-          cacheState: item.originalImageCloudFileId ? 'cached' : 'pending_upload'
-        });
-      }
-      if (item.displayImageUrl && item.displayImageUrl.startsWith('wxfile://')) {
-        cacheService.registerCachedFile({
-          path: item.displayImageUrl,
-          itemId: item.id,
-          imageRevision: item.imageRevision,
-          role: 'display',
-          cloudFileId: item.displayImageCloudFileId || '',
-          cacheState: item.displayImageCloudFileId ? 'cached' : 'pending_upload'
-        });
-      }
-    });
+    if (item.originalImageUrl && item.originalImageUrl.startsWith('wxfile://')) {
+      cacheService.registerCachedFile({
+        path: item.originalImageUrl,
+        itemId: item.id,
+        imageRevision: item.imageRevision,
+        role: 'original',
+        cloudFileId: item.originalImageCloudFileId || '',
+        cacheState: item.originalImageCloudFileId ? 'cached' : 'pending_upload'
+      });
+    }
+    if (item.displayImageUrl && item.displayImageUrl.startsWith('wxfile://')) {
+      cacheService.registerCachedFile({
+        path: item.displayImageUrl,
+        itemId: item.id,
+        imageRevision: item.imageRevision,
+        role: 'display',
+        cloudFileId: item.displayImageCloudFileId || '',
+        cacheState: item.displayImageCloudFileId ? 'cached' : 'pending_upload'
+      });
+    }
   }
 }
 
