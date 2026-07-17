@@ -30,10 +30,7 @@
 
       <!-- 统计卡片 -->
       <view class="stat-list">
-        <view class="stat-card">
-          <view class="stat-card__icon-wrap">
-            <image class="stat-card__icon-img" src="/static/icons/data-success-yiluruwupin.svg" mode="aspectFit" />
-          </view>
+        <view class="stat-card stat-card--no-icon">
           <text class="stat-card__label">总计物品数</text>
           <text class="stat-card__value">{{ syncResult.itemCount }}</text>
         </view>

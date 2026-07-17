@@ -222,7 +222,7 @@ exports.main = async (event, context) => {
         return { success: true, imageProcessStatus: 'fallback', originalCloudFileId, errorCode: 'network_error' };
       }
 
-      // 5. Handle Baidu Response
+      // 5. Handle Baidu Error
       if (baiduRes.error_code) {
         let safeErrorCode = 'service_error';
         const code = baiduRes.error_code;
@@ -234,13 +234,13 @@ exports.main = async (event, context) => {
         return { success: true, imageProcessStatus: 'fallback', originalCloudFileId, errorCode: safeErrorCode };
       }
 
-      if (!baiduRes.foreground) {
+      if (!baiduRes.image) {
         await updateJobError(job._id, 'fallback', 'no_subject');
         return { success: true, imageProcessStatus: 'fallback', originalCloudFileId, errorCode: 'no_subject' };
       }
 
       // 6. Upload Cutout Image
-      const cutoutBuffer = Buffer.from(baiduRes.foreground, 'base64');
+      const cutoutBuffer = Buffer.from(baiduRes.image, 'base64');
       const cutoutCloudPath = `processed/${jobId}/cutout.png`;
       let cutoutCloudFileId;
       try {

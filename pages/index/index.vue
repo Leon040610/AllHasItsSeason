@@ -367,7 +367,7 @@ function executePhotoScan() {
   
   uni.chooseImage({
     count: 1,
-    sourceType: ['camera'],
+    sourceType: ['album', 'camera'],
     sizeType: ['compressed'],
     success: async (chooseRes) => {
       isScanning = true;

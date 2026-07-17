@@ -15,23 +15,29 @@
     <scroll-view class="scroll-body" scroll-y enhanced :show-scrollbar="false">
       <!-- 头像区域 -->
       <view class="profile-photo-section">
-        <view class="avatar-container">
-          <view class="avatar-wrap">
-            <image 
-              v-if="form.avatarUrl" 
-              class="avatar-img" 
-              :src="form.avatarUrl" 
-              mode="aspectFill" 
-            />
-            <view v-else class="avatar-placeholder"></view>
+        <button
+          class="avatar-chooser-btn"
+          open-type="chooseAvatar"
+          @chooseavatar="onChooseAvatar"
+        >
+          <view class="avatar-container">
+            <view class="avatar-wrap">
+              <image 
+                v-if="form.avatarUrl" 
+                class="avatar-img" 
+                :src="form.avatarUrl" 
+                mode="aspectFill" 
+              />
+              <view v-else class="avatar-placeholder"></view>
+            </view>
+            <view class="avatar-edit-btn">
+              <image class="avatar-edit-icon" src="/static/icons/me-profile-xiangji.svg" mode="aspectFit" />
+            </view>
           </view>
-          <view class="avatar-edit-btn" @tap="onChangeAvatar">
-            <image class="avatar-edit-icon" src="/static/icons/me-profile-xiangji.svg" mode="aspectFit" />
+          <view class="text-btn">
+            <text class="text-btn__text">修改头像</text>
           </view>
-        </view>
-        <view class="text-btn" @tap="onChangeAvatar">
-          <text class="text-btn__text">修改头像</text>
-        </view>
+        </button>
       </view>
 
       <!-- 昵称输入 -->
@@ -39,7 +45,9 @@
         <text class="form-section__label">昵称</text>
         <view class="form-input">
           <input 
+            type="nickname"
             v-model="form.nickname" 
+            @blur="onNicknameBlur"
             placeholder="输入昵称" 
             placeholder-class="form-input__placeholder"
             class="form-input__inner"
@@ -74,20 +82,20 @@ const form = ref({
 onShow(() => {
   const user = authService.getUser()
   form.value.avatarUrl = user.avatarUrl || ''
-  form.value.nickname = user.nickname || '微信用户'
+  form.value.nickname = user.nickname || '万物旅人'
 })
 
 function goBack() {
   uni.navigateBack()
 }
 
-function onChangeAvatar() {
-  uni.chooseImage({
-    count: 1,
-    success: (res) => {
-      form.value.avatarUrl = res.tempFilePaths[0]
-    }
-  })
+function onChooseAvatar(e: any) {
+  form.value.avatarUrl = e.detail.avatarUrl
+}
+
+function onNicknameBlur() {
+  // 微信会在 blur 时异步做内容安全检测
+  // 检测不通过会自动清空输入框，此处不需要额外处理
 }
 
 function onLogout() {
@@ -114,16 +122,26 @@ async function onSave() {
     return
   }
 
-  // 头像：本阶段只更新本地，不上传云端
-  authService.updateProfile({ avatarUrl: form.value.avatarUrl })
+  uni.showLoading({ title: '保存中', mask: true })
 
-  // 昵称：本地优先保存，异步同步云端（失败时本地保留，服务内部会 toast 提示）
-  await authService.updateNickname(trimmedNickname)
+  try {
+    // 1. 头像：如果有更改，上传到云存储并更新档案
+    if (form.value.avatarUrl && form.value.avatarUrl !== authService.getUser().avatarUrl) {
+      await authService.updateAvatar(form.value.avatarUrl)
+    }
 
-  uni.showToast({ title: '修改已保存', icon: 'success' })
-  setTimeout(() => {
-    uni.navigateBack()
-  }, 1000)
+    // 2. 昵称：本地优先保存，异步同步云端
+    await authService.updateNickname(trimmedNickname)
+
+    uni.hideLoading()
+    uni.showToast({ title: '修改已保存', icon: 'success' })
+    setTimeout(() => {
+      uni.navigateBack()
+    }, 1000)
+  } catch (err) {
+    uni.hideLoading()
+    uni.showToast({ title: '保存失败，请重试', icon: 'none' })
+  }
 }
 </script>
 
@@ -202,6 +220,22 @@ $color-text: #1A1C1B;
   align-items: center;
   gap: 32rpx;
   margin-bottom: 64rpx;
+}
+
+.avatar-chooser-btn {
+  background: none !important;
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  line-height: normal !important;
+  width: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32rpx;
+  &::after {
+    display: none;
+  }
 }
 
 .avatar-container {

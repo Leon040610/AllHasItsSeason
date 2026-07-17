@@ -1,15 +1,7 @@
-# Findings & Research
-
-## Multi-Expiry Implementation Details
-
-- **activeExpiryDate Rules**:
-  - `normal`: unopenedExpiryDate
-  - `after_opening`: openedExpiryDate (if openDate exists)
-  - `dual`: min(unopenedExpiryDate, openedExpiryDate) if using & openDate exists, else unopenedExpiryDate.
-
-- **Date Math Rules**:
-  - month: exact month addition, end of month fallback.
-  - year: exact year addition, leap year fallback.
-
-- **Migration**:
-  - Handled in `itemService.js` on list load. If missing `expiryMode`, defaults to `normal` and maps `expireDate` -> `unopenedExpiryDate`.
+# Findings
+- The application relies heavily on WeChat Cloud Storage.
+- wx.cloud.uploadFile is used in wechatCloudStorageRepository.js and cloudfunctions/imageProcess/index.js.
+- Original images are uploaded to /uploads/{jobId}/original.jpg.
+- Cutout images are uploaded to /processed/{jobId}/cutout.png.
+- Final sticker images are uploaded via executeBackgroundUpload when syncEnabled is true.
+- If the Cloud Storage is empty, it means no successful upload has occurred in that specific environment, or the environment ID in the console doesn't match the one initialized in the code.

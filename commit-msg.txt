@@ -1,0 +1,19 @@
+feat: 实现 Canvas 贴纸本地生成与双轨图片云端上传备份机制
+
+- 贴纸风格渲染引擎 (services/imageCanvasService.js)：
+  1. 新增 `imageCanvasService.js` 服务，使用微信小程序 Canvas 2D 能力在前端渲染“手帐贴纸风”商品图
+  2. 实现 12 方向偏移叠加法生成实心白色描边轮廓（粗细适配 dpr 物理像素），并将前景图层级置于其上，实现高精度描边
+  3. 支持对贴纸执行 `-2° ~ +2°` 的随机物理旋转及居中自动比例缩放
+  4. 支持无抠图降级状态（即原图仅旋转、不画白边），输出一致尺寸的透明贴纸
+- 双轨图片上传调度优化 (services/cloudStorageService.js & pages/)：
+  1. 优化 `cloudStorageService.js`，将原本依赖云端抠图的逻辑重构为“本地 Canvas 渲染 + 云端双轨直接上传”架构，避免云函数超时与并发上限
+  2. 后台上传线程 (`executeBackgroundUpload`) 接收 `originalLocalPath` 与 `displayLocalPath`，并行将“原图”及本地 Canvas 输出的“手帐贴纸图”上传备份至云存储
+  3. 上传成功后写入 `originalImageCloudFileId` 与 `displayImageCloudFileId` 并复位同步挂起状态
+- 添加与编辑流程适配 (pages/add/ & pages/detail/edit/)：
+  1. 在录入与编辑页面的 DOM 底部注入离屏隐藏 Canvas (`stickerCanvas`)
+  2. 重构图片处理回调，在选择完图片或完成云端抠图后，立刻调起 Canvas 渲染器输出贴纸，更新本地 `displayImageUrl` 展示
+  3. 编辑页新增 `isUsingOriginal` 状态流，允许用户随时在原图与手帐贴纸之间切换，并正确同步其对应的云文件 ID 及处理状态
+- 其它细节：
+  1. 调整同步服务中相关图片的参数传递，修正数据解析中的微小告警
+
+影响范围：图片选择与处理管线、Canvas 绘制引擎、本地与云端图片持久化模型

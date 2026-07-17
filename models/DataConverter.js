@@ -1,5 +1,6 @@
 import { getDaysDifference, getTodayStr, determineActiveExpiry } from '../utils/dateUtils.js';
-
+import { localRepository } from '../repositories/localRepository.js';
+import { STORAGE_KEYS } from '../utils/storageKeys.js';
 export const DataConverter = {
   toItemViewModel(item) {
     const today = getTodayStr();
@@ -65,11 +66,15 @@ export const DataConverter = {
       return '天';
     };
 
+    const cats = localRepository.get(STORAGE_KEYS.CATEGORIES) || [];
+    const cat = cats.find(c => c.id === safeItem.categoryId);
+    const resolvedCategoryLabel = cat ? cat.name : safeItem.categoryName;
+
     return {
       id: safeItem.id,
       name: safeItem.name,
       category: safeItem.categoryId,           
-      categoryLabel: safeItem.categoryName,    
+      categoryLabel: resolvedCategoryLabel,    
       imageUrl: safeItem.displayImageCloudFileId || safeItem.cutoutImageCloudFileId || safeItem.originalImageCloudFileId || safeItem.displayImageUrl || safeItem.originalImageUrl || '',
       displayImageUrl: safeItem.displayImageCloudFileId || safeItem.displayImageUrl || '',
       originalImageUrl: safeItem.originalImageCloudFileId || safeItem.originalImageUrl || '',

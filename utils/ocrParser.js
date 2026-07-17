@@ -60,6 +60,35 @@ export const ocrParser = {
       }
     }
 
+    // 7. Fallback: Loose Date Matching for dates without prefixes
+    if (!suggestions.productionDate && !suggestions.expiryDateReference) {
+      const looseDateRegex = /((?:20\d{2})[-/年.](?:0?[1-9]|1[0-2])(?:[-/月.](?:0?[1-9]|[12]\d|3[01])日?)?)/g;
+      const looseMatches = [];
+      let match;
+      while ((match = looseDateRegex.exec(rawText)) !== null) {
+        looseMatches.push(this.normalizeDate(match[1]));
+      }
+      
+      if (looseMatches.length > 0) {
+        const uniqueDates = [...new Set(looseMatches)];
+        // Sort chronologically
+        uniqueDates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+        
+        if (uniqueDates.length >= 2) {
+          suggestions.productionDate = uniqueDates[0];
+          suggestions.expiryDateReference = uniqueDates[uniqueDates.length - 1];
+        } else if (uniqueDates.length === 1) {
+          const d = new Date(uniqueDates[0]);
+          const now = new Date();
+          if (d.getFullYear() <= now.getFullYear()) {
+             suggestions.productionDate = uniqueDates[0];
+          } else {
+             suggestions.expiryDateReference = uniqueDates[0];
+          }
+        }
+      }
+    }
+
     return suggestions;
   },
 

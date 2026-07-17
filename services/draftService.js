@@ -1,6 +1,6 @@
 import { localDraftRepository } from '../repositories/localDraftRepository.js'
 import { generateUUID } from '../utils/uuid.js'
-import { dateUtils, normalizeTimestamp } from '../utils/dateUtils.js'
+import { normalizeTimestamp } from '../utils/dateUtils.js'
 import { itemService } from './itemService.js'
 
 class DraftService {

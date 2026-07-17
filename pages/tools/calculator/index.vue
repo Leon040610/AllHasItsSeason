@@ -279,9 +279,31 @@ function onCalculate() {
 }
 
 function onSaveAsItem() {
-  uni.navigateTo({
-    url: `/pages/add/index?mode=manual&expireDate=${result.expireDate}`,
-  })
+  let url = `/pages/add/index?mode=manual`
+  
+  if (mode.value === 'normal') {
+    url += `&expiryMode=normal`
+    url += `&produceDate=${form.produceDate}`
+    url += `&shelfLife=${form.shelfLife}`
+    
+    let unit = 'day'
+    if (form.shelfUnit === '天') unit = 'day'
+    else if (form.shelfUnit === '月') unit = 'month'
+    else if (form.shelfUnit === '年') unit = 'year'
+    url += `&shelfUnit=${unit}`
+  } else {
+    url += `&expiryMode=after_opening`
+    url += `&openDate=${form.openDate}`
+    url += `&afterOpeningShelfLife=${form.afterShelfLife}`
+    
+    let unit = 'month'
+    if (form.afterShelfUnit === '天' || form.afterShelfUnitLabel === '天') unit = 'day'
+    else if (form.afterShelfUnit === '月' || form.afterShelfUnitLabel === '月') unit = 'month'
+    else if (form.afterShelfUnit === '年' || form.afterShelfUnitLabel === '年') unit = 'year'
+    url += `&afterOpeningShelfUnit=${unit}`
+  }
+  
+  uni.navigateTo({ url })
 }
 </script>
 

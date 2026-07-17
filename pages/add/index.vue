@@ -17,15 +17,15 @@
       <!-- 图片预览区 -->
       <view class="img-section">
         <!-- 正常预览状态 -->
-        <view class="img-preview">
+        <view class="img-preview" @tap="onChooseImage">
           <image
             v-if="previewImage"
             class="img-preview__img"
-            :src="previewImage"
+            :src="isUsingOriginal ? originalImagePath : previewImage"
             mode="aspectFit"
-            :style="{ transform: `rotate(${imgRotation}deg)` }"
+            :style="{ transform: `rotate(${isUsingOriginal ? 0 : imgRotation}deg)` }"
           />
-          <view v-else class="img-preview__empty" @tap="onChooseImage">
+          <view v-else class="img-preview__empty">
             <image class="img-preview__empty-icon-img" src="/static/icons/index-paizhao.svg" mode="aspectFit" />
             <text class="img-preview__empty-text">点击上传物品图片</text>
           </view>
@@ -33,13 +33,13 @@
 
         <!-- 图片操作按钮 -->
         <view v-if="previewImage && !isScanning" class="img-actions">
-          <view class="img-action-btn" @tap="onReprocess">
-            <image class="img-action-btn__icon-img" src="/static/icons/add-chongxinzhengli.svg" mode="aspectFit" />
-            <text class="img-action-btn__text">重新提取</text>
+          <view class="img-action-btn" @tap="originalImagePath ? onReprocess() : onChooseImage()">
+            <image class="img-action-btn__icon-img" :src="originalImagePath ? '/static/icons/add-chongxinzhengli.svg' : '/static/icons/index-paizhao.svg'" mode="aspectFit" />
+            <text class="img-action-btn__text">{{ originalImagePath ? '重新提取' : '上传照片' }}</text>
           </view>
-          <view class="img-action-btn" @tap="onUseOriginal">
+          <view class="img-action-btn" :style="{ opacity: originalImagePath ? 1 : 0.4 }" @tap="onUseOriginal">
             <image class="img-action-btn__icon-img" src="/static/icons/add-shiyongyuantu.svg" mode="aspectFit" />
-            <text class="img-action-btn__text">使用原图</text>
+            <text class="img-action-btn__text">{{ isUsingOriginal ? '撤销原图' : '使用原图' }}</text>
           </view>
         </view>
       </view>
@@ -226,11 +226,13 @@
 
       <view class="safe-bottom" />
     </scroll-view>
+    <!-- 隐藏的 Canvas，用于绘制贴纸 -->
+    <canvas type="2d" id="stickerCanvas" class="hidden-canvas"></canvas>
   </view>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue'
 import { onShow, onLoad } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { settingsService } from '../../services/settingsService.js'
@@ -238,8 +240,11 @@ import { categoryService } from '../../services/categoryService.js'
 import { draftService } from '../../services/draftService.js'
 import { cloudStorageService } from '../../services/cloudStorageService.js'
 import { ocrSessionService } from '../../services/ocrSessionService.js'
+import { imageCanvasService } from '../../services/imageCanvasService.js'
+import { syncService } from '../../services/syncService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, determineActiveExpiry } from '../../utils/dateUtils.js'
 
+const instance = getCurrentInstance()
 const currentDraftId = ref('')
 
 const previewImage = ref('/static/icons/add-Yogurt Bottle Cutout.svg')
@@ -251,6 +256,7 @@ const shelfFocused = ref(false)
 const afterShelfFocused = ref(false)
 
 const originalImagePath = ref('')
+const isUsingOriginal = ref(false)
 const processStatus = ref<'idle' | 'success' | 'fallback' | 'error' | 'uploading' | 'cutting'>('idle')
 const currentImageRevision = ref(0)
 const localImageExt = ref('jpg')
@@ -284,7 +290,7 @@ const statusOptions = ref([
 let initialFormSnapshot = ''
 let initialImgSnapshot = ''
 
-onLoad((options) => {
+onLoad((options: any) => {
   if (options && options.draftId) {
     currentDraftId.value = options.draftId
     loadDraft(options.draftId)
@@ -294,6 +300,30 @@ onLoad((options) => {
     const session = ocrSessionService.consumeSession(options.ocrSessionId);
     if (session && session.suggestions) {
       applyOcrSuggestions(session.suggestions);
+    }
+  }
+
+  // Parse and auto-fill data passed from Expiry Calculator
+  if (options && options.expiryMode) {
+    form.value.expiryMode = options.expiryMode
+    
+    if (options.expiryMode === 'normal') {
+      if (options.produceDate) form.value.produceDate = options.produceDate
+      if (options.shelfLife) form.value.shelfLife = options.shelfLife
+      if (options.shelfUnit) {
+        form.value.shelfUnit = options.shelfUnit
+        const unitMap = { 'year': '年', 'month': '月', 'day': '天' }
+        form.value.shelfUnitLabel = unitMap[options.shelfUnit] || '天'
+      }
+    } else if (options.expiryMode === 'after_opening') {
+      if (options.openDate) form.value.openDate = options.openDate
+      if (options.afterOpeningShelfLife) form.value.afterOpeningShelfLife = options.afterOpeningShelfLife
+      if (options.afterOpeningShelfUnit) {
+        form.value.afterOpeningShelfUnit = options.afterOpeningShelfUnit
+        const unitMap = { 'year': '年', 'month': '月', 'day': '天' }
+        form.value.afterOpeningShelfUnitLabel = unitMap[options.afterOpeningShelfUnit] || '月'
+      }
+      form.value.status = 'using' // opened items default to using status
     }
   }
 })
@@ -345,6 +375,17 @@ onMounted(() => {
     initialFormSnapshot = JSON.stringify(form.value)
     initialImgSnapshot = originalImagePath.value
   }
+
+  uni.$on('ocr-success', (sessionId) => {
+    const session = ocrSessionService.consumeSession(sessionId)
+    if (session && session.suggestions) {
+      applyOcrSuggestions(session.suggestions)
+    }
+  })
+})
+
+onUnmounted(() => {
+  uni.$off('ocr-success')
 })
 
 function loadDraft(id: string) {
@@ -459,45 +500,119 @@ function onChooseImage() {
     count: 1,
     sizeType: ['compressed'],
     sourceType: ['album', 'camera'],
-    success(res) {
+    success: async (res) => {
       const tempPath = res.tempFilePaths[0]
       originalImagePath.value = tempPath
+      isUsingOriginal.value = false
       processStatus.value = 'idle'
       currentImageRevision.value += 1
       const extMatch = tempPath.match(/\.([a-zA-Z0-9]+)$/)
       localImageExt.value = extMatch ? extMatch[1] : 'jpg'
       
-      uni.showLoading({ title: '处理图片中' })
-      uni.saveFile({
-        tempFilePath: tempPath,
-        success: function (saveRes) {
-          previewImage.value = saveRes.savedFilePath
-          processStatus.value = 'idle' // Keep idle, actual processing will happen in background
-          imgRotation.value = 0
-          uni.hideLoading()
-        },
-        fail: function () {
-          previewImage.value = tempPath
-          processStatus.value = 'idle'
-          imgRotation.value = 0
-          uni.hideLoading()
+      previewImage.value = tempPath
+      
+      const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
+      if (consent && consent.accepted === false) {
+        // User declined processing, just use original
+        return
+      }
+
+      uni.showLoading({ title: '一键抠图中...' })
+      
+      try {
+        const prepareRes = await cloudStorageService.prepareImageUpload(currentDraftId.value || 'temp', currentImageRevision.value, localImageExt.value)
+        const originalCloudFileId = await cloudStorageService.uploadOriginalImage(tempPath, prepareRes.cloudPath)
+        const processRes = await cloudStorageService.processImage(prepareRes.jobId, prepareRes.uploadTicket, currentDraftId.value || 'temp', currentImageRevision.value, originalCloudFileId)
+        
+        if (processRes.imageProcessStatus === 'success' && processRes.cutoutCloudFileId) {
+          const dlRes = await uni.cloud.downloadFile({ fileID: processRes.cutoutCloudFileId })
+          const cutoutPath = dlRes.tempFilePath
+          
+          const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, cutoutPath, true)
+          previewImage.value = stickerPath
+          processStatus.value = 'success'
+          uni.showToast({ title: '贴纸生成成功', icon: 'none' })
+        } else {
+          throw new Error('Matting failed')
         }
-      })
+      } catch (e) {
+        console.error('Matting error', e)
+        processStatus.value = 'fallback'
+        
+        // 显示真实错误，方便定位
+        uni.showModal({
+          title: '一键抠图遇到问题',
+          content: String(e && e.message ? e.message : e),
+          showCancel: false
+        })
+
+        // Fallback: draw original image without stroke
+        try {
+          const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, tempPath, false)
+          previewImage.value = stickerPath
+        } catch(e2) {
+          console.error('Fallback canvas error', e2)
+        }
+      } finally {
+        uni.hideLoading()
+      }
     }
   })
 }
 
-function onReprocess() {
-  if (!previewImage.value) return
-  isScanning.value = true
-  setTimeout(() => {
-    isScanning.value = false
-    imgRotation.value = (Math.random() * 4 - 2)
-  }, 1500)
+async function onReprocess() {
+  if (!originalImagePath.value) return
+
+  isUsingOriginal.value = false
+  uni.showLoading({ title: '重新提取中...' })
+  processStatus.value = 'idle'
+  currentImageRevision.value += 1
+
+  try {
+    const prepareRes = await cloudStorageService.prepareImageUpload(currentDraftId.value || 'temp', currentImageRevision.value, localImageExt.value)
+    const originalCloudFileId = await cloudStorageService.uploadOriginalImage(originalImagePath.value, prepareRes.cloudPath)
+    const processRes = await cloudStorageService.processImage(prepareRes.jobId, prepareRes.uploadTicket, currentDraftId.value || 'temp', currentImageRevision.value, originalCloudFileId)
+
+    if (processRes.imageProcessStatus === 'success' && processRes.cutoutCloudFileId) {
+      const dlRes = await uni.cloud.downloadFile({ fileID: processRes.cutoutCloudFileId })
+      const cutoutPath = dlRes.tempFilePath
+
+      const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, cutoutPath, true)
+      previewImage.value = stickerPath
+      processStatus.value = 'success'
+      uni.showToast({ title: '贴纸生成成功', icon: 'none' })
+    } else {
+      throw new Error('Matting failed')
+    }
+  } catch (e) {
+    console.error('Matting error', e)
+    processStatus.value = 'fallback'
+
+    uni.showModal({
+      title: '智能抠图遇到问题',
+      content: String(e && e.message ? e.message : e),
+      showCancel: false
+    })
+
+    // Fallback: draw original image without stroke
+    try {
+      const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, originalImagePath.value, false)
+      previewImage.value = stickerPath
+    } catch(e2) {
+      console.error('Fallback canvas error', e2)
+    }
+  } finally {
+    uni.hideLoading()
+  }
 }
 
 function onUseOriginal() {
-  imgRotation.value = 0
+  if (!originalImagePath.value) return
+  isUsingOriginal.value = !isUsingOriginal.value
+}
+
+function onOcr() {
+  uni.navigateTo({ url: '/pages/add/recognize' })
 }
 
 function onPickCategory() {
@@ -613,9 +728,9 @@ function onSave() {
     categoryId: form.value.category,
     categoryName: form.value.categoryLabel,
     originalImageUrl: originalImagePath.value,
-    displayImageUrl: previewImage.value,
-    imageProcessStatus: processStatus.value,
-    stickerRotation: imgRotation.value,
+    displayImageUrl: isUsingOriginal.value ? originalImagePath.value : previewImage.value,
+    imageProcessStatus: isUsingOriginal.value ? 'fallback' : processStatus.value,
+    stickerRotation: isUsingOriginal.value ? 0 : imgRotation.value,
     
     expiryMode: form.value.expiryMode,
     productionDate: form.value.produceDate,
@@ -648,16 +763,18 @@ function onSave() {
       }
       uni.showToast({ title: '已收入物品库~', icon: 'success' })
       
-      if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://')) {
-        const settings = settingsService.getSettings()
+      const hasImageUpload = currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://');
+      if (hasImageUpload) {
+        const syncEnabled = syncService.getSettings().syncEnabled
         cloudStorageService.executeBackgroundUpload(
           itemService, 
           preItem.id, 
           currentImageRevision.value, 
           originalImagePath.value, 
+          isUsingOriginal.value ? originalImagePath.value : previewImage.value,
           localImageExt.value,
           userConsentAccepted,
-          settings.syncEnabled
+          syncEnabled
         )
       }
       setTimeout(() => uni.navigateBack(), 1000)
@@ -667,8 +784,8 @@ function onSave() {
     }
   }
 
-  // Handle privacy consent check if there's a new image
-  if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://')) {
+  // Handle privacy consent check if there's a new image and we are NOT using the original image
+  if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://') && !isUsingOriginal.value) {
     const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
     if (!consent || consent.accepted === undefined) {
       uni.showModal({
@@ -713,6 +830,17 @@ $radius-full: 9999rpx;
 /* 统一字体格式为思源宋体 */
 view, text, input, button {
   font-family: 'Noto Serif SC', serif;
+}
+
+.hidden-canvas {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 300px;
+  height: 300px;
+  opacity: 0;
+  pointer-events: none;
+  z-index: -1;
 }
 
 .page {

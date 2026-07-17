@@ -97,8 +97,50 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { onLoad } from '@dcloudio/uni-app'
+import { recognitionService } from '../../services/recognitionService.js'
 
 const previewImage = ref('/static/icons/add-Blurry Placeholder Image.svg')
+const isProcessing = ref(false)
+
+onLoad(() => {
+  setTimeout(() => {
+    startRecognize()
+  }, 100)
+})
+
+function startRecognize() {
+  if (isProcessing.value) return
+  uni.chooseImage({
+    count: 1,
+    sizeType: ['compressed'],
+    sourceType: ['camera', 'album'],
+    success: async (res) => {
+      const tempPath = res.tempFilePaths[0]
+      previewImage.value = tempPath
+      isProcessing.value = true
+      
+      try {
+        const result = await recognitionService.recognize(tempPath)
+        if (result.success && result.sessionId) {
+          uni.showToast({ title: '识别成功', icon: 'success' })
+          uni.$emit('ocr-success', result.sessionId)
+          setTimeout(() => uni.navigateBack(), 800)
+        } else {
+          uni.showToast({ title: '识别失败，请重试', icon: 'none' })
+          isProcessing.value = false
+        }
+      } catch (e) {
+        uni.showToast({ title: '识别异常', icon: 'none' })
+        isProcessing.value = false
+      }
+    },
+    fail: () => {
+      // User cancelled
+      uni.navigateBack()
+    }
+  })
+}
 
 function onBack() {
   uni.navigateBack()

@@ -21,7 +21,7 @@ class AuthService {
     return {
       isLoggedIn: false,
       uid: '',
-      nickname: '微信用户',
+      nickname: '万物旅人',
       avatarUrl: '',
       avatarCloudFileId: ''
     }
@@ -83,7 +83,7 @@ class AuthService {
         ...this._getDefaultUser(),
         isLoggedIn: true,
         uid: data.uid || '',
-        nickname: data.nickname || '微信用户',
+        nickname: data.nickname || '万物旅人',
         avatarCloudFileId: data.avatarCloudFileId || ''
       }
       this._save()
@@ -106,10 +106,10 @@ class AuthService {
    */
   updateProfile(profileData) {
     if (profileData.nickname !== undefined) {
-      this.user.nickname = String(profileData.nickname).trim().substring(0, 30) || '微信用户'
+      this.user.nickname = String(profileData.nickname).trim().substring(0, 30) || '万物旅人'
     }
     if (profileData.avatarUrl !== undefined) {
-      // 头像本阶段只本地存储，不写云端
+      // 头像本地存储，可被 updateAvatar 上传覆盖
       this.user.avatarUrl = profileData.avatarUrl
     }
     this._save()
@@ -135,6 +135,41 @@ class AuthService {
       // 云端失败：Toast 提示，本地保留
       uni.showToast({ title: '网络有点慢，修改先为你保留', icon: 'none' })
     }
+  }
+
+  /**
+   * 上传头像到云存储并同步云端
+   * @param {string} tempFilePath 本地临时头像文件路径
+   */
+  async updateAvatar(tempFilePath) {
+    if (!this.user.isLoggedIn || !cloudRuntimeService.isReady()) {
+      // 未登录或云开发未就绪，只更新本地
+      this.updateProfile({ avatarUrl: tempFilePath })
+      return
+    }
+
+    // 1. 上传临时头像到云存储
+    const timestamp = Date.now()
+    const cloudPath = `avatars/${this.user.uid}_${timestamp}.jpg`
+    const uploadRes = await new Promise((resolve, reject) => {
+      wx.cloud.uploadFile({
+        cloudPath,
+        filePath: tempFilePath,
+        success: resolve,
+        fail: reject
+      })
+    })
+
+    // 2. 调云函数更新档案
+    await wechatCloudUserRepository.callLogin({
+      action: 'updateAvatar',
+      avatarTempFileId: uploadRes.fileID
+    })
+
+    // 3. 更新本地状态
+    this.user.avatarUrl = tempFilePath
+    this.user.avatarCloudFileId = uploadRes.fileID
+    this._save()
   }
 
   logout() {

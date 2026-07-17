@@ -107,8 +107,8 @@ class ItemService {
     
     if (index !== -1) {
       const local = this.items[index];
-      // 保留本地图片路径和timeline等不参与本阶段同步的字段
-      const preserveFields = ['originalImageUrl', 'cutoutImageUrl', 'displayImageUrl', 'savedFilePath', 'timeline'];
+      // 保留本地图片路径等不参与本阶段同步的字段 (timeline已通过云端同步)
+      const preserveFields = ['originalImageUrl', 'cutoutImageUrl', 'displayImageUrl', 'savedFilePath'];
       preserveFields.forEach(field => {
         if (local[field] !== undefined) {
           newItem[field] = local[field];
@@ -278,7 +278,8 @@ class ItemService {
         ...current,
         ...patch,
         syncStatus: 'pending',
-        imageUpdatedAt: Date.now()
+        imageUpdatedAt: Date.now(),
+        updatedAt: Date.now()
       };
       return this._save();
     }

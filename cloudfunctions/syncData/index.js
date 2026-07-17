@@ -69,6 +69,12 @@ function extractSafePayload(collection, record, ownerKey) {
     safeRecord.originalImageCloudFileId = record.originalImageCloudFileId || ''
     safeRecord.cutoutImageCloudFileId = record.cutoutImageCloudFileId || ''
     safeRecord.displayImageCloudFileId = record.displayImageCloudFileId || ''
+    
+    // P2.8 Sync Timeline and Local URLs if needed across devices (optional but helps simulator)
+    safeRecord.timeline = Array.isArray(record.timeline) ? record.timeline : []
+    safeRecord.originalImageUrl = record.originalImageUrl || ''
+    safeRecord.displayImageUrl = record.displayImageUrl || ''
+    
     safeRecord.imageRevision = typeof record.imageRevision === 'number' ? record.imageRevision : 0
     safeRecord.imageSyncPending = !!record.imageSyncPending
     safeRecord.imageBackgroundColor = record.imageBackgroundColor || ''

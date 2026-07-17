@@ -65,6 +65,10 @@ exports.main = async (event, context) => {
     if (action === 'updateNickname') {
       return await handleUpdateNickname(ownerKey, nickname)
     }
+    if (action === 'updateAvatar') {
+      const { avatarTempFileId } = event
+      return await handleUpdateAvatar(ownerKey, avatarTempFileId)
+    }
     return await handleLogin(ownerKey)
   } catch (err) {
     // 不打印完整错误，只记录类别
@@ -90,7 +94,7 @@ async function handleLogin(ownerKey) {
     const newUser = {
       ownerKey,
       uid,
-      nickname: '微信用户',
+      nickname: '万物旅人',
       avatarCloudFileId: '',
       loginStatus: 'active',
       createdAt: now,
@@ -138,5 +142,28 @@ async function handleUpdateNickname(ownerKey, nickname) {
     success: true,
     data: { nickname: cleanNickname },
     message: '昵称已更新'
+  }
+}
+
+/**
+ * 处理头像更新
+ * 前端先将头像临时文件上传到云存储，传入 cloudFileId
+ * 云函数直接将其存入用户档案（云存储 fileID 本身是持久化的）
+ */
+async function handleUpdateAvatar(ownerKey, avatarTempFileId) {
+  if (!avatarTempFileId || typeof avatarTempFileId !== 'string') {
+    return { success: false, data: null, message: '头像文件无效' }
+  }
+  const now = Date.now()
+  await usersCol.where({ ownerKey }).update({
+    data: {
+      avatarCloudFileId: avatarTempFileId,
+      updatedAt: now
+    }
+  })
+  return {
+    success: true,
+    data: { avatarCloudFileId: avatarTempFileId },
+    message: '头像已更新'
   }
 }
