@@ -141,7 +141,17 @@ class ItemService {
     newItem.createdAt = Date.now();
     newItem.updatedAt = Date.now();
     this.items.push(newItem);
-    return this._save();
+    
+    // 登记图片缓存
+    this._registerFilesForItem(newItem);
+    
+    const saved = this._save();
+    if (saved) {
+      import('./syncService.js').then(({ syncService }) => {
+        syncService.scheduleAutoSync({ reason: 'item_added' });
+      });
+    }
+    return saved;
   }
 
   updateItem(id, updateData) {
@@ -219,7 +229,16 @@ class ItemService {
         desc
       });
       
-      return this._save();
+      // 登记新旧图片缓存
+      this._registerFilesForItem(this.items[index]);
+      
+      const saved = this._save();
+      if (saved) {
+        import('./syncService.js').then(({ syncService }) => {
+          syncService.scheduleAutoSync({ reason: 'item_updated' });
+        });
+      }
+      return saved;
     }
     return false;
   }
@@ -233,7 +252,14 @@ class ItemService {
       this.items[index].syncStatus = 'pending';
       this.items[index].updatedAt = now;
       this.items[index].deletedAt = now;
-      return this._save();
+      
+      const saved = this._save();
+      if (saved) {
+        import('./syncService.js').then(({ syncService }) => {
+          syncService.scheduleAutoSync({ reason: 'item_deleted' });
+        });
+      }
+      return saved;
     }
     return false;
   }
@@ -251,7 +277,14 @@ class ItemService {
         date: this._formatDateMonthDay(now),
         desc: '已用完'
       });
-      return this._save();
+      
+      const saved = this._save();
+      if (saved) {
+        import('./syncService.js').then(({ syncService }) => {
+          syncService.scheduleAutoSync({ reason: 'item_done' });
+        });
+      }
+      return saved;
     }
     return false;
   }
@@ -281,9 +314,72 @@ class ItemService {
         imageUpdatedAt: Date.now(),
         updatedAt: Date.now()
       };
-      return this._save();
+      
+      // 登记新状态图片
+      this._registerFilesForItem(this.items[index]);
+      
+      const saved = this._save();
+      if (saved) {
+        import('./syncService.js').then(({ syncService }) => {
+          syncService.scheduleAutoSync({ reason: 'image_state_updated' });
+        });
+      }
+      return saved;
     }
     return false;
+  }
+
+  /**
+   * 清理本地缓存后更新图片地址指向云存储的专用方法（非同步写）
+   */
+  clearLocalImageCacheRefs(id, role) {
+    if (!this.initialized) this.init();
+    const index = this.items.findIndex(i => i.id === id);
+    if (index !== -1) {
+      const current = this.items[index];
+      const patch = {};
+      
+      if (role === 'original' && current.originalImageCloudFileId) {
+        patch.originalImageUrl = current.originalImageCloudFileId;
+      }
+      if (role === 'display' && current.displayImageCloudFileId) {
+        patch.displayImageUrl = current.displayImageCloudFileId;
+      }
+      
+      this.items[index] = {
+        ...current,
+        ...patch
+      };
+      
+      // 直接写入 Storage，不更改 syncStatus 且不触发自动同步调度
+      localRepository.set(ITEMS_KEY, this.items);
+    }
+  }
+
+  _registerFilesForItem(item) {
+    if (!item) return;
+    import('./cacheService.js').then(({ cacheService }) => {
+      if (item.originalImageUrl && item.originalImageUrl.startsWith('wxfile://')) {
+        cacheService.registerCachedFile({
+          path: item.originalImageUrl,
+          itemId: item.id,
+          imageRevision: item.imageRevision,
+          role: 'original',
+          cloudFileId: item.originalImageCloudFileId || '',
+          cacheState: item.originalImageCloudFileId ? 'cached' : 'pending_upload'
+        });
+      }
+      if (item.displayImageUrl && item.displayImageUrl.startsWith('wxfile://')) {
+        cacheService.registerCachedFile({
+          path: item.displayImageUrl,
+          itemId: item.id,
+          imageRevision: item.imageRevision,
+          role: 'display',
+          cloudFileId: item.displayImageCloudFileId || '',
+          cacheState: item.displayImageCloudFileId ? 'cached' : 'pending_upload'
+        });
+      }
+    });
   }
 }
 

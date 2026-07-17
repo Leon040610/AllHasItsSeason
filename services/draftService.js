@@ -186,6 +186,9 @@ class DraftService {
 
     localDraftRepository.saveDrafts(this.drafts)
     this.init() // Re-sort
+    import('./syncService.js').then(({ syncService }) => {
+      syncService.scheduleAutoSync({ reason: 'draft_saved' });
+    });
     return draft
   }
 
@@ -197,6 +200,9 @@ class DraftService {
       this.drafts[index].updatedAt = Date.now()
       this.drafts[index].deletedAt = Date.now()
       localDraftRepository.saveDrafts(this.drafts)
+      import('./syncService.js').then(({ syncService }) => {
+        syncService.scheduleAutoSync({ reason: 'draft_deleted' });
+      });
       return { success: true }
     }
     return { success: false, message: '草稿不存在' }
@@ -216,6 +222,9 @@ class DraftService {
     })
     if (changed) {
       localDraftRepository.saveDrafts(this.drafts)
+      import('./syncService.js').then(({ syncService }) => {
+        syncService.scheduleAutoSync({ reason: 'drafts_cleared' });
+      });
     }
     return { success: true }
   }

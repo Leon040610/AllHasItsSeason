@@ -1,19 +1,19 @@
-feat: 实现 Canvas 贴纸本地生成与双轨图片云端上传备份机制
+feat: 实现多账户数据存储隔离、游客数据合并迁移、自动同步调度与本地图片缓存清理机制
 
-- 贴纸风格渲染引擎 (services/imageCanvasService.js)：
-  1. 新增 `imageCanvasService.js` 服务，使用微信小程序 Canvas 2D 能力在前端渲染“手帐贴纸风”商品图
-  2. 实现 12 方向偏移叠加法生成实心白色描边轮廓（粗细适配 dpr 物理像素），并将前景图层级置于其上，实现高精度描边
-  3. 支持对贴纸执行 `-2° ~ +2°` 的随机物理旋转及居中自动比例缩放
-  4. 支持无抠图降级状态（即原图仅旋转、不画白边），输出一致尺寸的透明贴纸
-- 双轨图片上传调度优化 (services/cloudStorageService.js & pages/)：
-  1. 优化 `cloudStorageService.js`，将原本依赖云端抠图的逻辑重构为“本地 Canvas 渲染 + 云端双轨直接上传”架构，避免云函数超时与并发上限
-  2. 后台上传线程 (`executeBackgroundUpload`) 接收 `originalLocalPath` 与 `displayLocalPath`，并行将“原图”及本地 Canvas 输出的“手帐贴纸图”上传备份至云存储
-  3. 上传成功后写入 `originalImageCloudFileId` 与 `displayImageCloudFileId` 并复位同步挂起状态
-- 添加与编辑流程适配 (pages/add/ & pages/detail/edit/)：
-  1. 在录入与编辑页面的 DOM 底部注入离屏隐藏 Canvas (`stickerCanvas`)
-  2. 重构图片处理回调，在选择完图片或完成云端抠图后，立刻调起 Canvas 渲染器输出贴纸，更新本地 `displayImageUrl` 展示
-  3. 编辑页新增 `isUsingOriginal` 状态流，允许用户随时在原图与手帐贴纸之间切换，并正确同步其对应的云文件 ID 及处理状态
-- 其它细节：
-  1. 调整同步服务中相关图片的参数传递，修正数据解析中的微小告警
+- 多账户数据存储隔离 (utils/storageScopeService.js & App.vue)：
+  1. 新增 `storageScopeService.js`，管理当前系统活跃作用域 (`guest` 或 `account::${uid}`)，对全站各数据源 Key 进行多租户隔离前缀转化
+  2. 提供 `runMigration()` 数据升级模块，在 `App.vue` 启动时无损且幂等地将老版本全局 Key 升级至 `guest::` 前缀，并记录迁移日志支持安全回滚
+  3. 重构各数据源接口 (localRepository.js & localDraftRepository.js)，对接隔离键名转换机制
+- 账号数据合并与迁移决策 (services/guestMigrationService.js)：
+  1. 新增 `guestMigrationService.js` 负责决策并执行游客数据向已登录账号数据的合并
+  2. 实现 `hasRealGuestData()` 判定方法，检查游客态是否存在有效的物品、草稿、分类和提醒改动
+  3. 用户登录时触发“开启同步与合并数据”弹窗，点击后先静默拉取云端记录，然后根据 `updatedAt` 规则按最后写入胜出逻辑执行游客到账号的本地数据合并并标记待上传，合并后物理清除临时游客数据
+- 自动同步与网络监测调度 (services/syncService.js)：
+  1. 引入 3 秒防抖 (Debounce) 的后台自动同步引擎 `scheduleAutoSync`，拦截物品增/删/改/用完/图片状态更新，静默拉取最新记录并按条件上传
+  2. 全局注册监听微信网络状态 `onNetworkStatusChange`，网络由离线恢复为在线时，自动补推缓存的待同步数据，保证离线可用与在线高同步
+- 本地图片缓存智能清理 (services/cacheService.js & services/itemService.js)：
+  1. 新增 `cacheService.js` 维护本地图片物理文件注册表 (`allhas_local_file_registry_v1`)，登记大文件的存储大小、版本号及所属角色 (原图/贴纸)
+  2. 设计 `getCleanableFiles()` 筛选符合安全物理清理的文件（必须存在于当前租户且版本已失效，或者已安全同步上云 `imageSyncPending !== true`）
+  3. `clearCache()` 调起微信文件管理器物理删除已上云的本地图片，并调用 `itemService.clearLocalImageCacheRefs()` 更新本地引用指向 `cloud://` 文件ID，安全释放手机存储空间
 
-影响范围：图片选择与处理管线、Canvas 绘制引擎、本地与云端图片持久化模型
+影响范围：数据隔离底层、微信登录合并逻辑、自动同步调度、图片缓存清理交互

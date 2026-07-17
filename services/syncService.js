@@ -1,3 +1,6 @@
+import { localRepository } from '../repositories/localRepository.js'
+import { STORAGE_KEYS } from '../utils/storageKeys.js'
+import { generateUUID } from '../utils/uuid.js'
 import { itemService } from './itemService.js'
 import { categoryService } from './categoryService.js'
 import { draftService } from './draftService.js'
@@ -5,10 +8,25 @@ import { settingsService } from './settingsService.js'
 import { authService } from './authService.js'
 import { cloudRuntimeService } from './cloudRuntimeService.js'
 import { wechatCloudSyncRepository } from '../repositories/wechatCloudSyncRepository.js'
-import { STORAGE_KEYS } from '../utils/storageKeys.js'
-import { generateUUID } from '../utils/uuid.js'
 
 const SYNC_KEY = STORAGE_KEYS.SYNC_SETTINGS
+
+function isNetworkAvailable() {
+  return new Promise((resolve) => {
+    if (typeof uni === 'undefined' || !uni.getNetworkType) {
+      resolve(true)
+      return
+    }
+    uni.getNetworkType({
+      success: (res) => {
+        resolve(res.networkType !== 'none')
+      },
+      fail: () => {
+        resolve(true)
+      }
+    })
+  })
+}
 
 class SyncService {
   constructor() {
@@ -16,14 +34,28 @@ class SyncService {
     this.isSyncing = false
     this.currentOperationId = null
     this.cancelRequested = false
+    
+    // 自动同步调度状态
+    this.autoSyncTimer = null
+    this.syncRequestedAfterCurrent = false
+    
     this.init()
+    
+    // 全局只在构造函数中注册一次网络状态改变监听，保证幂等
+    if (typeof uni !== 'undefined' && uni.onNetworkStatusChange) {
+      uni.onNetworkStatusChange((res) => {
+        if (res.isConnected) {
+          console.log('[AutoSync] 网络已恢复，安排自动同步...')
+          this.scheduleAutoSync({ reason: 'network_recovered' })
+        }
+      })
+    }
   }
 
   init() {
     let settings = null
     try {
-      const data = uni.getStorageSync(SYNC_KEY)
-      if (data) settings = JSON.parse(data)
+      settings = localRepository.get(SYNC_KEY)
     } catch (e) {
       console.error('syncService init failed', e)
     }
@@ -58,10 +90,60 @@ class SyncService {
 
   save(settings) {
     try {
-      uni.setStorageSync(SYNC_KEY, JSON.stringify(settings))
+      localRepository.set(SYNC_KEY, settings)
       this.settings = settings
     } catch (e) {
       console.error('syncService save failed', e)
+    }
+  }
+
+  scheduleAutoSync({ reason }) {
+    console.log(`[AutoSync] 触发调度。原因: ${reason}`)
+    if (this.autoSyncTimer) {
+      clearTimeout(this.autoSyncTimer)
+    }
+    
+    // 3秒 Debounce 机制，防频繁触发
+    this.autoSyncTimer = setTimeout(async () => {
+      this.autoSyncTimer = null
+      await this.runScheduledSync()
+    }, 3000)
+  }
+
+  async runScheduledSync() {
+    if (!authService.isLoggedIn()) return
+    
+    const settings = this.getSettings()
+    if (!settings || !settings.syncEnabled) return
+    
+    if (this.isSyncing) {
+      // 正在同步时追加写，则在当前同步结束后重试一轮
+      this.syncRequestedAfterCurrent = true
+      console.log('[AutoSync] 同步已在进行中，标记同步追加请求')
+      return
+    }
+
+    const networkOk = await isNetworkAvailable()
+    if (!networkOk) return
+
+    if (!cloudRuntimeService.isReady()) return
+    if (this.cancelRequested) return
+
+    // 仅在有本地待同步记录时触发
+    if (!this.hasPendingChanges()) return
+
+    console.log('[AutoSync] 自动同步前置条件全部满足，开始后台同步...')
+    
+    try {
+      await this.syncAll({ force: false, isAuto: true })
+    } catch (err) {
+      console.warn('[AutoSync] 后台同步静默失败:', err.message)
+    } finally {
+      if (this.syncRequestedAfterCurrent) {
+        this.syncRequestedAfterCurrent = false
+        console.log('[AutoSync] 发现同步追加标记，开启追加轮次')
+        this.scheduleAutoSync({ reason: 'queued_request' })
+      }
     }
   }
 

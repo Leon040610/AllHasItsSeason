@@ -127,7 +127,16 @@ onLoad(async (options) => {
     if (err.message === 'not_logged_in') {
       uni.redirectTo({ url: '/pages/me/data/not-logged' })
     } else {
-      uni.redirectTo({ url: '/pages/me/data/index' })
+      uni.showToast({
+        title: '网络有点慢，本地数据仍安全保存',
+        icon: 'none',
+        duration: 3000
+      })
+      setTimeout(() => {
+        if (!isCancelled) {
+          uni.redirectTo({ url: '/pages/me/data/index' })
+        }
+      }, 2000)
     }
   }
 })

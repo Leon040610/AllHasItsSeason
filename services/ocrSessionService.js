@@ -1,3 +1,5 @@
+import { localRepository } from '../repositories/localRepository.js';
+
 const OCR_SESSION_KEY = 'ALLHAS_OCR_SESSIONS';
 const SESSION_EXPIRE_MS = 30 * 60 * 1000; // 30 minutes
 
@@ -54,19 +56,11 @@ export const ocrSessionService = {
   },
 
   _getSessions() {
-    try {
-      const data = uni.getStorageSync(OCR_SESSION_KEY);
-      return data ? JSON.parse(data) : {};
-    } catch (e) {
-      return {};
-    }
+    const data = localRepository.get(OCR_SESSION_KEY);
+    return data || {};
   },
 
   _saveSessions(sessions) {
-    try {
-      uni.setStorageSync(OCR_SESSION_KEY, JSON.stringify(sessions));
-    } catch (e) {
-      console.error('Failed to save OCR sessions', e);
-    }
+    localRepository.set(OCR_SESSION_KEY, sessions);
   }
 }

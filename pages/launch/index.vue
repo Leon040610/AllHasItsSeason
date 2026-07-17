@@ -47,8 +47,11 @@ async function onWxLogin() {
   if (isLoggingIn.value) return
   isLoggingIn.value = true
   try {
-    await authService.login()
-    uni.reLaunch({ url: '/pages/index/index' })
+    const loggedUser = await authService.login()
+    const { guestMigrationService } = await import('../../services/guestMigrationService.js')
+    await guestMigrationService.checkAndPromptMerge(loggedUser.uid, () => {
+      uni.reLaunch({ url: '/pages/index/index' })
+    })
   } catch (err) {
     const msg = err.message === 'login_in_progress'
       ? '登录中，请稍候...'

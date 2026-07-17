@@ -78,7 +78,7 @@ class AuthService {
     try {
       const data = await wechatCloudUserRepository.callLogin()
 
-      // 只存储白名单字段
+      // 1. 先写入全局设备级登录态
       this.user = {
         ...this._getDefaultUser(),
         isLoggedIn: true,
@@ -87,9 +87,21 @@ class AuthService {
         avatarCloudFileId: data.avatarCloudFileId || ''
       }
       this._save()
+
+      // 2. 再切换活跃作用域到当前账号分区
+      const { storageScopeService } = await import('../utils/storageScopeService.js')
+      storageScopeService.setActiveScope(`account::${this.user.uid}`)
+
+      // 重置合并标志，允许新登录的合并判断
+      const { guestMigrationService } = await import('./guestMigrationService.js')
+      guestMigrationService.setMergePrompted(false)
+
+      // 3. 显式重新重置与载入内存缓存数据
+      await this._reloadServices()
+
       return { ...this.user }
     } catch (err) {
-      // 登录失败：保留当前游客状态，不清空本地数据
+      // 登录失败：必须保持 guest 作用域和游客数据不变，不清空本地数据
       const msg = err.message === 'cloud_not_ready' || err.message === 'cloud_call_failed'
         ? '暂时没登录成功，也可以先逛逛'
         : (err.message || '暂时没登录成功，也可以先逛逛')
@@ -139,7 +151,7 @@ class AuthService {
 
   /**
    * 上传头像到云存储并同步云端
-   * @param {string} tempFilePath 本地临时头像文件路径
+   * @param {string} tempFilePath 本地临时头像 file 路径
    */
   async updateAvatar(tempFilePath) {
     if (!this.user.isLoggedIn || !cloudRuntimeService.isReady()) {
@@ -172,9 +184,34 @@ class AuthService {
     this._save()
   }
 
-  logout() {
+  async logout() {
+    // 1. 切换作用域回游客
+    const { storageScopeService } = await import('../utils/storageScopeService.js')
+    storageScopeService.setActiveScope('guest')
+
+    // 2. 重置全局用户登录态，禁止使用 clearStorageSync
     this.user = this._getDefaultUser()
     this._save()
+
+    // 3. 重置所有业务内存服务，重新初始化游客数据
+    await this._reloadServices()
+  }
+
+  /**
+   * 显式重置并重新初始化核心服务，更新内存缓存
+   */
+  async _reloadServices() {
+    const { itemService } = await import('./itemService.js')
+    const { categoryService } = await import('./categoryService.js')
+    const { draftService } = await import('./draftService.js')
+    const { settingsService } = await import('./settingsService.js')
+    const { syncService } = await import('./syncService.js')
+
+    itemService.init()
+    categoryService.init()
+    draftService.init()
+    settingsService.init()
+    syncService.init()
   }
 }
 

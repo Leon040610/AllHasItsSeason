@@ -223,7 +223,12 @@ async function onWxLogin() {
     user.nickname = loggedInUser.nickname
     user.uid = loggedInUser.uid
     user.avatarUrl = loggedInUser.avatarUrl
-  } catch (err) {
+
+    const { guestMigrationService } = await import('../../services/guestMigrationService.js')
+    await guestMigrationService.checkAndPromptMerge(loggedInUser.uid, () => {
+      draftCount.value = draftService.getDrafts().length
+    })
+  } catch (err: any) {
     const msg = err.message === 'login_in_progress'
       ? '登录中，请稍候'
       : (err.message || '暂时没登录成功，也可以先逛逛')

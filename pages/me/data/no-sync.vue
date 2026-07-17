@@ -66,7 +66,7 @@ function onBack() {
   uni.navigateBack()
 }
 
-function onEnableSync() {
+async function onEnableSync() {
   if (!authService.isLoggedIn()) {
     uni.showToast({ title: '请先登录', icon: 'none' })
     return
@@ -75,8 +75,13 @@ function onEnableSync() {
     uni.showToast({ title: '云服务未就绪，请稍后再试', icon: 'none' })
     return
   }
-  syncService.enableSync()
-  uni.redirectTo({ url: '/pages/me/data/index' })
+  
+  const { guestMigrationService } = await import('../../../services/guestMigrationService.js')
+  const user = authService.getUser()
+  
+  await guestMigrationService.checkAndPromptMerge(user.uid, () => {
+    uni.redirectTo({ url: '/pages/me/data/index' })
+  })
 }
 </script>
 

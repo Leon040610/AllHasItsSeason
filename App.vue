@@ -1,4 +1,6 @@
 <script>
+import { storageScopeService } from '@/utils/storageScopeService.js'
+import { syncService } from '@/services/syncService.js'
 import { cloudRuntimeService } from '@/services/cloudRuntimeService.js'
 
 const FONT_FAMILY = 'Noto Serif SC'
@@ -51,6 +53,9 @@ function loadCustomFont() {
 
 export default {
   onLaunch() {
+    // 1. 运行幂等旧数据迁移
+    storageScopeService.runMigration()
+
     cloudRuntimeService.init().then((res) => {
       if (res.status === 'ready') {
         loadCustomFont()
@@ -71,7 +76,10 @@ export default {
       uni.reLaunch({ url: '/pages/index/index' })
     }
   },
-  onShow() {},
+  onShow() {
+    // 触发前后台切换自动同步
+    syncService.scheduleAutoSync({ reason: 'app_onshow' })
+  },
   onHide() {}
 }
 </script>

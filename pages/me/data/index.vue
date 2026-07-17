@@ -149,8 +149,47 @@ function onRestoreDraft() {
   uni.navigateTo({ url: '/pages/me/draft/index' })
 }
 
-function onClearCache() {
-  uni.showToast({ title: '这个功能还在整理中', icon: 'none' })
+async function onClearCache() {
+  const { cacheService } = await import('../../../services/cacheService.js')
+  const { totalSize, files } = cacheService.getCleanableFiles()
+  
+  if (files.length === 0) {
+    uni.showToast({
+      title: '暂时没有需要整理的缓存',
+      icon: 'none'
+    })
+    return
+  }
+
+  const sizeMb = (totalSize / 1024 / 1024).toFixed(2)
+  uni.showModal({
+    title: '清理本地图片缓存？',
+    content: `已同步的图片需要时会重新取回，物品记录不会受影响。(当前可清理大小: ${sizeMb} MB)`,
+    cancelText: '再想想',
+    confirmText: '清理',
+    confirmColor: '#D98A6C',
+    success: async (res) => {
+      if (res.confirm) {
+        uni.showLoading({ title: '清理中...', mask: true })
+        try {
+          const result = await cacheService.clearCache()
+          uni.hideLoading()
+          uni.showToast({
+            title: `成功清理 ${result.successCount} 个文件 (${(result.clearedSize / 1024 / 1024).toFixed(2)} MB)`,
+            icon: 'success',
+            duration: 3000
+          })
+        } catch (err) {
+          uni.hideLoading()
+          uni.showModal({
+            title: '提示',
+            content: '这次没有整理好，稍后再试一下',
+            showCancel: false
+          })
+        }
+      }
+    }
+  })
 }
 </script>
 
