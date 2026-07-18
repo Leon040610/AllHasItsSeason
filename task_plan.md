@@ -73,3 +73,9 @@
 - [x] Confirm the current generated Mini Program includes the latest business-ID fix.
 - [x] Keep add/edit pages alive until the deliberate image upload completes, then restore the success copy to `贴纸上云成功`.
 - [x] Re-run static and isolated behavior checks.
+
+## Phase 11: Preserve Sticker Reference When Switching to Original
+- [x] Diagnose the edit-page regression: saving "use original" overwrites the only sticker Cloud File ID.
+- [x] Add `stickerImageCloudFileId` as an independent persistent item field and include it in the `items` sync allowlist.
+- [x] Finalize edit-page load/save behavior so original and sticker can be switched repeatedly without losing either reference.
+- [x] Verify syntax, whitespace, and the affected upload/sync call paths; document the required `syncData` deployment.

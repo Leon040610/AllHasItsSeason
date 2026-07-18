@@ -4,16 +4,11 @@ import { cloudRuntimeService } from './cloudRuntimeService.js';
 import { isStoredLoggedIn } from '../utils/authSessionStore.js';
 
 const tempUrlCache = {};
-let pendingImageRecoveryPromise = null;
 
-function isLocalImagePath(path) {
-  return typeof path === 'string'
-    && (path.startsWith('wxfile://') || path.startsWith('file://'));
-}
-
-function getImageExtension(path) {
-  const match = typeof path === 'string' && path.match(/\.([a-zA-Z0-9]+)$/);
-  return match ? match[1] : 'jpg';
+function scheduleImageMetadataSync() {
+  // The first item sync can finish before the background image upload. Queue a
+  // normal debounced pass only after File IDs have been persisted locally.
+  syncService.scheduleAutoSync({ reason: 'image_metadata_ready' });
 }
 
 export const cloudStorageService = {
@@ -154,71 +149,22 @@ export const cloudStorageService = {
     return restoredItems;
   },
 
-  async syncImageMetadata() {
-    // 新增物品的首轮自动同步可能仍在执行。等待其结束后再强制推送图片元数据，
-    // 防止包含空 File ID 的旧快照赢得竞争。
-    for (let attempt = 0; attempt < 120 && syncService.isSyncing; attempt += 1) {
-      await new Promise(resolve => setTimeout(resolve, 250));
-    }
-
-    if (syncService.isSyncing) return false;
-
-    try {
-      await syncService.syncAll({ force: true, pushOnly: true });
-      return true;
-    } catch (e) {
-      return false;
-    }
-  },
-
-  async resumePendingImageUploads(itemService) {
-    if (pendingImageRecoveryPromise || !isStoredLoggedIn()) {
-      return pendingImageRecoveryPromise || { recovered: 0, skipped: 0 };
-    }
-
-    pendingImageRecoveryPromise = (async () => {
-      const pendingItems = itemService.getAllItemsForSync().filter((item) => (
-        item.status !== 'deleted'
-        && item.imageSyncPending === true
-        && !item.displayImageCloudFileId
-        && isLocalImagePath(item.originalImageUrl)
-      ));
-      let recovered = 0;
-
-      for (const item of pendingItems) {
-        const displayPath = isLocalImagePath(item.displayImageUrl)
-          ? item.displayImageUrl
-          : item.originalImageUrl;
-        const hasSticker = displayPath !== item.originalImageUrl;
-
-        await this.executeBackgroundUpload(
-          itemService,
-          item.id,
-          item.imageRevision || 0,
-          item.originalImageUrl,
-          displayPath,
-          getImageExtension(item.originalImageUrl),
-          hasSticker
-        );
-        recovered += 1;
-      }
-
-      return { recovered, skipped: 0 };
-    })();
-
-    try {
-      return await pendingImageRecoveryPromise;
-    } finally {
-      pendingImageRecoveryPromise = null;
-    }
-  },
-
-  async executeBackgroundUpload(itemService, itemId, imageRevision, originalLocalPath, displayLocalPath, localExt, userConsentAccepted) {
+  async executeBackgroundUpload(itemService, itemId, imageRevision, originalLocalPath, displayLocalPath, localExt, userConsentAccepted, syncEnabled) {
     if (!isStoredLoggedIn()) {
       return { success: false, reason: 'login_required' };
     }
     if (!itemId) {
       return { success: false, reason: 'item_id_required' };
+    }
+
+    const isSyncActive = syncEnabled !== undefined ? syncEnabled : syncService.getSettings().syncEnabled;
+    if (!isSyncActive) {
+      itemService.updateItemImageState(itemId, imageRevision, {
+        imageProcessStatus: 'fallback',
+        beautifyFallbackReason: 'sync_disabled',
+        imageSyncPending: true
+      });
+      return { success: false, reason: 'sync_disabled' };
     }
 
     try {
@@ -243,9 +189,9 @@ export const cloudStorageService = {
         });
         if (!updated) return { success: false, reason: 'item_state_not_found' };
 
-        this.syncImageMetadata();
+        scheduleImageMetadataSync();
         uni.showToast({ title: '图片备份完成', icon: 'success' });
-        return { success: true, metadataSynced: false };
+        return { success: true };
       }
 
       itemService.updateItemImageState(itemId, imageRevision, {
@@ -261,14 +207,15 @@ export const cloudStorageService = {
       const updated = itemService.updateItemImageState(itemId, imageRevision, {
         originalImageCloudFileId: originalCloudFileId,
         displayImageCloudFileId,
+        stickerImageCloudFileId: displayImageCloudFileId,
         imageProcessStatus: 'success',
         imageSyncPending: false
       });
       if (!updated) return { success: false, reason: 'item_state_not_found' };
 
-      this.syncImageMetadata();
-      uni.showToast({ title: '贴纸上云成功', icon: 'success' });
-      return { success: true, metadataSynced: false };
+      scheduleImageMetadataSync();
+      uni.showToast({ title: '贴纸上云完成', icon: 'success' });
+      return { success: true };
     } catch (e) {
       if (e.message === 'login_required') {
         return { success: false, reason: 'login_required' };
@@ -279,6 +226,47 @@ export const cloudStorageService = {
         imageSyncPending: true
       });
       uni.showToast({ title: '图片上云失败', icon: 'none' })
+      return { success: false, reason: 'upload_failed' };
+    }
+  },
+
+  async finalizePreparedImageUpload(itemService, itemId, imageRevision, originalCloudFileId, stickerLocalPath, localExt, useOriginal, imageProcessStatus) {
+    if (!isStoredLoggedIn()) {
+      return { success: false, reason: 'login_required' };
+    }
+    if (!itemId || !originalCloudFileId || !stickerLocalPath) {
+      return { success: false, reason: 'image_source_required' };
+    }
+
+    try {
+      const extensionMatch = stickerLocalPath.match(/\.([a-zA-Z0-9]+)$/);
+      const extension = extensionMatch ? extensionMatch[1] : (localExt || 'png');
+      const stickerImageCloudFileId = await this.uploadOriginalImage(
+        stickerLocalPath,
+        `uploads/${itemId}/display_${imageRevision}.${extension}`
+      );
+      const displayImageCloudFileId = useOriginal
+        ? originalCloudFileId
+        : (stickerImageCloudFileId || originalCloudFileId);
+      const updated = itemService.updateItemImageState(itemId, imageRevision, {
+        originalImageCloudFileId: originalCloudFileId,
+        displayImageCloudFileId,
+        stickerImageCloudFileId,
+        imageProcessStatus: useOriginal ? 'fallback' : (imageProcessStatus || 'success'),
+        imageSyncPending: false
+      });
+      if (!updated) return { success: false, reason: 'item_state_not_found' };
+
+      scheduleImageMetadataSync();
+      uni.showToast({ title: '贴纸上云完成', icon: 'success' });
+      return { success: true };
+    } catch (e) {
+      console.error('Prepared image upload error', e);
+      itemService.updateItemImageState(itemId, imageRevision, {
+        imageProcessStatus: 'error',
+        imageSyncPending: true
+      });
+      uni.showToast({ title: '图片上云失败', icon: 'none' });
       return { success: false, reason: 'upload_failed' };
     }
   },

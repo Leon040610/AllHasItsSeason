@@ -1,20 +1,15 @@
-feat: 统一用户安全键与优化游客权限拦截、图片网络解析还原及图片备份链路机制
+fix: 修复编辑物品时切换原图保存导致贴纸云端文件 ID 覆盖丢失的问题
 
-- 基础算法统一与历史修复 (cloudfunctions/ & services/authService.js & repositories/)：
-  1. 统一 `login`、`syncData`、`imageProcess` 与 `logRecognition` 四个云函数中的 `ownerKey` 计算方法，确保 HMAC-SHA256 哈希签名规则一致
-  2. 云函数 `syncData` 中新增 `repairHistoricalOwnerKey` 动作，用于将老算法生成的历史数据迁移合并至新 `ownerKey` 下
-  3. 修复 `authService.js` 中头像更换上云路径及 `wechatCloudUserRepository.js` 接口的传参对接，支持将新头像同步至云端
-  4. 强化同步校验，上传物品数据前强行过滤过滤本地路径（如 `wxfile://`），只保留 `cloud://` 链接同步
-- 游客权限限制拦截 (pages/ & services/)：
-  1. 在首页拍照识字、录入与编辑物品、更换图片及重新整理等关键入口中注入登录校验拦截，拦截未登录游客并以轻量 Toast（“登录后可拍照识字”）进行提示
-  2. 智能提取中转页 (`recognize.vue`) onload 注入重定向，将游客拦截并带回登录页，强化云端 `recognitionService` 及 `cloudStorageService` 内的登录拦截防护
-- 云存储链接解析与视图还原 (services/cloudStorageService.js & pages/)：
-  1. 新增内存缓存 `tempUrlCache`，防止重复向云端解析同个 `cloud://` 文件对应的临时 HTTP 链接
-  2. 新增 `resolveBatchImageUrls` 批量翻译函数，以及 `restoreItemDisplayImages` 视图水合还原服务
-  3. 全量在首页关注卡片、物品库、草稿箱、详情页及编辑页列表载入时，注入临时链接批量还原解析，保证云文件 ID 链接能正确还原为可展示的图片
-- 贴纸上传机制与遗留故障修复 (pages/add/ & pages/detail/edit/ & services/cloudStorageService.js)：
-  1. 修复新添加物品无 ID 时，无法成功绑定原图与贴纸图云存储的问题：提前给新物品生成 ID 并传入上传回调中
-  2. 重构添加和编辑保存流，变更为“先等待原图和贴纸图上传完毕且回写 File ID”才执行页面返回，提升上云可靠性
-  3. 新增自动扫描补漏机制：用户登录后，自动搜寻本地存在物理图片但 `imageSyncPending` 挂起的历史记录进行无感知补传，修正跨设备同步后遗失贴纸图的问题
+- 数据模型改造与隔离机制 (models/ & cloudfunctions/syncData/)：
+  1. 在 `ItemModel.js` 及 `DataConverter.js` 中新增独立字段 `stickerImageCloudFileId` 用于专属存储贴纸的云端文件 ID，防止贴纸文件 ID 被覆盖擦除
+  2. 升级 `syncData` 云函数，白名单接收并同步 `stickerImageCloudFileId` 字段，确保贴纸资源在跨设备中能长久备份
+- 贴纸与原图分离式保存流 (pages/detail/edit/index.vue & pages/add/index.vue)：
+  1. 重构编辑保存数据组装，若未更换图片，根据切换原图状态 `isUsingOriginal` 动态计算 `displayImageCloudFileId`（原图则指向 `originalImageCloudFileId`，贴纸则指向新引入的 `stickerImageCloudFileId`），保留二者的哈希关联不进行物理擦除
+  2. 重构图片异步上传与就绪回调，引入 `finalizePreparedImageUpload` 机制，完成上传后写入 `stickerImageCloudFileId` 和 `originalImageCloudFileId`，确保保存逻辑的一致性
+  3. 移除编辑页冗余陈旧的 `onReprocess` 块，统一采用最新的本地 Canvas 渲染与上云流程
+- 自动同步延迟竞态修复 (services/cloudStorageService.js & services/itemService.js)：
+  1. 废弃 `cloudStorageService.js` 中的长轮询等待元数据同步函数 `syncImageMetadata` 及历史上传恢复函数
+  2. 实现新设计 `scheduleImageMetadataSync`，使用统一的 3 秒防抖调度 `scheduleAutoSync({ reason: 'image_metadata_ready' })`，在图片云存储回写 File ID 到本地数据库完毕后发起同步，彻底解决元数据优先于图片同步上行云端的属性空值竞争问题
+  3. 清理 `itemService.js` 图片上传状态变更时冗余触发的自动同步调度
 
-影响范围：全站云存储交互模块、多端数据同步核心逻辑、游客受限权限防卫、图片网络缓存渲染
+影响范围：图片存储链路、编辑/添加物品保存时的数据序列化、自动云同步竞态调度

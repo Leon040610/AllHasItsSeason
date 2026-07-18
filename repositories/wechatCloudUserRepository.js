@@ -13,7 +13,7 @@ class WechatCloudUserRepository {
    * 调用 login 云函数执行登录
    * @returns {Promise<{uid: string, nickname: string, avatarCloudFileId: string, createdAt: string}>}
    */
-  async callLogin() {
+  async callLogin(data = { action: 'login' }) {
     if (!cloudRuntimeService.isReady()) {
       throw new Error('cloud_not_ready')
     }
@@ -21,7 +21,7 @@ class WechatCloudUserRepository {
     return new Promise((resolve, reject) => {
       wx.cloud.callFunction({
         name: 'login',
-        data: { action: 'login' },
+        data,
         success: (res) => {
           const result = res.result
           if (result && result.success && result.data) {
@@ -68,35 +68,6 @@ class WechatCloudUserRepository {
     })
   }
 
-  /**
-   * 调用 login 云函数更新头像
-   * @param {string} avatarCloudFileId
-   * @returns {Promise<{avatarCloudFileId: string}>}
-   */
-  async callUpdateAvatar(avatarCloudFileId) {
-    if (!cloudRuntimeService.isReady()) {
-      throw new Error('cloud_not_ready')
-    }
-
-    return new Promise((resolve, reject) => {
-      wx.cloud.callFunction({
-        name: 'login',
-        data: { action: 'updateAvatar', avatarTempFileId: avatarCloudFileId },
-        success: (res) => {
-          const result = res.result
-          if (result && result.success) {
-            resolve(result.data)
-          } else {
-            reject(new Error(result?.message || 'update_failed'))
-          }
-        },
-        fail: (err) => {
-          console.error('[CloudUserRepo] callUpdateAvatar failed:', err.errMsg || 'unknown')
-          reject(new Error('cloud_call_failed'))
-        }
-      })
-    })
-  }
 }
 
 export const wechatCloudUserRepository = new WechatCloudUserRepository()

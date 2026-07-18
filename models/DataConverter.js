@@ -82,6 +82,7 @@ export const DataConverter = {
       originalImageCloudFileId: safeItem.originalImageCloudFileId || '',
       cutoutImageCloudFileId: safeItem.cutoutImageCloudFileId || '',
       displayImageCloudFileId: safeItem.displayImageCloudFileId || '',
+      stickerImageCloudFileId: safeItem.stickerImageCloudFileId || '',
       cardBg: safeItem.imageBackgroundColor,
       rotation: safeItem.stickerRotation,
       status: safeItem.status,

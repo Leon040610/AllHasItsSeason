@@ -1,5 +1,12 @@
 # Findings - P3.1 Implementation
 
+## 2026-07-18: Edit Page Original/Sticker Toggle Regression
+- Verification note: the repository root has no `package.json`, so there is no project-managed frontend test runner to execute. Focused JavaScript syntax and static data-flow assertions passed instead.
+- Saving the edit-page "use original" selection makes `displayImageCloudFileId` equal `originalImageCloudFileId`. Before this repair, that field was also the only retained Cloud File ID for the processed sticker, so the edit page had no remaining source for "revert original" on its next load.
+- The durable representation needs three separate references: `originalImageCloudFileId` for the camera image, `stickerImageCloudFileId` for the processed sticker, and `displayImageCloudFileId` for the currently selected display version.
+- Existing historical records where a prior save already overwrote the display ID with the original ID and no sticker ID was recorded cannot reconstruct the lost sticker File ID from local metadata. The repair preserves all future switches and supports older records whose display ID still differs from the original ID.
+- The update path preserves Cloud File IDs through `itemService.updateItemImageState()` and schedules normal item sync only after that local state has been persisted. The edit page resolves the independent sticker File ID only for display and does not store a temporary URL as business data.
+
 ## Initial Context Analysis
 - **SECURITY.md**:
   - `env.js`, `.env`, `project.private.config.json` 等文件均不能提交。

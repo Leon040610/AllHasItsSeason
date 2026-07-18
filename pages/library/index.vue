@@ -610,7 +610,7 @@ $top-height: 120rpx;
   &__img-wrap {
     width: 100%;
     aspect-ratio: 1;
-    background: $color-bg;
+    background: #F4EFEA;
     position: relative;
     overflow: hidden;
   }

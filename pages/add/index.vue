@@ -779,7 +779,7 @@ function onSave() {
   preItem.activeExpiryDate = activeInfo.date
   preItem.activeExpirySource = activeInfo.source
 
-  const proceedSave = async (userConsentAccepted) => {
+  const proceedSave = (userConsentAccepted) => {
     const success = itemService.addItem(preItem)
     if (success) {
       if (currentDraftId.value) {
@@ -789,7 +789,7 @@ function onSave() {
       
       const hasImageUpload = currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://');
       if (hasImageUpload) {
-        await cloudStorageService.executeBackgroundUpload(
+        cloudStorageService.executeBackgroundUpload(
           itemService,
           preItem.id,
           currentImageRevision.value,

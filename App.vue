@@ -2,8 +2,6 @@
 import { storageScopeService } from '@/utils/storageScopeService.js'
 import { syncService } from '@/services/syncService.js'
 import { cloudRuntimeService } from '@/services/cloudRuntimeService.js'
-import { cloudStorageService } from '@/services/cloudStorageService.js'
-import { itemService } from '@/services/itemService.js'
 import { fontFileId, fontUrl } from '@/env.js'
 
 const FONT_FAMILY = 'Noto Serif SC'
@@ -121,11 +119,6 @@ export default {
     }
 
     if (isLoggedIn) {
-      cloudRuntimeService.init().then((runtime) => {
-        if (runtime.status === 'ready') {
-          cloudStorageService.resumePendingImageUploads(itemService)
-        }
-      })
       uni.reLaunch({ url: '/pages/index/index' })
     }
   },

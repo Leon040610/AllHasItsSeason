@@ -15,6 +15,7 @@ export function createItem(data) {
     originalImageCloudFileId: data.originalImageCloudFileId || '',
     cutoutImageCloudFileId: data.cutoutImageCloudFileId || '',
     displayImageCloudFileId: data.displayImageCloudFileId || '',
+    stickerImageCloudFileId: data.stickerImageCloudFileId || '',
     imageUpdatedAt: data.imageUpdatedAt || null,
     imageRevision: data.imageRevision || 0,
     imageSyncPending: data.imageSyncPending !== undefined ? data.imageSyncPending : false,

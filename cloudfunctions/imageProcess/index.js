@@ -100,7 +100,7 @@ exports.main = async (event, context) => {
     return { success: false, errorCode: 'config_error', errorMessage: 'Missing OWNER_KEY_SALT' };
   }
 
-  const ownerKey = crypto.createHmac('sha256', salt).update(openid).digest('hex').substring(0, 32);
+  const ownerKey = crypto.createHmac('sha256', salt).update(openid).digest('hex');
 
   async function updateJobError(dbId, status, errorCode) {
     await db.collection('image_jobs').doc(dbId).update({

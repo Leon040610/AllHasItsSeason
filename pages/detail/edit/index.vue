@@ -19,7 +19,7 @@
         <view class="hero-img-wrap">
           <image
             class="hero-img"
-            :src="isUsingOriginal ? originalImagePath : (item.displayImageUrl || item.imageUrl)"
+            :src="isUsingOriginal ? originalImagePath : (stickerImagePath || item.displayImageUrl || item.imageUrl)"
             mode="aspectFit"
             :style="{ transform: `rotate(${isUsingOriginal ? 0 : item.rotation}deg)` }"
           />
@@ -28,10 +28,7 @@
 
       <!-- 图片操作区 -->
       <view class="img-actions">
-        <view class="img-action-btn" @tap="onReprocess">
-          <text class="img-action-btn__text">重新整理图片</text>
-        </view>
-        <view v-if="originalImagePath" class="img-action-btn" @tap="onUseOriginal">
+        <view v-if="hasDisplayAlternative" class="img-action-btn" @tap="onUseOriginal">
           <text class="img-action-btn__text">{{ isUsingOriginal ? '撤销原图' : '使用原图' }}</text>
         </view>
       </view>
@@ -232,6 +229,13 @@ const processStatus = ref<'idle' | 'success' | 'fallback' | 'error' | 'uploading
 const currentImageRevision = ref(0)
 const localImageExt = ref('jpg')
 const isSaving = ref(false)
+const hasPendingImageChange = ref(false)
+const initialUseOriginal = ref(false)
+const stickerImagePath = ref('')
+
+const hasDisplayAlternative = computed(() => {
+  return Boolean(originalImagePath.value && stickerImagePath.value && stickerImagePath.value !== originalImagePath.value)
+})
 
 onLoad((options: any) => {
   if (options && options.id) {
@@ -253,20 +257,36 @@ function loadItem() {
     // Only set if not already editing to avoid overriding unsaved changes if onShow runs again (e.g. returning from chooseImage)
     if (!item.value || item.value.id !== found.id) {
       item.value = { ...found } // Create a copy for editing
-      originalImagePath.value = found.imageUrl // Assume current imageUrl as original for now
-      isUsingOriginal.value = !found.displayImageUrl || found.displayImageUrl === found.imageUrl
+      originalImagePath.value = found.originalImageUrl || found.imageUrl
+      const storedItem = itemService.getItemById(currentId)
+      currentImageRevision.value = storedItem?.imageRevision || 0
+      processStatus.value = storedItem?.imageProcessStatus || 'idle'
+      isUsingOriginal.value = !found.displayImageUrl || found.displayImageUrl === originalImagePath.value
+      initialUseOriginal.value = isUsingOriginal.value
+      const stickerFileId = found.stickerImageCloudFileId || (
+        found.displayImageCloudFileId !== found.originalImageCloudFileId ? found.displayImageCloudFileId : ''
+      )
+      stickerImagePath.value = stickerFileId || (
+        found.displayImageUrl !== originalImagePath.value ? found.displayImageUrl : ''
+      )
+      if (stickerFileId) {
+        cloudStorageService.resolveImageUrl(stickerFileId).then((resolvedUrl) => {
+          if (!hasPendingImageChange.value && resolvedUrl) {
+            stickerImagePath.value = resolvedUrl
+          }
+        })
+      }
 
       // 异步解析云端图片 URL，防止第二设备贴纸不显示
       cloudStorageService.restoreItemDisplayImages([item.value]).then(restored => {
-        if (restored && restored.length > 0) {
+        if (restored && restored.length > 0 && !hasPendingImageChange.value) {
           const resItem = restored[0]
           item.value.imageUrl = resItem.imageUrl
           item.value.displayImageUrl = resItem.displayImageUrl
           item.value.originalImageUrl = resItem.originalImageUrl
-
-          if (originalImagePath.value && originalImagePath.value.startsWith('cloud://')) {
-            originalImagePath.value = resItem.imageUrl
-          }
+          originalImagePath.value = resItem.originalImageUrl || resItem.imageUrl
+          isUsingOriginal.value = !resItem.displayImageUrl || resItem.displayImageUrl === originalImagePath.value
+          initialUseOriginal.value = isUsingOriginal.value
         }
       })
     }
@@ -386,7 +406,8 @@ function onBack() {
       original.afterOpeningShelfLife !== item.value.afterOpeningShelfLife ||
       (original.afterOpeningShelfUnit !== item.value.afterOpeningShelfUnit && original.afterOpeningShelfUnitLabel !== item.value.afterOpeningShelfUnit) ||
       original.rotation !== item.value.rotation ||
-      original.imageUrl !== originalImagePath.value
+      hasPendingImageChange.value ||
+      initialUseOriginal.value !== isUsingOriginal.value
   }
 
   if (hasChanges) {
@@ -427,11 +448,17 @@ function onChooseImage() {
       isUsingOriginal.value = false
       processStatus.value = 'idle'
       currentImageRevision.value += 1
+      hasPendingImageChange.value = true
       const extMatch = tempPath.match(/\.([a-zA-Z0-9]+)$/)
       localImageExt.value = extMatch ? extMatch[1] : 'jpg'
       
       if (item.value) {
         item.value.displayImageUrl = tempPath
+        item.value.originalImageCloudFileId = ''
+        item.value.cutoutImageCloudFileId = ''
+        item.value.displayImageCloudFileId = ''
+        item.value.stickerImageCloudFileId = ''
+        stickerImagePath.value = ''
       }
 
       const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
@@ -444,6 +471,9 @@ function onChooseImage() {
       try {
         const prepareRes = await cloudStorageService.prepareImageUpload(currentId, currentImageRevision.value, localImageExt.value)
         const originalCloudFileId = await cloudStorageService.uploadOriginalImage(tempPath, prepareRes.cloudPath)
+        if (item.value) {
+          item.value.originalImageCloudFileId = originalCloudFileId
+        }
         const processRes = await cloudStorageService.processImage(prepareRes.jobId, prepareRes.uploadTicket, currentId, currentImageRevision.value, originalCloudFileId)
         
         if (processRes.imageProcessStatus === 'success' && processRes.cutoutCloudFileId) {
@@ -453,6 +483,8 @@ function onChooseImage() {
           if (item.value) {
             item.value.displayImageUrl = stickerPath
             item.value.rotation = 0
+            item.value.cutoutImageCloudFileId = processRes.cutoutCloudFileId
+            stickerImagePath.value = stickerPath
           }
           processStatus.value = 'success'
           uni.showToast({ title: '贴纸生成成功', icon: 'none' })
@@ -554,82 +586,6 @@ function onPickReminder() {
   })
 }
 
-async function onReprocess() {
-  if (!originalImagePath.value || originalImagePath.value.startsWith('cloud://')) {
-    uni.showToast({ title: '只能重新整理本地新拍摄的图片', icon: 'none' })
-    return
-  }
-  if (!isStoredLoggedIn()) {
-    uni.showToast({
-      title: '登录后可上传照片',
-      icon: 'none',
-      duration: 1600
-    });
-    return;
-  }
-  const tempPath = originalImagePath.value
-  processStatus.value = 'idle'
-  currentImageRevision.value += 1
-  const extMatch = tempPath.match(/\.([a-zA-Z0-9]+)$/)
-  localImageExt.value = extMatch ? extMatch[1] : 'jpg'
-
-  const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
-  if (consent && consent.accepted === false) {
-    uni.showToast({ title: '已拒绝云端处理，如需处理请重新添加图片', icon: 'none' })
-    return
-  }
-  
-  uni.showLoading({ title: '重新整理中...' })
-  
-  try {
-    const prepareRes = await cloudStorageService.prepareImageUpload(currentId, currentImageRevision.value, localImageExt.value)
-    const originalCloudFileId = await cloudStorageService.uploadOriginalImage(tempPath, prepareRes.cloudPath)
-    const processRes = await cloudStorageService.processImage(prepareRes.jobId, prepareRes.uploadTicket, currentId, currentImageRevision.value, originalCloudFileId)
-    
-    if (processRes.imageProcessStatus === 'success' && processRes.cutoutCloudFileId) {
-      const cutoutPath = await cloudStorageService.downloadFile(processRes.cutoutCloudFileId)
-      
-      if (!cutoutPath) {
-        throw new Error('下载抠图结果失败，tempFilePath 为空。dlRes=' + JSON.stringify(dlRes))
-      }
-      
-      const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, cutoutPath, true)
-      
-      if (item.value) {
-        item.value.displayImageUrl = stickerPath
-        item.value.rotation = 0
-      }
-      processStatus.value = 'success'
-      uni.showToast({ title: '重新整理成功', icon: 'none' })
-    } else {
-      throw new Error('抠图状态异常: ' + JSON.stringify(processRes))
-    }
-  } catch (e) {
-    console.error('onReprocess error', e)
-    processStatus.value = 'fallback'
-    
-    // 显示真实错误，方便定位
-    uni.showModal({
-      title: '整理图片遇到问题',
-      content: String(e && e.message ? e.message : e),
-      showCancel: false
-    })
-    
-    // 降级：用原图绘制（不加描边）
-    try {
-      const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, tempPath, false)
-      if (item.value) {
-        item.value.displayImageUrl = stickerPath
-        item.value.rotation = 0
-      }
-    } catch(e2) {
-      console.error('Fallback canvas error', e2)
-    }
-  } finally {
-    uni.hideLoading()
-  }
-}
-
 function onUseOriginal() {
   if (!originalImagePath.value) return
   isUsingOriginal.value = !isUsingOriginal.value
@@ -673,7 +629,7 @@ function onSave() {
 
   isSaving.value = true
   
-  const updateData = {
+  const updateData: any = {
     name: item.value.name,
     categoryId: item.value.category,
     categoryName: item.value.categoryLabel,
@@ -696,10 +652,28 @@ function onSave() {
     status: item.value.status,
     remindDays: item.value.remindDays
   }
+
+  if (!hasPendingImageChange.value) {
+    const stickerImageCloudFileId = item.value.stickerImageCloudFileId || (
+      item.value.displayImageCloudFileId !== item.value.originalImageCloudFileId
+        ? item.value.displayImageCloudFileId
+        : ''
+    )
+    updateData.originalImageCloudFileId = item.value.originalImageCloudFileId || ''
+    updateData.cutoutImageCloudFileId = item.value.cutoutImageCloudFileId || ''
+    updateData.stickerImageCloudFileId = stickerImageCloudFileId
+    updateData.displayImageCloudFileId = isUsingOriginal.value
+      ? (item.value.originalImageCloudFileId || '')
+      : (stickerImageCloudFileId || item.value.originalImageCloudFileId || '')
+  }
   
-  if (currentImageRevision.value > 0) {
-    updateData.imageRevision = (itemService.getItemById(item.value.id)?.imageRevision || 0) + 1
+  if (hasPendingImageChange.value) {
+    updateData.imageRevision = currentImageRevision.value
     updateData.imageSyncPending = true
+    updateData.originalImageCloudFileId = item.value.originalImageCloudFileId || ''
+    updateData.cutoutImageCloudFileId = item.value.cutoutImageCloudFileId || ''
+    updateData.displayImageCloudFileId = ''
+    updateData.stickerImageCloudFileId = ''
   }
 
   // Active expiry calculation runs naturally through DataConverter when accessed, but we can set it here too if needed, though itemService._save just merges updateData. wait, itemService updates the item. DataConverter calculates it.
@@ -709,22 +683,35 @@ function onSave() {
   updateData.activeExpiryDate = activeInfo.date
   updateData.activeExpirySource = activeInfo.source
 
-  const proceedSave = async (userConsentAccepted) => {
+  const proceedSave = (userConsentAccepted) => {
     const success = itemService.updateItem(item.value.id, updateData)
     if (success) {
       uni.showToast({ title: '修改已保存', icon: 'success' })
       
-      const hasImageUpload = currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://');
+      const hasImageUpload = hasPendingImageChange.value && originalImagePath.value && !originalImagePath.value.startsWith('cloud://');
       if (hasImageUpload) {
-        await cloudStorageService.executeBackgroundUpload(
-          itemService,
-          item.value.id,
-          updateData.imageRevision,
-          originalImagePath.value,
-          isUsingOriginal.value ? originalImagePath.value : item.value.displayImageUrl,
-          localImageExt.value,
-          userConsentAccepted
-        )
+        if (item.value.originalImageCloudFileId) {
+          cloudStorageService.finalizePreparedImageUpload(
+            itemService,
+            item.value.id,
+            updateData.imageRevision,
+            item.value.originalImageCloudFileId,
+            stickerImagePath.value || item.value.displayImageUrl || originalImagePath.value,
+            localImageExt.value,
+            isUsingOriginal.value,
+            processStatus.value
+          )
+        } else {
+          cloudStorageService.executeBackgroundUpload(
+            itemService,
+            item.value.id,
+            updateData.imageRevision,
+            originalImagePath.value,
+            originalImagePath.value,
+            localImageExt.value,
+            false
+          )
+        }
       }
       setTimeout(() => uni.navigateBack(), 800)
     } else {
@@ -734,7 +721,7 @@ function onSave() {
   }
 
   // Handle privacy consent check if there's a new image and we are NOT using the original image
-  if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://') && !isUsingOriginal.value) {
+  if (hasPendingImageChange.value && originalImagePath.value && !originalImagePath.value.startsWith('cloud://') && !isUsingOriginal.value) {
     const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
     if (!consent || consent.accepted === undefined) {
       uni.showModal({

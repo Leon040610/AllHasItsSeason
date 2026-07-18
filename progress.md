@@ -1,5 +1,8 @@
 # Progress Log - P3.1 Implementation
 
+- **2026-07-18**: Completed focused verification for the original/sticker toggle repair. JavaScript syntax checks, `git diff --check`, Cloud File ID model assertions, sync-field-flow assertions, and page service-boundary checks passed. The root has no `package.json`, so no project-managed frontend test runner is available.
+- **2026-07-18**: Diagnosed the edit-page original-image toggle regression. A save after selecting the original overwrote the only processed-sticker File ID. Added the independent `stickerImageCloudFileId` model/view/sync field so the original, sticker, and current display choice can remain separate.
+
 - **2026-07-18 10:48**: Started P3.1.
 - **2026-07-18 10:50**: Initialized `task_plan.md`, `findings.md`, `progress.md`.
 - **2026-07-18 10:51**: Read `SECURITY.md` and `settingsService.js`.
