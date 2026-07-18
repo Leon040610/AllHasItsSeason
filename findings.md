@@ -1,11 +1,46 @@
 # Findings - P3.1 Implementation
 
+## 2026-07-18: P3.2 Preflight Blocker
+- The supplied WeChat template screenshot is sufficient to identify the template title as `保质期到期提醒` and the visible field keys: product name `thing5.DATA`, production date `time8.DATA`, remaining days `number2.DATA`, expiry date `date1.DATA`, and note `thing3.DATA`. The template ID was intentionally not copied into repository files or assistant output.
+- The screenshot does not prove the account/category qualification, one-time subscription availability, per-field length limits, or the exact accepted date/time display format. Those must be verified from the platform template details or a dry-run/test-account send.
+- The frontend-only `env.js` contains a configured `wxReminderTemplateId` value; its value was intentionally withheld from output. `env.example.js` still exposes only an empty frontend placeholder and no server configuration contract.
+- The repository contains no `REMINDER_DRY_RUN`, `REMINDER_TEMPLATE_ID`, `REMINDER_TEMPLATE_FIELDS`, or `REMINDER_TIMEZONE` references, no scheduled reminder cloud function, and no `reminder_jobs` or `notification_logs` implementation.
+- `cloudfunctions/login` calculates `ownerKey` from the request context and stores only `ownerKey`, `uid`, profile fields, and timestamps in `users`. It deliberately does not persist or return `openid`.
+- A scheduled cloud trigger has no end-user `wxContext.OPENID`. The official subscription-message send operation therefore cannot be implemented safely from the current data model because the required recipient identity (`touser`) has no approved server-only mapping.
+- P3.2 is blocked until the developer confirms the real template field keys/formats and主体/类目资格, configures the server environment values, and approves a secure recipient mapping that does not expose or write plaintext `openid` into business data.
+
 ## 2026-07-18: Edit Page Original/Sticker Toggle Regression
 - Verification note: the repository root has no `package.json`, so there is no project-managed frontend test runner to execute. Focused JavaScript syntax and static data-flow assertions passed instead.
 - Saving the edit-page "use original" selection makes `displayImageCloudFileId` equal `originalImageCloudFileId`. Before this repair, that field was also the only retained Cloud File ID for the processed sticker, so the edit page had no remaining source for "revert original" on its next load.
 - The durable representation needs three separate references: `originalImageCloudFileId` for the camera image, `stickerImageCloudFileId` for the processed sticker, and `displayImageCloudFileId` for the currently selected display version.
 - Existing historical records where a prior save already overwrote the display ID with the original ID and no sticker ID was recorded cannot reconstruct the lost sticker File ID from local metadata. The repair preserves all future switches and supports older records whose display ID still differs from the original ID.
 - The update path preserves Cloud File IDs through `itemService.updateItemImageState()` and schedules normal item sync only after that local state has been persisted. The edit page resolves the independent sticker File ID only for display and does not store a temporary URL as business data.
+
+## 2026-07-18: P3.2 implementation
+- Added `registerReminderRecipient`, `scheduledReminderScan`, and `sendReminderNotifications` cloud functions. Each deployed function includes a local copy of the reminder utility because CloudBase uploads are directory-scoped.
+- Subscription acceptance now registers an encrypted server-side recipient; disabling the setting disables that recipient. Plaintext `openid` is only held in function memory for the official send call and is never returned to the client or written to logs.
+- Reminder jobs use a SHA-256 dedupe key derived from server-side ownership, item ID, active expiry date, and reminder kind. The scanner cancels stale ready jobs after item deletion, completion, preference changes, or date changes.
+- `REMINDER_DRY_RUN` defaults to true. The sender performs final eligibility and recipient checks, applies bounded retries, and maps platform failures to safe error codes. No deployment or real send has been claimed; CloudBase configuration and trigger setup remain manual.
+
+## 2026-07-18: Official subscribe-message API review
+- The official server API confirms the cloud-call method is `subscribeMessage.send`; its required recipient field `touser` is the user's OpenID. The current cloud-function call shape (`templateId`, `page`, `data`, `miniprogramState`) matches the documented cloud-call naming.
+- `REMINDER_RECIPIENT_ENCRYPTION_KEY` is not a WeChat API credential and does not require a local computer to stay online. It is an application-level AES key held in CloudBase function environment variables so a scheduled cloud function can decrypt a server-only recipient mapping at runtime.
+- The current P3.2 behavior still needs a protocol correction before real deployment: an accepted `wx.requestSubscribeMessage` authorization is one-time, not a permanent permission. `subscriptionIntent` must remain a user preference, not proof that another message can be sent. After a successful send, the recipient/template authorization must be treated as consumed; after `43101` (not subscribed or quota exhausted), jobs must be skipped until the user actively authorizes again.
+- Error classification must explicitly handle official codes: `43101` as authorization unavailable/no retry, `43107` as subscription capability banned/no retry, `47003` as template/field parameter failure/no retry, and `40003` as invalid recipient/no retry. The current generic classifier can otherwise misclassify some of these as retryable platform failures.
+
+## 2026-07-18: P3.2 protocol completion
+- `notification_recipients` now records a server-only one-time authorization lifecycle. Each accepted client authorization increments `grantVersion`, resets `consumedAt`, and returns the recipient to `active`; a successful send marks it `consumed`.
+- The scanner requires an active recipient before creating a ready job and cancels ready jobs when the recipient is no longer active. This keeps `subscriptionIntent` as preference only, rather than treating it as permanent authorization.
+- The sender atomically claims a ready job and then the active recipient before calling `subscribeMessage.send`, preventing concurrent sender invocations from sending the same one-time grant twice. Official authorization, template, recipient, and field-format failures do not retry.
+- The screenshots show the expected variable separation and `REMINDER_DRY_RUN=true` values. The displayed secrets and template ID are exposed credentials/configuration and must be rotated; no value is copied into source or this report.
+- The sender timeout shown as 3 seconds is too tight for a real API send followed by persistence; use a 10-15 second timeout before real-send testing. A timeout during a claimed send is deliberately fail-closed to avoid reopening a one-time grant and accidentally duplicating a message.
+- Template values are now type-aware: ISO `YYYY-MM-DD` values become `YYYY年MM月DD日` for `date` and `time` fields, `time` receives `00:00` when no time is stored, and `number` receives digits only. This is a conservative default based on official template type conventions; the actual template detail page remains authoritative.
+- The first manual local-debug scan returned `scan_failed` with SDK code `-1`. The scanner now returns a safe `failureStage` and `detailCode` (without error messages, OpenID, ownerKey, or credentials) so the next run can distinguish environment/configuration, collection access, item loading, job upsert, and log-writing failures.
+- The follow-up diagnostic identified `failureStage: read_reminder_job` with `detailCode: -1` while `reminder_jobs` was empty. The scanner now uses a dedupe-key query instead of `doc(id).get()` for the first-run lookup, avoiding this local-debug missing-document behavior while preserving deterministic document IDs for writes.
+- The next manual scan completed successfully (`scanned: 16`, `skipped: 15`, `duplicate: 1`, `created: 0`). Added a safe `skipReasons` counter so eligibility failures can be diagnosed without exposing item identifiers or account data.
+- The first successful task creation exposed the same local-debug missing-document behavior in `notification_logs` (`notification log failed -1`). Both scanner and sender now query logs by `jobId` before updating, so an empty log collection is treated as a normal first-write case.
+- Scanner statistics now include `logFailed`; a successful task scan with `logFailed > 0` is treated as an operational logging defect rather than silently reported as fully healthy.
+- Sender dry-run diagnostics now read a bounded page of `reminder_jobs`, filter `ready` in memory, and return safe `visibleJobs`/`statusCounts` counters. This works around local-debug equality-query inconsistencies and distinguishes an empty view from a status mismatch.
 
 ## Initial Context Analysis
 - **SECURITY.md**:

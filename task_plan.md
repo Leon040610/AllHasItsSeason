@@ -79,3 +79,22 @@
 - [x] Add `stickerImageCloudFileId` as an independent persistent item field and include it in the `items` sync allowlist.
 - [x] Finalize edit-page load/save behavior so original and sticker can be switched repeatedly without losing either reference.
 - [x] Verify syntax, whitespace, and the affected upload/sync call paths; document the required `syncData` deployment.
+
+## Phase 12: P3.2 Preflight and Design
+- [x] Verify the current P3.1 reminder service and subscription authorization entry points.
+- [x] Verify that the repository has no scheduled reminder cloud function, reminder job/log implementation, or server-side P3.2 configuration schema.
+- [x] Verify that `ownerKey` is the only server-side account identifier currently persisted; no safe recipient mapping for scheduled WeChat delivery is available.
+- [x] Confirmed template field keys from the supplied platform screenshot and selected a server-only encrypted recipient mapping.
+
+## Phase 13: P3.2 Reminder Scan and Delivery
+- [x] Add server-only encrypted recipient registration without exposing plaintext openid.
+- [x] Add shared server reminder qualification, timezone/date formatting, and safe template data mapping.
+- [x] Add scheduledReminderScan with deterministic jobs, cancellation, dry-run logs, and scan metrics.
+- [x] Correct one-time subscription consumption state and official error-code handling before real-send deployment.
+- [x] Wire frontend authorization acceptance to recipient registration.
+- [x] Run static checks and dry-run-oriented local assertions; document manual deployment/configuration and stop before P3.3.
+
+## Errors Encountered
+| Error | Attempt | Resolution |
+|---|---|---|
+| PowerShell quoting error while probing configuration metadata | 1 | The probe was read-only and did not touch project files; the surrounding searches and safe configuration checks were rerun successfully. |

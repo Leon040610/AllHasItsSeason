@@ -201,6 +201,7 @@ import { ref, computed, getCurrentInstance } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../../services/itemService.js'
 import { settingsService } from '../../../services/settingsService.js'
+import { subscriptionMessageService } from '../../../services/subscriptionMessageService.js'
 import { cloudStorageService } from '../../../services/cloudStorageService.js'
 import { imageCanvasService } from '../../../services/imageCanvasService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, getDaysDifference, getTodayStr, formatDate, determineActiveExpiry } from '../../../utils/dateUtils.js'
@@ -209,6 +210,7 @@ import { isStoredLoggedIn } from '../../../utils/authSessionStore.js'
 const instance = getCurrentInstance()
 const item = ref<any>(null)
 let currentId = ''
+const initialRemindDays = ref(0)
 
 const pureStatusLabel = computed(() => {
   if (!item.value) return ''
@@ -257,6 +259,7 @@ function loadItem() {
     // Only set if not already editing to avoid overriding unsaved changes if onShow runs again (e.g. returning from chooseImage)
     if (!item.value || item.value.id !== found.id) {
       item.value = { ...found } // Create a copy for editing
+      initialRemindDays.value = Number(found.remindDays) || 0
       originalImagePath.value = found.originalImageUrl || found.imageUrl
       const storedItem = itemService.getItemById(currentId)
       currentImageRevision.value = storedItem?.imageRevision || 0
@@ -720,6 +723,58 @@ function onSave() {
     }
   }
 
+  const requestSubscriptionBeforeSave = (userConsentAccepted) => {
+    const reminderChanged = Number(item.value.remindDays) !== initialRemindDays.value
+    const shouldAsk = reminderChanged &&
+      Number(item.value.remindDays) > 0 &&
+      Boolean(updateData.activeExpiryDate) &&
+      ['pending', 'using'].includes(item.value.status)
+
+    if (!shouldAsk || !isStoredLoggedIn() || !subscriptionMessageService.isTemplateConfigured()) {
+      proceedSave(userConsentAccepted)
+      return
+    }
+
+    uni.showModal({
+      title: '一次性订阅提醒',
+      content: `这件物品设置了提前 ${item.value.remindDays} 天提醒，需要现在确认一次微信提醒吗？`,
+      cancelText: '暂不订阅',
+      confirmText: '确定',
+      success: async (modalRes) => {
+        if (!modalRes.confirm) {
+          proceedSave(userConsentAccepted)
+          return
+        }
+        uni.showLoading({ title: '正在确认提醒...' })
+        const authRes = await subscriptionMessageService.requestSubscription()
+        if (authRes.success) {
+          const recipientRes = await subscriptionMessageService.registerRecipient()
+          settingsService.updateSettings({
+            enabled: recipientRes.success,
+            subscriptionIntent: true,
+            subscriptionLastResult: recipientRes.success ? 'accept' : 'unavailable',
+            subscriptionLastRequestedAt: Date.now(),
+            subscriptionLastErrorCode: recipientRes.success ? null : (recipientRes.errorCode || 'recipient_registration_failed')
+          })
+          if (!recipientRes.success) {
+            uni.showToast({ title: '授权暂未完成，首页仍会继续提醒你', icon: 'none' })
+          }
+        } else {
+          settingsService.updateSettings({
+            enabled: false,
+            subscriptionIntent: true,
+            subscriptionLastResult: authRes.result,
+            subscriptionLastRequestedAt: Date.now(),
+            subscriptionLastErrorCode: authRes.errorCode || null
+          })
+          uni.showToast({ title: '没关系，首页也会继续提醒你', icon: 'none' })
+        }
+        uni.hideLoading()
+        proceedSave(userConsentAccepted)
+      }
+    })
+  }
+
   // Handle privacy consent check if there's a new image and we are NOT using the original image
   if (hasPendingImageChange.value && originalImagePath.value && !originalImagePath.value.startsWith('cloud://') && !isUsingOriginal.value) {
     const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
@@ -732,19 +787,19 @@ function onSave() {
         success: function(res) {
           if (res.confirm) {
             uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: true, policyVersion: 1, acceptedAt: Date.now() })
-            proceedSave(true)
+            requestSubscriptionBeforeSave(true)
           } else {
             uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: false, policyVersion: 1, acceptedAt: Date.now() })
-            proceedSave(false)
+            requestSubscriptionBeforeSave(false)
           }
         }
       })
       return
     } else {
-      proceedSave(consent.accepted)
+      requestSubscriptionBeforeSave(consent.accepted)
     }
   } else {
-    proceedSave(false)
+    requestSubscriptionBeforeSave(false)
   }
 }
 </script>

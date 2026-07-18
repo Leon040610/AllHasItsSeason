@@ -1,4 +1,5 @@
 import { wxReminderTemplateId } from '../env.js';
+import { wechatCloudUserRepository } from '../repositories/wechatCloudUserRepository.js';
 
 class SubscriptionMessageService {
   /**
@@ -109,6 +110,24 @@ class SubscriptionMessageService {
         }
       });
     });
+  }
+
+  async registerRecipient() {
+    try {
+      const data = await wechatCloudUserRepository.callRegisterReminderRecipient('register')
+      return { success: true, data }
+    } catch (error) {
+      return { success: false, errorCode: error && error.message ? error.message : 'recipient_registration_failed' }
+    }
+  }
+
+  async disableRecipient() {
+    try {
+      await wechatCloudUserRepository.callRegisterReminderRecipient('disable')
+      return { success: true }
+    } catch (error) {
+      return { success: false, errorCode: error && error.message ? error.message : 'recipient_disable_failed' }
+    }
   }
 }
 

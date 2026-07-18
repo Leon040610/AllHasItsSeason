@@ -236,6 +236,7 @@ import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue'
 import { onShow, onLoad } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { settingsService } from '../../services/settingsService.js'
+import { subscriptionMessageService } from '../../services/subscriptionMessageService.js'
 import { categoryService } from '../../services/categoryService.js'
 import { draftService } from '../../services/draftService.js'
 import { cloudStorageService } from '../../services/cloudStorageService.js'
@@ -806,6 +807,65 @@ function onSave() {
     }
   }
 
+  const requestSubscriptionBeforeSave = (userConsentAccepted) => {
+    // Only a valid reminder candidate may request a subscription. A zero-day
+    // reminder means "do not remind" and the item is saved normally.
+    if (
+      form.value.reminderDays === 0 ||
+      !preItem.activeExpiryDate ||
+      !['pending', 'using'].includes(preItem.status)
+    ) {
+      proceedSave(userConsentAccepted)
+      return
+    }
+
+    if (!isStoredLoggedIn() || !subscriptionMessageService.isTemplateConfigured()) {
+      proceedSave(userConsentAccepted)
+      return
+    }
+
+    uni.showModal({
+      title: '一次性订阅提醒',
+      content: `这件物品设置了提前 ${form.value.reminderDays} 天提醒，需要现在确认一次微信提醒吗？`,
+      cancelText: '暂不订阅',
+      confirmText: '确定',
+      success: async (modalRes) => {
+        if (!modalRes.confirm) {
+          proceedSave(userConsentAccepted)
+          return
+        }
+
+        uni.showLoading({ title: '正在确认提醒...' })
+        const authRes = await subscriptionMessageService.requestSubscription()
+        if (authRes.success) {
+          const recipientRes = await subscriptionMessageService.registerRecipient()
+          settingsService.updateSettings({
+            enabled: recipientRes.success,
+            subscriptionIntent: true,
+            subscriptionLastResult: recipientRes.success ? 'accept' : 'unavailable',
+            subscriptionLastRequestedAt: Date.now(),
+            subscriptionLastErrorCode: recipientRes.success ? null : (recipientRes.errorCode || 'recipient_registration_failed')
+          })
+          uni.hideLoading()
+          if (!recipientRes.success) {
+            uni.showToast({ title: '授权暂未完成，首页仍会继续提醒你', icon: 'none' })
+          }
+        } else {
+          settingsService.updateSettings({
+            enabled: false,
+            subscriptionIntent: true,
+            subscriptionLastResult: authRes.result,
+            subscriptionLastRequestedAt: Date.now(),
+            subscriptionLastErrorCode: authRes.errorCode || null
+          })
+          uni.hideLoading()
+          uni.showToast({ title: '没关系，首页也会继续提醒你', icon: 'none' })
+        }
+        proceedSave(userConsentAccepted)
+      }
+    })
+  }
+
   // Handle privacy consent check if there's a new image and we are NOT using the original image
   if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://') && !isUsingOriginal.value) {
     const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
@@ -818,19 +878,19 @@ function onSave() {
         success: function(res) {
           if (res.confirm) {
             uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: true, policyVersion: 1, acceptedAt: Date.now() })
-            proceedSave(true)
+            requestSubscriptionBeforeSave(true)
           } else {
             uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: false, policyVersion: 1, acceptedAt: Date.now() })
-            proceedSave(false)
+            requestSubscriptionBeforeSave(false)
           }
         }
       })
       return
     } else {
-      proceedSave(consent.accepted)
+      requestSubscriptionBeforeSave(consent.accepted)
     }
   } else {
-    proceedSave(false)
+    requestSubscriptionBeforeSave(false)
   }
 }
 </script>

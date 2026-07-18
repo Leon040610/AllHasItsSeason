@@ -6,3 +6,6 @@ export const fontFileId = 'cloud://your-env-id.your-bucket-id/fonts/noto-serif-s
 
 // WeChat Subscribe Message Template ID
 export const wxReminderTemplateId = ''
+
+// Server-only P3.2 configuration is intentionally not read from this file.
+// Configure REMINDER_* variables in the CloudBase function environment.

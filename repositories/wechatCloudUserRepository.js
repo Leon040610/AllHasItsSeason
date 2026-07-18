@@ -68,6 +68,27 @@ class WechatCloudUserRepository {
     })
   }
 
+  async callRegisterReminderRecipient(action = 'register') {
+    if (!cloudRuntimeService.isReady()) {
+      throw new Error('cloud_not_ready')
+    }
+    return new Promise((resolve, reject) => {
+      wx.cloud.callFunction({
+        name: 'registerReminderRecipient',
+        data: { action },
+        success: (res) => {
+          const result = res.result
+          if (result && result.success && result.data) {
+            resolve(result.data)
+          } else {
+            reject(new Error(result?.errorCode || 'recipient_registration_failed'))
+          }
+        },
+        fail: () => reject(new Error('cloud_call_failed'))
+      })
+    })
+  }
+
 }
 
 export const wechatCloudUserRepository = new WechatCloudUserRepository()
