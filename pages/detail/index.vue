@@ -173,6 +173,7 @@
 import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
+import { cloudStorageService } from '../../services/cloudStorageService.js'
 
 const item = ref<any>(null)
 let currentId = ''
@@ -205,6 +206,11 @@ function loadItem() {
   const found = itemService.getViewItemById(currentId)
   if (found) {
     item.value = found
+    cloudStorageService.restoreItemDisplayImages([found]).then(restored => {
+      if (restored && restored.length > 0) {
+        item.value = restored[0]
+      }
+    })
   } else {
     showFallback()
   }

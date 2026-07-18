@@ -151,7 +151,7 @@ async function handleUpdateNickname(ownerKey, nickname) {
  * 云函数直接将其存入用户档案（云存储 fileID 本身是持久化的）
  */
 async function handleUpdateAvatar(ownerKey, avatarTempFileId) {
-  if (!avatarTempFileId || typeof avatarTempFileId !== 'string') {
+  if (!avatarTempFileId || typeof avatarTempFileId !== 'string' || !avatarTempFileId.startsWith('cloud://')) {
     return { success: false, data: null, message: '头像文件无效' }
   }
   const now = Date.now()

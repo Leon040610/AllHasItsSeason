@@ -21,7 +21,7 @@ exports.main = async (event, context) => {
     return { success: false, errorMessage: 'Missing OWNER_KEY_SALT' };
   }
 
-  const ownerKey = crypto.createHmac('sha256', salt).update(openid).digest('hex');
+  const ownerKey = crypto.createHmac('sha256', salt).update(openid).digest('hex').substring(0, 32);
 
   try {
     await db.collection('recognition_logs').add({

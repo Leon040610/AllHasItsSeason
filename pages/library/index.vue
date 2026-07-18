@@ -160,6 +160,7 @@ import { ref, computed } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { syncService } from '../../services/syncService.js'
+import { cloudStorageService } from '../../services/cloudStorageService.js'
 
 interface Filter {
   key: string
@@ -285,7 +286,11 @@ onShow(() => {
 })
 
 function loadData() {
-  allItems.value = itemService.getViewItems()
+  const items = itemService.getViewItems()
+  allItems.value = items
+  cloudStorageService.restoreItemDisplayImages(items).then(restored => {
+    allItems.value = [...restored]
+  })
 }
 
 async function onRefresh() {

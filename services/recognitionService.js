@@ -1,8 +1,12 @@
 import { ocrParser } from '../utils/ocrParser.js';
 import { ocrSessionService } from './ocrSessionService.js';
+import { isStoredLoggedIn } from '../utils/authSessionStore.js';
 
 export const recognitionService = {
   async recognize(tempFilePath, expiryMode = 'normal') {
+    if (!isStoredLoggedIn()) {
+      return { success: false, errorCode: 'login_required' };
+    }
     const startTime = Date.now();
     try {
       // 1. Invoke Service Market OCR

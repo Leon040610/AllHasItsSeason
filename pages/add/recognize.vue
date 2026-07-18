@@ -99,11 +99,28 @@
 import { ref } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { recognitionService } from '../../services/recognitionService.js'
+import { isStoredLoggedIn } from '../../utils/authSessionStore.js'
 
 const previewImage = ref('/static/icons/add-Blurry Placeholder Image.svg')
 const isProcessing = ref(false)
 
 onLoad(() => {
+  if (!isStoredLoggedIn()) {
+    uni.showModal({
+      title: '登录后再继续',
+      content: '登录后才能使用拍照识字和图片整理，小管家会把这份记录稳稳留在你的账号里。',
+      confirmText: '去登录',
+      cancelText: '先手动填写',
+      success: (res) => {
+        if (res.confirm) {
+          uni.switchTab({ url: '/pages/me/index' })
+        } else {
+          uni.navigateBack()
+        }
+      }
+    })
+    return
+  }
   setTimeout(() => {
     startRecognize()
   }, 100)

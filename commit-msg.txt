@@ -1,18 +1,20 @@
-feat: 实现微信订阅消息提醒授权机制、效期提醒判定引擎与客服通道接入
+feat: 统一用户安全键与优化游客权限拦截、图片网络解析还原及图片备份链路机制
 
-- 微信消息订阅与服务 (services/subscriptionMessageService.js & env.example.js)：
-  1. 新增 `subscriptionMessageService.js`，管理基于 `wx.requestSubscribeMessage` 的微信订阅授权弹窗交互
-  2. 实现全套异常与状态码分析，包括 `accept`（同意）、`reject`（拒绝）、`ban`（微信封禁）、`main_switch_off`（全局开关关闭）等，提升体验容错
-  3. 在 `env.example.js` 中新增小程序订阅消息模板 ID `wxReminderTemplateId` 环境变量
-- 物品效期提醒判定引擎 (services/reminderService.js)：
-  1. 新增 `reminderService.js` 作为通用的提醒决策引擎，判定单件物品的提醒资格
-  2. 针对物品状态、有效到期日校验、剩余天数、提醒偏好（应用内意愿与微信订阅意愿）进行多维匹配计算，并提供批量过滤筛选候选人 API
-- 提醒偏好配置与云同步 (pages/me/reminder/ & services/settingsService.js & cloudfunctions/syncData/)：
-  1. 提醒设置页优化：若微信订阅模板未配置则显示“暂未配置微信提醒”并锁定；若已配置，则在开启时唤醒订阅授权，并在本地同步更新状态
-  2. 升级 `settingsService.js`，在用户提醒设置中增加 `subscriptionIntent`（开启意向）、`subscriptionLastResult` 等四个新属性
-  3. 升级 `syncData` 云函数，白名单接收并同步新增的订阅提醒字段，并对时间戳与选项进行规范化处理
-- 微信原生客服消息对接 (pages/me/index.vue)：
-  1. 重构“联系开发者”列表卡片，使用原生微信 `<button open-type="contact">` 代替原有的 Toast，支持调起微信自带的客服会话窗口
-  2. 新增 `.settings-item--contact` 的样式，擦除按钮的默认样式，使其视觉上与列表其它项完全一致
+- 基础算法统一与历史修复 (cloudfunctions/ & services/authService.js & repositories/)：
+  1. 统一 `login`、`syncData`、`imageProcess` 与 `logRecognition` 四个云函数中的 `ownerKey` 计算方法，确保 HMAC-SHA256 哈希签名规则一致
+  2. 云函数 `syncData` 中新增 `repairHistoricalOwnerKey` 动作，用于将老算法生成的历史数据迁移合并至新 `ownerKey` 下
+  3. 修复 `authService.js` 中头像更换上云路径及 `wechatCloudUserRepository.js` 接口的传参对接，支持将新头像同步至云端
+  4. 强化同步校验，上传物品数据前强行过滤过滤本地路径（如 `wxfile://`），只保留 `cloud://` 链接同步
+- 游客权限限制拦截 (pages/ & services/)：
+  1. 在首页拍照识字、录入与编辑物品、更换图片及重新整理等关键入口中注入登录校验拦截，拦截未登录游客并以轻量 Toast（“登录后可拍照识字”）进行提示
+  2. 智能提取中转页 (`recognize.vue`) onload 注入重定向，将游客拦截并带回登录页，强化云端 `recognitionService` 及 `cloudStorageService` 内的登录拦截防护
+- 云存储链接解析与视图还原 (services/cloudStorageService.js & pages/)：
+  1. 新增内存缓存 `tempUrlCache`，防止重复向云端解析同个 `cloud://` 文件对应的临时 HTTP 链接
+  2. 新增 `resolveBatchImageUrls` 批量翻译函数，以及 `restoreItemDisplayImages` 视图水合还原服务
+  3. 全量在首页关注卡片、物品库、草稿箱、详情页及编辑页列表载入时，注入临时链接批量还原解析，保证云文件 ID 链接能正确还原为可展示的图片
+- 贴纸上传机制与遗留故障修复 (pages/add/ & pages/detail/edit/ & services/cloudStorageService.js)：
+  1. 修复新添加物品无 ID 时，无法成功绑定原图与贴纸图云存储的问题：提前给新物品生成 ID 并传入上传回调中
+  2. 重构添加和编辑保存流，变更为“先等待原图和贴纸图上传完毕且回写 File ID”才执行页面返回，提升上云可靠性
+  3. 新增自动扫描补漏机制：用户登录后，自动搜寻本地存在物理图片但 `imageSyncPending` 挂起的历史记录进行无感知补传，修正跨设备同步后遗失贴纸图的问题
 
-影响范围：小程序“我的”主页、提醒设置页面、提醒计算引擎及云端配置同步规范
+影响范围：全站云存储交互模块、多端数据同步核心逻辑、游客受限权限防卫、图片网络缓存渲染

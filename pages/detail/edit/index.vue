@@ -206,8 +206,8 @@ import { itemService } from '../../../services/itemService.js'
 import { settingsService } from '../../../services/settingsService.js'
 import { cloudStorageService } from '../../../services/cloudStorageService.js'
 import { imageCanvasService } from '../../../services/imageCanvasService.js'
-import { syncService } from '../../../services/syncService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, getDaysDifference, getTodayStr, formatDate, determineActiveExpiry } from '../../../utils/dateUtils.js'
+import { isStoredLoggedIn } from '../../../utils/authSessionStore.js'
 
 const instance = getCurrentInstance()
 const item = ref<any>(null)
@@ -255,6 +255,20 @@ function loadItem() {
       item.value = { ...found } // Create a copy for editing
       originalImagePath.value = found.imageUrl // Assume current imageUrl as original for now
       isUsingOriginal.value = !found.displayImageUrl || found.displayImageUrl === found.imageUrl
+
+      // 异步解析云端图片 URL，防止第二设备贴纸不显示
+      cloudStorageService.restoreItemDisplayImages([item.value]).then(restored => {
+        if (restored && restored.length > 0) {
+          const resItem = restored[0]
+          item.value.imageUrl = resItem.imageUrl
+          item.value.displayImageUrl = resItem.displayImageUrl
+          item.value.originalImageUrl = resItem.originalImageUrl
+
+          if (originalImagePath.value && originalImagePath.value.startsWith('cloud://')) {
+            originalImagePath.value = resItem.imageUrl
+          }
+        }
+      })
     }
   } else {
     showFallback()
@@ -395,6 +409,14 @@ function onBack() {
 }
 
 function onChooseImage() {
+  if (!isStoredLoggedIn()) {
+    uni.showToast({
+      title: '登录后可上传照片',
+      icon: 'none',
+      duration: 1600
+    });
+    return;
+  }
   uni.chooseImage({
     count: 1,
     sizeType: ['compressed'],
@@ -425,8 +447,7 @@ function onChooseImage() {
         const processRes = await cloudStorageService.processImage(prepareRes.jobId, prepareRes.uploadTicket, currentId, currentImageRevision.value, originalCloudFileId)
         
         if (processRes.imageProcessStatus === 'success' && processRes.cutoutCloudFileId) {
-          const dlRes = await uni.cloud.downloadFile({ fileID: processRes.cutoutCloudFileId })
-          const cutoutPath = dlRes.tempFilePath
+          const cutoutPath = await cloudStorageService.downloadFile(processRes.cutoutCloudFileId)
           
           const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, cutoutPath, true)
           if (item.value) {
@@ -538,6 +559,14 @@ async function onReprocess() {
     uni.showToast({ title: '只能重新整理本地新拍摄的图片', icon: 'none' })
     return
   }
+  if (!isStoredLoggedIn()) {
+    uni.showToast({
+      title: '登录后可上传照片',
+      icon: 'none',
+      duration: 1600
+    });
+    return;
+  }
   const tempPath = originalImagePath.value
   processStatus.value = 'idle'
   currentImageRevision.value += 1
@@ -558,8 +587,7 @@ async function onReprocess() {
     const processRes = await cloudStorageService.processImage(prepareRes.jobId, prepareRes.uploadTicket, currentId, currentImageRevision.value, originalCloudFileId)
     
     if (processRes.imageProcessStatus === 'success' && processRes.cutoutCloudFileId) {
-      const dlRes = await uni.cloud.downloadFile({ fileID: processRes.cutoutCloudFileId })
-      const cutoutPath = dlRes.tempFilePath
+      const cutoutPath = await cloudStorageService.downloadFile(processRes.cutoutCloudFileId)
       
       if (!cutoutPath) {
         throw new Error('下载抠图结果失败，tempFilePath 为空。dlRes=' + JSON.stringify(dlRes))
@@ -681,23 +709,21 @@ function onSave() {
   updateData.activeExpiryDate = activeInfo.date
   updateData.activeExpirySource = activeInfo.source
 
-  const proceedSave = (userConsentAccepted) => {
+  const proceedSave = async (userConsentAccepted) => {
     const success = itemService.updateItem(item.value.id, updateData)
     if (success) {
       uni.showToast({ title: '修改已保存', icon: 'success' })
       
       const hasImageUpload = currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://');
       if (hasImageUpload) {
-        const syncEnabled = syncService.getSettings().syncEnabled
-        cloudStorageService.executeBackgroundUpload(
-          itemService, 
-          item.value.id, 
-          updateData.imageRevision, 
-          originalImagePath.value, 
-          isUsingOriginal.value ? originalImagePath.value : item.value.displayImageUrl, 
+        await cloudStorageService.executeBackgroundUpload(
+          itemService,
+          item.value.id,
+          updateData.imageRevision,
+          originalImagePath.value,
+          isUsingOriginal.value ? originalImagePath.value : item.value.displayImageUrl,
           localImageExt.value,
-          userConsentAccepted,
-          syncEnabled
+          userConsentAccepted
         )
       }
       setTimeout(() => uni.navigateBack(), 800)

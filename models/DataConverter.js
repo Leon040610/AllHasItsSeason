@@ -78,6 +78,10 @@ export const DataConverter = {
       imageUrl: safeItem.displayImageCloudFileId || safeItem.cutoutImageCloudFileId || safeItem.originalImageCloudFileId || safeItem.displayImageUrl || safeItem.originalImageUrl || '',
       displayImageUrl: safeItem.displayImageCloudFileId || safeItem.displayImageUrl || '',
       originalImageUrl: safeItem.originalImageCloudFileId || safeItem.originalImageUrl || '',
+      // 云端持久引用必须保留在视图模型中；临时展示地址由 cloudStorageService 单独解析。
+      originalImageCloudFileId: safeItem.originalImageCloudFileId || '',
+      cutoutImageCloudFileId: safeItem.cutoutImageCloudFileId || '',
+      displayImageCloudFileId: safeItem.displayImageCloudFileId || '',
       cardBg: safeItem.imageBackgroundColor,
       rotation: safeItem.stickerRotation,
       status: safeItem.status,

@@ -68,6 +68,15 @@
   - Contains global config constants like `cloudEnvID`, `fontUrl`, `fontFileId`.
   - We can define `reminderTemplateId` here to ensure it's not hardcoded in the pages.
 
+## 2026-07-18: Cross-Device Sticker Regression
+- The user's newly created cloud `items` records have an empty `displayImageCloudFileId`; this is why another device has no source it can download. A local `wxfile://` path cannot solve cross-device rendering.
+- `pages/add/index.vue` and `pages/detail/edit/index.vue` still pass `syncService.getSettings().syncEnabled` into `cloudStorageService.executeBackgroundUpload`.
+- `cloudStorageService.syncImageMetadata()` currently waits for an existing sync for at most five seconds and returns `false` if it remains active. It needs a reliable follow-up delivery path for the File-ID-bearing item state rather than dropping the metadata handoff.
+- The repair must stay narrow: retain local paths locally for the current device, upload both original and display sticker to cloud storage for logged-in image actions, and sync only their cloud File IDs as item metadata.
+- Affected phone-side records retain `imageSyncPending: true` because the original upload callback could not locate an item with the undefined ID. A logged-in launch recovery can safely target only these records when their local original path is still available. It reuses the locally generated sticker and does not call the third-party cutout flow.
+- The exported successful record has non-empty original and display Cloud File IDs. The later records have no original Cloud File ID and several are marked `imageProcessStatus: error`, so the failure occurs before metadata sync can preserve a File ID.
+- The current `unpackage/dist/dev/mp-weixin` output already contains the generated item ID fix. It also showed add/edit pages navigating away after 0.8-1s without awaiting `executeBackgroundUpload`; temporary Canvas files can disappear when their page is destroyed. The upload must complete before navigation.
+
 ## WeChat Subscribe Message Document Analysis (New vs Old)
 - **Old One-time Subscribe Message (弹窗一次性订阅)**:
   - Triggered via user click event calling `wx.requestSubscribeMessage`.

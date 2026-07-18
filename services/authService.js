@@ -179,10 +179,7 @@ class AuthService {
     })
 
     // 2. 调云函数更新档案
-    await wechatCloudUserRepository.callLogin({
-      action: 'updateAvatar',
-      avatarTempFileId: uploadRes.fileID
-    })
+    await wechatCloudUserRepository.callUpdateAvatar(uploadRes.fileID)
 
     // 3. 更新本地状态
     this.user.avatarUrl = tempFilePath

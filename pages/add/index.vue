@@ -241,8 +241,9 @@ import { draftService } from '../../services/draftService.js'
 import { cloudStorageService } from '../../services/cloudStorageService.js'
 import { ocrSessionService } from '../../services/ocrSessionService.js'
 import { imageCanvasService } from '../../services/imageCanvasService.js'
-import { syncService } from '../../services/syncService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, determineActiveExpiry } from '../../utils/dateUtils.js'
+import { isStoredLoggedIn } from '../../utils/authSessionStore.js'
+import { generateUUID } from '../../utils/uuid.js'
 
 const instance = getCurrentInstance()
 const currentDraftId = ref('')
@@ -496,6 +497,14 @@ function onBack() {
 }
 
 function onChooseImage() {
+  if (!isStoredLoggedIn()) {
+    uni.showToast({
+      title: '登录后可上传照片',
+      icon: 'none',
+      duration: 1600
+    });
+    return;
+  }
   uni.chooseImage({
     count: 1,
     sizeType: ['compressed'],
@@ -525,8 +534,7 @@ function onChooseImage() {
         const processRes = await cloudStorageService.processImage(prepareRes.jobId, prepareRes.uploadTicket, currentDraftId.value || 'temp', currentImageRevision.value, originalCloudFileId)
         
         if (processRes.imageProcessStatus === 'success' && processRes.cutoutCloudFileId) {
-          const dlRes = await uni.cloud.downloadFile({ fileID: processRes.cutoutCloudFileId })
-          const cutoutPath = dlRes.tempFilePath
+          const cutoutPath = await cloudStorageService.downloadFile(processRes.cutoutCloudFileId)
           
           const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, cutoutPath, true)
           previewImage.value = stickerPath
@@ -562,6 +570,14 @@ function onChooseImage() {
 
 async function onReprocess() {
   if (!originalImagePath.value) return
+  if (!isStoredLoggedIn()) {
+    uni.showToast({
+      title: '登录后可上传照片',
+      icon: 'none',
+      duration: 1600
+    });
+    return;
+  }
 
   isUsingOriginal.value = false
   uni.showLoading({ title: '重新提取中...' })
@@ -574,8 +590,7 @@ async function onReprocess() {
     const processRes = await cloudStorageService.processImage(prepareRes.jobId, prepareRes.uploadTicket, currentDraftId.value || 'temp', currentImageRevision.value, originalCloudFileId)
 
     if (processRes.imageProcessStatus === 'success' && processRes.cutoutCloudFileId) {
-      const dlRes = await uni.cloud.downloadFile({ fileID: processRes.cutoutCloudFileId })
-      const cutoutPath = dlRes.tempFilePath
+      const cutoutPath = await cloudStorageService.downloadFile(processRes.cutoutCloudFileId)
 
       const stickerPath = await imageCanvasService.processToSticker('stickerCanvas', instance.proxy, cutoutPath, true)
       previewImage.value = stickerPath
@@ -612,6 +627,14 @@ function onUseOriginal() {
 }
 
 function onOcr() {
+  if (!isStoredLoggedIn()) {
+    uni.showToast({
+      title: '登录后可拍照识字',
+      icon: 'none',
+      duration: 1600
+    });
+    return;
+  }
   uni.navigateTo({ url: '/pages/add/recognize' })
 }
 
@@ -724,6 +747,7 @@ function onSave() {
   const afterShelfVal = parseInt(form.value.afterOpeningShelfLife) || 0
 
   const preItem = {
+    id: generateUUID(),
     name: form.value.name,
     categoryId: form.value.category,
     categoryName: form.value.categoryLabel,
@@ -755,7 +779,7 @@ function onSave() {
   preItem.activeExpiryDate = activeInfo.date
   preItem.activeExpirySource = activeInfo.source
 
-  const proceedSave = (userConsentAccepted) => {
+  const proceedSave = async (userConsentAccepted) => {
     const success = itemService.addItem(preItem)
     if (success) {
       if (currentDraftId.value) {
@@ -765,16 +789,14 @@ function onSave() {
       
       const hasImageUpload = currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://');
       if (hasImageUpload) {
-        const syncEnabled = syncService.getSettings().syncEnabled
-        cloudStorageService.executeBackgroundUpload(
-          itemService, 
-          preItem.id, 
-          currentImageRevision.value, 
-          originalImagePath.value, 
+        await cloudStorageService.executeBackgroundUpload(
+          itemService,
+          preItem.id,
+          currentImageRevision.value,
+          originalImagePath.value,
           isUsingOriginal.value ? originalImagePath.value : previewImage.value,
           localImageExt.value,
-          userConsentAccepted,
-          syncEnabled
+          userConsentAccepted
         )
       }
       setTimeout(() => uni.navigateBack(), 1000)

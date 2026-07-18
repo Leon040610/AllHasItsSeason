@@ -82,8 +82,10 @@ class DraftService {
     // categoryId / categoryName is required
     if (!draft.categoryId && !draft.categoryName) missing.push('待补分类')
     
-    // displayImageUrl and originalImageUrl both absent
-    if (!draft.displayImageUrl && !draft.originalImageUrl) missing.push('缺失图片')
+    // displayImageUrl, originalImageUrl and cloud file IDs all absent
+    if (!draft.displayImageUrl && !draft.originalImageUrl && !draft.displayImageCloudFileId && !draft.originalImageCloudFileId) {
+      missing.push('缺失图片')
+    }
     
     let hasExpiry = false
     let hasAfterOpening = false
@@ -138,6 +140,9 @@ class DraftService {
     } else {
       newDraft.syncStatus = status;
       newDraft.lastSyncedAt = lastSyncedAt;
+      // 新设备拉下来的草稿，由于无本地临时路径，降级使用云端 file ID 渲染
+      newDraft.displayImageUrl = newDraft.displayImageCloudFileId || newDraft.cutoutImageCloudFileId || newDraft.originalImageCloudFileId || '';
+      newDraft.originalImageUrl = newDraft.originalImageCloudFileId || '';
       newDraft.missingFields = this.computeMissingFields(newDraft);
       this.drafts.push(newDraft);
     }

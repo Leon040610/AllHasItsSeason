@@ -18,5 +18,15 @@ export const wechatCloudStorageRepository = {
       fileList: fileIDs
     });
     return res.fileList;
+  },
+
+  async downloadFile(cloudFileId) {
+    if (typeof wx === 'undefined' || !wx.cloud) {
+      throw new Error('wx.cloud not available');
+    }
+    const res = await wx.cloud.downloadFile({
+      fileID: cloudFileId
+    });
+    return res;
   }
 };

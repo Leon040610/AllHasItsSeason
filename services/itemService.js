@@ -295,7 +295,14 @@ class ItemService {
       // 登记新状态图片
       this._registerFilesForItem(this.items[index]);
       
-      return this._save();
+      const saved = this._save();
+      if (saved) {
+        // 图片上传的每个状态变化都额外安排同步，避免 File ID 被首轮物品同步抢在前面。
+        import('./syncService.js').then(({ syncService }) => {
+          syncService.scheduleAutoSync({ reason: 'image_state_updated' });
+        });
+      }
+      return saved;
     }
     return false;
   }

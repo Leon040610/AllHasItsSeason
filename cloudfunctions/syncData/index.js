@@ -70,10 +70,8 @@ function extractSafePayload(collection, record, ownerKey) {
     safeRecord.cutoutImageCloudFileId = record.cutoutImageCloudFileId || ''
     safeRecord.displayImageCloudFileId = record.displayImageCloudFileId || ''
     
-    // P2.8 Sync Timeline and Local URLs if needed across devices (optional but helps simulator)
+    // P2.8 Sync Timeline (timeline已通过云端同步，排除本地路径originalImageUrl/displayImageUrl)
     safeRecord.timeline = Array.isArray(record.timeline) ? record.timeline : []
-    safeRecord.originalImageUrl = record.originalImageUrl || ''
-    safeRecord.displayImageUrl = record.displayImageUrl || ''
     
     safeRecord.imageRevision = typeof record.imageRevision === 'number' ? record.imageRevision : 0
     safeRecord.imageSyncPending = !!record.imageSyncPending
@@ -164,6 +162,18 @@ function extractSafePayload(collection, record, ownerKey) {
     safeRecord.notes = record.notes || ''
     safeRecord.source = 'add'
     safeRecord.isDeleted = !!record.isDeleted
+
+    // 扩展草稿的图片云端 fileId（不把任何本地物理路径originalImageUrl等同步上云）
+    safeRecord.imageProcessStatus = record.imageProcessStatus || 'idle'
+    safeRecord.originalImageCloudFileId = record.originalImageCloudFileId || ''
+    safeRecord.cutoutImageCloudFileId = record.cutoutImageCloudFileId || ''
+    safeRecord.displayImageCloudFileId = record.displayImageCloudFileId || ''
+    safeRecord.imageRevision = typeof record.imageRevision === 'number' ? record.imageRevision : 0
+    safeRecord.imageSyncPending = !!record.imageSyncPending
+    safeRecord.imageBackgroundColor = record.imageBackgroundColor || ''
+    safeRecord.beautifyFallbackReason = record.beautifyFallbackReason || ''
+    safeRecord.stickerRotation = typeof record.stickerRotation === 'number' ? record.stickerRotation : 0
+    extractTime('imageUpdatedAt')
     
     safeRecord.createdAt = normalizeTimestamp(record.createdAt, Date.now())
     safeRecord.updatedAt = normalizeTimestamp(record.updatedAt, Date.now())
@@ -192,6 +202,11 @@ exports.main = async (event, context) => {
   const ownerKey = generateOwnerKey(OPENID, salt)
 
   try {
+    if (action === 'repairHistoricalOwnerKey') {
+      const mode = event.mode || 'dry-run'
+      return await handleRepairHistoricalOwnerKey(OPENID, salt, mode)
+    }
+
     if (action === 'log') {
       return await handleLog(ownerKey, logData)
     }
@@ -299,7 +314,27 @@ async function handleUpsert(collection, ownerKey, records) {
             if (doc.createdAt !== undefined) {
               safeRecord.createdAt = doc.createdAt
             }
-            await transaction.collection(collection).doc(cloudDocumentId).update({ data: safeRecord })
+            const updateData = { ...safeRecord }
+
+            // P2.7 以后云端只保存 Cloud File ID。历史版本留下的本机临时路径
+            // 必须在下一次安全同步时清除，避免跨设备展示依赖无效路径。
+            if (collection === 'items' || collection === 'drafts') {
+              const legacyLocalImageFields = [
+                'originalImageUrl',
+                'displayImageUrl',
+                'cutoutImageUrl',
+                'savedFilePath',
+                'tempFilePath',
+                'originalImagePath'
+              ]
+              legacyLocalImageFields.forEach(field => {
+                if (doc[field] !== undefined) {
+                  updateData[field] = db.command.remove()
+                }
+              })
+            }
+
+            await transaction.collection(collection).doc(cloudDocumentId).update({ data: updateData })
             return {
               outcome: 'updated',
               record: safeRecord,
@@ -426,5 +461,49 @@ async function handlePreflight(ownerKey) {
   } catch (err) {
     console.error('[syncData] preflight failed', err)
     return { success: false, message: '预检失败' }
+  }
+}
+
+async function handleRepairHistoricalOwnerKey(OPENID, salt, mode) {
+  try {
+    const ownerKey = generateOwnerKey(OPENID, salt)
+    const oldOwnerKey = crypto.createHmac('sha256', salt).update(OPENID).digest('hex')
+
+    if (ownerKey === oldOwnerKey) {
+      return { success: true, message: '新旧归属标识一致，无需修复', data: { scanned: 0, updated: 0 } }
+    }
+
+    const collectionsToRepair = ['image_jobs', 'recognition_logs']
+    const results = {}
+
+    for (const colName of collectionsToRepair) {
+      const col = db.collection(colName)
+      const queryRes = await col.where({ ownerKey: oldOwnerKey }).limit(100).get()
+      const count = queryRes.data.length
+
+      let updatedCount = 0
+      if (mode === 'apply' && count > 0) {
+        const updateRes = await col.where({ ownerKey: oldOwnerKey }).update({
+          data: {
+            ownerKey: ownerKey
+          }
+        })
+        updatedCount = updateRes.stats.updated || 0
+      }
+
+      results[colName] = {
+        scanned: count,
+        updated: updatedCount
+      }
+    }
+
+    return {
+      success: true,
+      message: mode === 'dry-run' ? '历史归属标识修复检测完成(dry-run)' : '历史归属标识修复完成(apply)',
+      data: results
+    }
+  } catch (err) {
+    console.error('[syncData] repairHistoricalOwnerKey failed', err)
+    return { success: false, message: '历史归属标识修复失败' }
   }
 }

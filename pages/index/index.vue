@@ -166,6 +166,8 @@ import { itemService } from '../../services/itemService.js'
 import { categoryService } from '../../services/categoryService.js'
 import { syncService } from '../../services/syncService.js'
 import { recognitionService } from '../../services/recognitionService.js'
+import { cloudStorageService } from '../../services/cloudStorageService.js'
+import { isStoredLoggedIn } from '../../utils/authSessionStore.js'
 
 const focusItems = ref<any[]>([])
 const categories = ref<any[]>([])
@@ -219,6 +221,11 @@ function loadData() {
       ...item,
       cardBg: bg
     }
+  })
+
+  // 异步还原临期好物的图片展示路径
+  cloudStorageService.restoreItemDisplayImages(focusItems.value).then(restored => {
+    focusItems.value = [...restored]
   })
 
   // 统计分类数量
@@ -336,6 +343,15 @@ function onFabTouchEnd() {
 }
 
 function onPhotoScan() {
+  if (!isStoredLoggedIn()) {
+    uni.showToast({
+      title: '登录后可拍照识字',
+      icon: 'none',
+      duration: 1600
+    });
+    return;
+  }
+
   const consent = uni.getStorageSync('allhas_ocr_consent_v1');
   if (consent && consent.accepted) {
     executePhotoScan();

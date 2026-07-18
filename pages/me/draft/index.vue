@@ -110,6 +110,7 @@ import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { draftService } from '../../../services/draftService.js'
 import { dateUtils } from '../../../utils/dateUtils.js'
+import { cloudStorageService } from '../../../services/cloudStorageService.js'
 
 const drafts = ref<any[]>([])
 const isBatchMode = ref(false)
@@ -135,6 +136,10 @@ function loadDrafts() {
       imgBg: '#F4F3F1',
       lastEditTime
     }
+  })
+
+  cloudStorageService.restoreItemDisplayImages(drafts.value).then(restored => {
+    drafts.value = [...restored]
   })
 }
 
