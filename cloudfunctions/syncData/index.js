@@ -108,7 +108,26 @@ function extractSafePayload(collection, record, ownerKey) {
     safeRecord.defaultRemindDays = typeof record.defaultRemindDays === 'number' ? record.defaultRemindDays : 7
     safeRecord.remindTime = record.remindTime || '10:00'
     safeRecord.inAppEnabled = record.inAppEnabled !== undefined ? !!record.inAppEnabled : true
-    
+
+    // 新增白名单字段安全校验与规范化
+    safeRecord.subscriptionIntent = !!record.subscriptionIntent
+
+    const validResults = ['unknown', 'accept', 'reject', 'ban', 'filter', 'unavailable']
+    safeRecord.subscriptionLastResult = validResults.includes(record.subscriptionLastResult) ? record.subscriptionLastResult : 'unknown'
+
+    if (record.subscriptionLastRequestedAt !== undefined && record.subscriptionLastRequestedAt !== null && record.subscriptionLastRequestedAt !== '') {
+      safeRecord.subscriptionLastRequestedAt = normalizeTimestamp(record.subscriptionLastRequestedAt, null)
+    } else {
+      safeRecord.subscriptionLastRequestedAt = null
+    }
+
+    const validErrorCodes = ['network_error', 'invalid_template', 'main_switch_off', 'service_banned', 'client_unavailable', 'unknown_error']
+    if (record.subscriptionLastErrorCode !== undefined && record.subscriptionLastErrorCode !== null && record.subscriptionLastErrorCode !== '') {
+      safeRecord.subscriptionLastErrorCode = validErrorCodes.includes(record.subscriptionLastErrorCode) ? record.subscriptionLastErrorCode : 'unknown_error'
+    } else {
+      safeRecord.subscriptionLastErrorCode = null
+    }
+
     safeRecord.createdAt = normalizeTimestamp(record.createdAt, Date.now())
     safeRecord.updatedAt = normalizeTimestamp(record.updatedAt, Date.now())
   }

@@ -137,7 +137,7 @@
             <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
           </view>
           <view class="settings-divider" />
-          <view class="settings-item" @tap="onContact">
+          <button class="settings-item settings-item--contact" open-type="contact">
             <view class="settings-item__left">
               <view class="settings-item__icon-wrap">
                 <image class="settings-item__icon-img" src="/static/icons/me-lianxikaifazhe.svg" mode="aspectFit" />
@@ -148,7 +148,7 @@
               </view>
             </view>
             <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
-          </view>
+          </button>
         </view>
       </view>
 
@@ -278,10 +278,6 @@ function onDraftBox() {
 
 function onAbout() {
   uni.navigateTo({ url: '/pages/me/about/index' })
-}
-
-function onContact() {
-  uni.showToast({ title: '感谢您的关注！可通过微信搜索「万物有期」反馈', icon: 'none', duration: 3000 })
 }
 
 function onTabTap(tab: string) {
@@ -539,6 +535,24 @@ $top-height: 120rpx;
 
   &--disabled {
     opacity: 0.7;
+  }
+
+  &--contact {
+    background: transparent;
+    border: none;
+    outline: none;
+    margin: 0;
+    line-height: inherit;
+    text-align: left;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    font-weight: normal;
+    display: flex;
+
+    &::after {
+      border: none;
+    }
   }
 
   &__left {

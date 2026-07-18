@@ -9,7 +9,11 @@ const DEFAULT_REMINDER_SETTINGS = {
   inAppEnabled: true,
   remindDayOptions: [0, 1, 3, 7, 30],
   defaultRemindDays: 7,
-  remindTime: '10:00'
+  remindTime: '10:00',
+  subscriptionIntent: false,
+  subscriptionLastResult: 'unknown',
+  subscriptionLastRequestedAt: null,
+  subscriptionLastErrorCode: null
 };
 
 function isUnmodifiedReminderSettings(settings) {
@@ -17,6 +21,10 @@ function isUnmodifiedReminderSettings(settings) {
   if (settings.inAppEnabled !== DEFAULT_REMINDER_SETTINGS.inAppEnabled) return false;
   if (settings.defaultRemindDays !== DEFAULT_REMINDER_SETTINGS.defaultRemindDays) return false;
   if (settings.remindTime !== DEFAULT_REMINDER_SETTINGS.remindTime) return false;
+  if (settings.subscriptionIntent !== DEFAULT_REMINDER_SETTINGS.subscriptionIntent) return false;
+  if (settings.subscriptionLastResult !== DEFAULT_REMINDER_SETTINGS.subscriptionLastResult) return false;
+  if (settings.subscriptionLastRequestedAt !== DEFAULT_REMINDER_SETTINGS.subscriptionLastRequestedAt) return false;
+  if (settings.subscriptionLastErrorCode !== DEFAULT_REMINDER_SETTINGS.subscriptionLastErrorCode) return false;
   if (!Array.isArray(settings.remindDayOptions) || settings.remindDayOptions.length !== 5) return false;
   for (let i = 0; i < 5; i++) {
     if (settings.remindDayOptions[i] !== DEFAULT_REMINDER_SETTINGS.remindDayOptions[i]) return false;
@@ -49,6 +57,10 @@ class SettingsService {
         remindDayOptions: oldCustomDays || [...DEFAULT_REMINDER_SETTINGS.remindDayOptions],
         defaultRemindDays: oldDefaultDays !== '' ? Number(oldDefaultDays) : DEFAULT_REMINDER_SETTINGS.defaultRemindDays,
         remindTime: oldDefaultTime || DEFAULT_REMINDER_SETTINGS.remindTime,
+        subscriptionIntent: DEFAULT_REMINDER_SETTINGS.subscriptionIntent,
+        subscriptionLastResult: DEFAULT_REMINDER_SETTINGS.subscriptionLastResult,
+        subscriptionLastRequestedAt: DEFAULT_REMINDER_SETTINGS.subscriptionLastRequestedAt,
+        subscriptionLastErrorCode: DEFAULT_REMINDER_SETTINGS.subscriptionLastErrorCode,
         syncStatus: isCustomized ? 'pending' : 'synced',
         lastSyncedAt: null,
         syncError: '',
@@ -74,6 +86,22 @@ class SettingsService {
       if (settings.enabled === undefined) {
         settings.enabled = true;
         settings.inAppEnabled = true;
+        migrated = true;
+      }
+      if (settings.subscriptionIntent === undefined) {
+        settings.subscriptionIntent = DEFAULT_REMINDER_SETTINGS.subscriptionIntent;
+        migrated = true;
+      }
+      if (settings.subscriptionLastResult === undefined) {
+        settings.subscriptionLastResult = DEFAULT_REMINDER_SETTINGS.subscriptionLastResult;
+        migrated = true;
+      }
+      if (settings.subscriptionLastRequestedAt === undefined) {
+        settings.subscriptionLastRequestedAt = DEFAULT_REMINDER_SETTINGS.subscriptionLastRequestedAt;
+        migrated = true;
+      }
+      if (settings.subscriptionLastErrorCode === undefined) {
+        settings.subscriptionLastErrorCode = DEFAULT_REMINDER_SETTINGS.subscriptionLastErrorCode;
         migrated = true;
       }
       if (settings.syncStatus === undefined) {

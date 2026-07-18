@@ -1,20 +1,18 @@
-refactor: 强化多账户存储隔离的竞态防护与循环依赖解耦
+feat: 实现微信订阅消息提醒授权机制、效期提醒判定引擎与客服通道接入
 
-- 循环依赖解耦 (utils/authSessionStore.js)：
-  1. 新增 `authSessionStore.js` 轻量模块，提供无依赖的 `isStoredLoggedIn()` 与 `getStoredSession()` 读取函数
-  2. 让 `syncService.js` 改为引用此轻量模块而非 `authService`，从根本上消除 syncService <-> authService 的循环依赖，解决微信小程序打包时的 bundle 运行时错误
-- 多账户作用域竞态防护 (services/syncService.js)：
-  1. 引入 `scopeEpoch` 版本号机制，每次登出/切换账号时递增并触发 `cancelForScopeChange()`，可优雅中止正在进行的旧同步任务
-  2. 同步核心路径中关键 I/O 点（预检、拉取、推送）均插入 `assertOperationCurrent()` 守卫校验，确保作用域切换时正在进行的批次不会把数据写入错误的账号 Scoped Key
-  3. 将 `guestMigrationService` 的动态依赖导入固化为静态 import，并新增 `scheduleAutoSync` 可选项支持测试环境中禁用自动调度
-- 存储隔离范围扩展 (utils/storageScopeService.js & utils/storageKeys.js)：
-  1. 将本地图片文件注册表 `allhas_local_file_registry_v1` 纳入多租户隔离 Key 体系
-  2. 优化各服务的 `localRepository.get/set` 调用，统一引用 `STORAGE_KEYS` 常量
-- 字体资源更新 (static/fonts/)：
-  1. 将字体文件从 woff2 格式替换为 ttf 以兼容部分微信真机渲染环境
-- 细节修复与改进：
-  1. 将"我的"主页的默认昵称改为"万物旅人"
-  2. 登录入口改为静态 import guestMigrationService，避免异步动态导入延迟
-  3. 修正登录错误提示时的错误消息类型守卫
+- 微信消息订阅与服务 (services/subscriptionMessageService.js & env.example.js)：
+  1. 新增 `subscriptionMessageService.js`，管理基于 `wx.requestSubscribeMessage` 的微信订阅授权弹窗交互
+  2. 实现全套异常与状态码分析，包括 `accept`（同意）、`reject`（拒绝）、`ban`（微信封禁）、`main_switch_off`（全局开关关闭）等，提升体验容错
+  3. 在 `env.example.js` 中新增小程序订阅消息模板 ID `wxReminderTemplateId` 环境变量
+- 物品效期提醒判定引擎 (services/reminderService.js)：
+  1. 新增 `reminderService.js` 作为通用的提醒决策引擎，判定单件物品的提醒资格
+  2. 针对物品状态、有效到期日校验、剩余天数、提醒偏好（应用内意愿与微信订阅意愿）进行多维匹配计算，并提供批量过滤筛选候选人 API
+- 提醒偏好配置与云同步 (pages/me/reminder/ & services/settingsService.js & cloudfunctions/syncData/)：
+  1. 提醒设置页优化：若微信订阅模板未配置则显示“暂未配置微信提醒”并锁定；若已配置，则在开启时唤醒订阅授权，并在本地同步更新状态
+  2. 升级 `settingsService.js`，在用户提醒设置中增加 `subscriptionIntent`（开启意向）、`subscriptionLastResult` 等四个新属性
+  3. 升级 `syncData` 云函数，白名单接收并同步新增的订阅提醒字段，并对时间戳与选项进行规范化处理
+- 微信原生客服消息对接 (pages/me/index.vue)：
+  1. 重构“联系开发者”列表卡片，使用原生微信 `<button open-type="contact">` 代替原有的 Toast，支持调起微信自带的客服会话窗口
+  2. 新增 `.settings-item--contact` 的样式，擦除按钮的默认样式，使其视觉上与列表其它项完全一致
 
-影响范围：登录/注销账号切换流程、数据存储隔离机制、同步任务竞态保护
+影响范围：小程序“我的”主页、提醒设置页面、提醒计算引擎及云端配置同步规范

@@ -1,31 +1,80 @@
-# Findings: Mini Program Custom Font Loading
+# Findings - P3.1 Implementation
 
-## Requirements
-- Diagnose why the design font is absent in WeChat preview and device debugging.
-- Correct the app implementation where possible and identify the deployment action that cannot be inferred from the repository.
+## Initial Context Analysis
+- **SECURITY.md**:
+  - `env.js`, `.env`, `project.private.config.json` 等文件均不能提交。
+  - `OWNER_KEY_SALT` 必须配置在云开发控制台，不能在代码中硬编码。
+  - 用户表 `users` 只能在云端通过云函数读写，前端没有读写权限。
+  - `openid` 与 `ownerKey` 绝不能在前端暴露或打印。
+- **settingsService.js**:
+  - `settingsService` 在本地通过 `localRepository` 管理用户设置，存储在 `STORAGE_KEYS.USER_SETTINGS` 键中。
+  - 现有字段：`enabled: true`, `inAppEnabled: true`, `remindDayOptions: [0, 1, 3, 7, 30]`, `defaultRemindDays: 7`, `remindTime: '10:00'`, `syncStatus`, `lastSyncedAt`, `syncError`, `createdAt`, `updatedAt`。
+  - `isUnmodifiedReminderSettings` 用于判断设置是否为默认设置，退化为种子数据。
+  - `updateSettings` 会更新 `updatedAt` 并将 `syncStatus` 设为 `'pending'`。
 
-## Research Findings
-- Official docs: `wx.loadFontFace.source` must be an HTTPS link or a Data URL. The API dynamically loads a network font; it does not load from a mini-program package path or a `cloud://` ID.
-- An HTTPS font link must be a downloadable response, use HTTPS, return a valid font `Content-Type`, and be same-origin or send CORS headers allowing `https://servicewechat.com`.
-- The docs recommend TTF or WOFF. WOFF2 has iOS compatibility issues on older clients. Data URL support begins at base library 3.7.9; this project's `mp-weixin.libVersion` is 3.3.4.
-- Valid `scopes` are `webview`, `native`, and `skyline`. `app` is not a valid scope; global behavior is controlled by `global: true`.
-- `static/fonts/noto-serif-sc-subset.ttf` is 340,044 bytes and starts with `00 01 00 00`, the TrueType sfnt signature. It is a variable TTF. It was renamed from the misleading `.woff2` extension.
-- Screenshot evidence: the package path produces `invalid url`; the fallback then fails because Cloud Storage returns an empty download URL. Consequently `wx.loadFontFace` is never reached.
-- The font is now present in the intended Cloud Storage environment under the supplied File ID. Its signed download URL returns HTTP 200 and 340,044 bytes. The app must resolve a new signed URL on each launch rather than keep the provided URL, which has an expiry parameter.
-- The Cloud Development console version in use only exposes storage cache settings, not CORS rules. The direct object response also has no observed `Access-Control-Allow-Origin` header. The loader therefore downloads through `wx.cloud.downloadFile`, reads the local temporary file as base64, and registers a `data:font/ttf` URL. This avoids CORS and response MIME dependencies.
-- A complete Noto Serif SC variable font is now available locally. A new subset includes 3,868 code points: the project source's text plus GB2312 level-one common Chinese characters, ASCII, and common CJK punctuation. The generated TTF is 2,792,800 bytes and preserves the variable-font `fvar` and `gvar` tables.
-- Final cmap validation found all 3,868 requested code points in the generated font, with zero omissions. The Cloud Storage console has a two-minute cache rule for all files, so an in-place overwrite may serve the prior file briefly.
-- A device run confirmed the new 2.79 MB file is present in Cloud Storage, but the previous 15-second foreground wait prevented it from reaching registration and delayed startup. Font loading now continues in the background after Cloud Runtime initialization. The launch page and auth service also guard against undefined rejection values before accessing `message`.
-- The captured device log confirms Cloud Runtime had already reached `ready`. The `[font] timed out ... continuing with the system fallback` line came from the old timeout branch, which abandoned later font registration; it was not evidence that Cloud Storage failed. The visible `Cannot read properties of undefined` toast came from the old launch-page catch block dereferencing an undefined rejection value.
+## PRD V1.3.7 & Design Guidelines Analysis
+- **Aesthetics & compliance**:
+  - NO "AI" keywords in the UI or codebase. Instead use "智能抠图" (smart cutout), "一键抠图", "拍照识字" (OCR).
+- **Three Expiry Modes & Calculations**:
+  - `normal`: Uses `expiryDate` (from production date + shelf life).
+  - `after_opening`: Uses `openedExpiryDate` (from open date + after-opening shelf life).
+  - `dual` (Double expiry):
+    - Unopened (`status = 'pending'` or '待取用'): uses normal `expiryDate`.
+    - In-use (`status = 'using'` or '使用中'): uses `openedExpiryDate`.
+  - All reminders and displays are driven by `activeExpiryDate` (calculated dynamically or stored).
+  - Days left, expiration tags (near expire / expired) must be consistent across home, library, and cloud scan functions.
+  - Active expiry state tags `near_expire`, `expired` must not be persisted as main status. Main status is `pending`, `using`, `done` (completed/consumed), `deleted`.
+- **Reminder Settings Fields Upgrade**:
+  - Need to support fields: `enabled`, `inAppEnabled`, `subscriptionIntent`, `subscriptionLastResult`, `subscriptionLastRequestedAt`, `reminderTemplateConfigured`, `remindDayOptions`, `defaultRemindDays`, `remindTime`, `updatedAt`.
+  - Sync compatibility: Local repository storage syncs with cloud `reminder_settings`.
+- **WeChat Subscription & Authorization**:
+  - Must use `wx.requestSubscribeMessage` to request permission when the user toggles WeChat reminders.
+  - The template IDs must be stored in secure configuration (such as `env.js`) and not hardcoded in pages.
+  - Flow:
+    - User toggles: check login and template existence.
+    - Call API: If accepted, set lastResult to `accept`, show toast "提醒偏好已记下，重要日期会温和地出现".
+    - If rejected/ban: set lastResult to `reject` / `ban`, show toast "没关系，首页也会继续提醒你".
+    - Save states: `subscriptionLastResult`, `subscriptionLastRequestedAt`, `subscriptionIntent` = true/false, `enabled` = (accept status).
 
-## Technical Decisions
-| Decision | Rationale |
-|----------|-----------|
-| Configure a Cloud Storage File ID in the ignored local environment file | The uploaded object now exists. The app downloads it using the authenticated Cloud Development API. |
-| Use a TTF Data URL after download | The downloaded file never has to be fetched cross-origin by the font API. |
-| Replace the old 340,044-byte subset with the 2,792,800-byte subset | The former had about 646 glyphs and visibly caused character-level system-font fallback. |
+## Existing Code Analysis
+- **itemService.js**:
+  - Contains `getItems` (filters out `'deleted'`), `addItem`, `updateItem`, `softDeleteItem`, `markItemDone` (status set to `'done'`).
+  - History tracking uses `timeline`.
+- **dateUtils.js**:
+  - `determineActiveExpiry(item)` calculates `activeExpiryDate` and `activeExpirySource` correctly:
+    - If `status === 'done'`, returns `{ date: null, source: null }`.
+    - If `expiryMode === 'normal'`, returns normal `expiryDate`.
+    - If `expiryMode === 'after_opening'`, returns `openedExpiryDate` (if opened).
+    - If `expiryMode === 'dual'`:
+      - If unopened (`status === 'pending' || !item.openDate`), returns normal `expiryDate`.
+      - If in use (`status === 'using' && item.openDate`), returns the earlier of `openedExpiryDate` and `expiryDate` (or the available one if one is missing).
+- **DataConverter.js**:
+  - `toItemViewModel` dynamically converts stored item models to UI view models.
+  - Recalculates `activeExpiryDate` and `activeExpirySource` using `determineActiveExpiry`.
+  - Determines `daysLeft` using `getDaysDifference` based on the calculated `activeExpiryDate` and today.
+  - Tags `displayStatus` as `'expiring'` if `daysLeft <= remindDays`.
+- **reminder/index.vue**:
+  - Current implementation only handles simple state switches, calling `saveSettings` directly without calling `wx.requestSubscribeMessage`.
+  - `subscribeEnabled` is bound to `settings.enabled`.
+- **cloudfunctions/syncData/index.js**:
+  - Validates `collection` against `ALLOWED_COLLECTIONS` (includes `reminder_settings`).
+  - `extractSafePayload` for `reminder_settings` only extracts: `id='default'`, `enabled`, `remindDayOptions`, `defaultRemindDays`, `remindTime`, `inAppEnabled`, `createdAt`, `updatedAt`.
+  - Needs update to support: `subscriptionIntent`, `subscriptionLastResult`, `subscriptionLastRequestedAt` (and optionally `reminderTemplateConfigured`).
+- **syncService.js**:
+  - `syncAll` lists `reminder_settings` as a sync collection.
+  - `reminder_settings` has custom `getPendingForSync` and `applySyncResult` hooks delegating to `settingsService`.
+  - `syncService` itself determines if there are pending changes by checking `settingsService.hasPendingSettings()`.
+- **env.example.js**:
+  - Contains global config constants like `cloudEnvID`, `fontUrl`, `fontFileId`.
+  - We can define `reminderTemplateId` here to ensure it's not hardcoded in the pages.
 
-## Resources
-- https://developers.weixin.qq.com/miniprogram/dev/api/ui/font/wx.loadFontFace.html
-- `App.vue`
-- `static/fonts/noto-serif-sc-subset.ttf`
+## WeChat Subscribe Message Document Analysis (New vs Old)
+- **Old One-time Subscribe Message (弹窗一次性订阅)**:
+  - Triggered via user click event calling `wx.requestSubscribeMessage`.
+  - Shows a popup to the user to choose accept or reject.
+  - A successful authorization grants the backend permission to push exactly 1 notification.
+  - This is the standard, stable and most universal method suited for reminder settings.
+- **New One-time Subscribe Message (新版一次性订阅)**:
+  - This is a Beta feature that bypasses the conventional popup selection.
+  - It relies on specific triggers such as Wechat Pay transactions (using payment transaction ID as a code) or button actions utilizing `open-type="liveActivity"` (real-time activities).
+  - Since our reminder settings page does not involve transaction checkouts or live activities, and requires a traditional user permission intent opt-in, the **Old (Conventional) One-time Subscribe popup is the correct choice**.
