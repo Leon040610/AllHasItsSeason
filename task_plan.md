@@ -1,5 +1,11 @@
 # Task Plan - P3.1 & P2 Cleanup Implementation
 
+## Phase 15: P3.2 Real-Send Cloud API Permission Repair
+- [x] Declare the official `subscribeMessage.send` OpenAPI permission on the sender function only.
+- [x] Preserve signed CloudBase platform codes and separate missing cloud-call permission from one-time authorization loss.
+- [x] Keep a grant available when the send call never left CloudBase because permission is missing.
+- [x] Document the required re-deployment, trigger upload, permission-cache wait, and fresh grant validation.
+
 ## Phase 1: Research and Setup
 - [x] Read required files (PRD, design docs, existing services, models, utils)
 - [x] Research cloud functions configuration for settings syncing
@@ -94,7 +100,18 @@
 - [x] Wire frontend authorization acceptance to recipient registration.
 - [x] Run static checks and dry-run-oriented local assertions; document manual deployment/configuration and stop before P3.3.
 
+## Phase 14: One-Time Subscription Grant Correction
+- [x] Replace the account-wide recipient "active" authorization model with a per-item, per-active-expiry one-time grant.
+- [x] Bind each accepted client subscription request to the item being saved; do not request through a custom modal callback.
+- [x] Require a matching available grant during scan and consume only that grant after a successful send.
+- [x] Isolate authorization loss and retries to the current grant and job; do not disable other items for the same account.
+- [x] Remove the hidden legacy settings-page authorization control and stale service references.
+- [x] Run final static checks and document the manual CloudBase deployment and real-device verification steps.
+- [x] Declare the two CloudBase timer triggers in function-local `config.json` files and document “上传触发器” deployment.
+
 ## Errors Encountered
 | Error | Attempt | Resolution |
 |---|---|---|
 | PowerShell quoting error while probing configuration metadata | 1 | The probe was read-only and did not touch project files; the surrounding searches and safe configuration checks were rerun successfully. |
+| Reminder-page cleanup patch did not match mixed legacy text on the first attempt | 1 | Re-ran the cleanup with stable ASCII anchors and removed the hidden template, obsolete imports, function, and styles without touching other page logic. |
+| Deployment-document insertion did not match the first non-ASCII context anchor | 1 | Re-ran the insertion using the stable environment-variable code-block anchor; the documentation update applied successfully. |

@@ -5,6 +5,7 @@ const crypto = require('crypto')
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV })
 const db = cloud.database()
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 function ownerKeyFor(openid, salt) {
   return crypto.createHmac('sha256', salt).update(openid).digest('hex').substring(0, 32)
@@ -25,6 +26,38 @@ function encrypt(value, secret) {
   }
 }
 
+function validGrantInput(event) {
+  return event &&
+    typeof event.itemId === 'string' && event.itemId.length > 0 && event.itemId.length <= 128 &&
+    typeof event.activeExpiryDate === 'string' && DATE_RE.test(event.activeExpiryDate) &&
+    event.reminderKind === 'expiry_window'
+}
+
+function grantId(ownerKey, itemId, activeExpiryDate) {
+  const source = `${ownerKey}|${itemId}|${activeExpiryDate}|expiry_window`
+  return `grant_${crypto.createHash('sha256').update(source).digest('hex').substring(0, 40)}`
+}
+
+async function cancelReplacedGrants(ownerKey, itemId, activeExpiryDate, keepId, now) {
+  const existing = await db.collection('notification_grants').where({
+    ownerKey,
+    itemId,
+    activeExpiryDate,
+    reminderKind: 'expiry_window',
+    status: 'available'
+  }).limit(20).get()
+  for (const grant of existing.data) {
+    if (grant.id === keepId) continue
+    await db.collection('notification_grants').doc(grant._id).update({
+      data: {
+        status: 'cancelled',
+        lastErrorCode: 'replaced_by_new_authorization',
+        updatedAt: now
+      }
+    })
+  }
+}
+
 exports.main = async (event = {}) => {
   const context = cloud.getWXContext()
   const openid = context.OPENID
@@ -33,53 +66,70 @@ exports.main = async (event = {}) => {
   if (!openid || !salt || !secret) {
     return { success: false, data: null, errorCode: 'recipient_config_missing' }
   }
+  if (event.action !== 'registerGrant' || !validGrantInput(event)) {
+    return { success: false, data: null, errorCode: 'invalid_grant_request' }
+  }
 
   const ownerKey = ownerKeyFor(openid, salt)
-  const docId = `recipient_${ownerKey}`
+  const recipientId = `recipient_${ownerKey}`
   const now = Date.now()
-  try {
-    if (event.action === 'disable') {
-      await db.collection('notification_recipients').doc(docId).update({
-        data: {
-          status: 'disabled',
-          disabledAt: now,
-          updatedAt: now
-        }
-      })
-      return { success: true, data: { status: 'disabled' } }
-    }
+  const grant = {
+    id: grantId(ownerKey, event.itemId, event.activeExpiryDate),
+    ownerKey,
+    itemId: event.itemId,
+    activeExpiryDate: event.activeExpiryDate,
+    reminderKind: 'expiry_window',
+    status: 'available',
+    createdAt: now,
+    updatedAt: now,
+    consumedAt: null,
+    cancelledAt: null,
+    lastErrorCode: null,
+    retryCount: 0
+  }
 
+  try {
     const encrypted = encrypt(openid, secret)
     let createdAt = now
-    let grantVersion = 0
     try {
-      const existing = await db.collection('notification_recipients').doc(docId).get()
-      if (existing.data) {
-        if (existing.data.createdAt) createdAt = existing.data.createdAt
-        grantVersion = Number(existing.data.grantVersion || 0)
-      }
+      const existingRecipient = await db.collection('notification_recipients').doc(recipientId).get()
+      createdAt = existingRecipient.data && existingRecipient.data.createdAt || now
     } catch (_) {
-      // A missing document is expected on first registration.
+      // First registration has no endpoint record yet.
     }
-    await db.collection('notification_recipients').doc(docId).set({
+    await db.collection('notification_recipients').doc(recipientId).set({
       data: {
         ownerKey,
         encryptedOpenId: encrypted.ciphertext,
         encryptionIv: encrypted.iv,
         encryptionAuthTag: encrypted.authTag,
         status: 'active',
-        grantVersion: grantVersion + 1,
-        authorizedAt: now,
-        consumedAt: null,
-        lastSentAt: null,
-        lastErrorCode: null,
         updatedAt: now,
-        createdAt
+        createdAt,
+        lastErrorCode: null
       }
     })
-    return { success: true, data: { status: 'active', updatedAt: now } }
+    let originalCreatedAt = now
+    try {
+      const existingGrant = await db.collection('notification_grants').doc(grant.id).get()
+      originalCreatedAt = existingGrant.data && existingGrant.data.createdAt || now
+    } catch (_) {
+      // A first authorization has no existing grant slot.
+    }
+    grant.createdAt = originalCreatedAt
+    await cancelReplacedGrants(ownerKey, grant.itemId, grant.activeExpiryDate, grant.id, now)
+    await db.collection('notification_grants').doc(grant.id).set({ data: grant })
+    return {
+      success: true,
+      data: {
+        grantId: grant.id,
+        itemId: grant.itemId,
+        activeExpiryDate: grant.activeExpiryDate,
+        status: grant.status
+      }
+    }
   } catch (error) {
-    console.error('[registerReminderRecipient] database operation failed', error.errCode || 'unknown')
-    return { success: false, data: null, errorCode: 'recipient_storage_failed' }
+    console.error('[registerReminderRecipient] grant registration failed', error.errCode || 'unknown')
+    return { success: false, data: null, errorCode: 'reminder_grant_storage_failed' }
   }
 }

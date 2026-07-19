@@ -1,5 +1,20 @@
 # Findings - P3.1 Implementation
 
+## 2026-07-19: P3.2 real-send failure repair
+- `sendReminderNotifications` already uses the documented `cloud.openapi.subscribeMessage.send(...)` call and supplies server-only recipient data plus template data from environment-driven field mapping. The sending call itself did not need to be replaced.
+- The function-local `config.json` lacked the required `permissions.openapi` declaration for `subscribeMessage.send`. This can produce CloudBase error `-604101` before the WeChat send API is reached.
+- The prior unsigned error-code filter discarded `-604101`, and the generic `permission` keyword classified it as `authorization_unavailable`. That incorrectly consumed an otherwise valid one-time grant.
+- The repair preserves signed platform codes, records permission failure as `cloud_api_permission_missing`, marks the job/log failed, and keeps the grant available. Explicit WeChat `43101` remains the only normal path that marks a current grant unavailable and skips its job.
+
+## 2026-07-19: P3.2 send parameter correction
+- The official WeChat global error-code table defines `-501007` as a CloudBase common parameter error. The observed `ready` job and available grant show that the sender safely retried this generic error rather than consuming the subscription.
+- Official subscription-message examples use `YYYY-MM-DD` for date values and `YYYY-MM-DD HH:mm` for date-time values. The sender now uses those canonical formats instead of Chinese calendar text.
+- A missing production date can no longer become an invalid placeholder payload. The sender validates the assembled template data before it calls WeChat, records `template_payload_invalid` without consuming the grant, and leaves a corrected item eligible for a later scan.
+
+## 2026-07-19: Template time-field display correction
+- The supplied template-detail preview displays a production date without a visible clock time, but a subsequent real cloud-call test returned `-501007` for the date-only `time8` payload. The live API validation is authoritative for this configured template.
+- The sender therefore uses `YYYY-MM-DD HH:mm` for `time8`, defaulting a date-only production record to `00:00`. Sender validation requires that complete date-time form again.
+
 ## 2026-07-18: P3.2 Preflight Blocker
 - The supplied WeChat template screenshot is sufficient to identify the template title as `保质期到期提醒` and the visible field keys: product name `thing5.DATA`, production date `time8.DATA`, remaining days `number2.DATA`, expiry date `date1.DATA`, and note `thing3.DATA`. The template ID was intentionally not copied into repository files or assistant output.
 - The screenshot does not prove the account/category qualification, one-time subscription availability, per-field length limits, or the exact accepted date/time display format. Those must be verified from the platform template details or a dry-run/test-account send.

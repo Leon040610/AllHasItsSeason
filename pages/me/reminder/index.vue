@@ -14,23 +14,6 @@
 
     <view class="content">
       <view class="settings-card">
-        <!-- 订阅消息提醒 -->
-        <view v-if="false" class="settings-item">
-          <text class="settings-item__label">微信订阅提醒</text>
-          <view class="settings-item__right">
-            <text v-if="!isTemplateConfigured" class="settings-item__status-text">暂未配置微信提醒</text>
-            <view
-              v-else
-              class="toggle"
-              :class="{ 'toggle--on': settings.subscribeEnabled }"
-              @tap="onToggleSubscribe"
-            >
-              <view class="toggle__thumb" />
-            </view>
-          </view>
-        </view>
-        <view class="settings-divider" />
-
         <!-- 默认临期天数（到期提醒设置） -->
         <picker mode="selector" :range="reminderPickerOptions" @change="onReminderPickerChange">
           <view class="settings-item">
@@ -78,11 +61,8 @@
 <script setup lang="ts">
 import { reactive, ref, computed } from 'vue'
 import { settingsService } from '../../../services/settingsService.js'
-import { subscriptionMessageService } from '../../../services/subscriptionMessageService.js'
-import { isStoredLoggedIn } from '../../../utils/authSessionStore.js'
 
 interface ReminderSettings {
-  subscribeEnabled: boolean
   defaultDays: number
   reminderTime: string
   inAppEnabled: boolean
@@ -91,22 +71,12 @@ interface ReminderSettings {
 const currentSettings = settingsService.getSettings()
 
 const settings = reactive<ReminderSettings>({
-  // `enabled` is a preference, not proof of a current one-time grant. New
-  // users and consumed/unknown grants must actively authorize again.
-  subscribeEnabled: currentSettings.enabled === true &&
-    currentSettings.subscriptionIntent === true &&
-    currentSettings.subscriptionLastResult === 'accept',
   defaultDays: currentSettings.defaultRemindDays,
   reminderTime: currentSettings.remindTime,
   inAppEnabled: currentSettings.inAppEnabled !== false,
 })
 
 const remindDayOptions = ref<number[]>([...currentSettings.remindDayOptions])
-
-// 动态判断当前客户端运行时配置是否包含可用微信订阅消息模板
-const isTemplateConfigured = computed(() => {
-  return subscriptionMessageService.isTemplateConfigured()
-})
 
 function saveSettings(partial: any) {
   const success = settingsService.updateSettings(partial)
@@ -117,88 +87,6 @@ function saveSettings(partial: any) {
 
 function onBack() {
   uni.navigateBack()
-}
-
-async function onToggleSubscribe() {
-  // 1. 如果当前是开启的，直接关闭，不弹出授权窗
-  if (settings.subscribeEnabled) {
-    settings.subscribeEnabled = false
-    subscriptionMessageService.disableRecipient()
-    saveSettings({
-      enabled: false,
-      subscriptionIntent: false
-    })
-    return
-  }
-
-  // 2. 尝试开启微信订阅
-  // 检查是否登录
-  if (!isStoredLoggedIn()) {
-    uni.showToast({
-      title: '请先登录哦，登录后小管家才能开启微信提醒',
-      icon: 'none',
-      duration: 2500
-    })
-    return
-  }
-
-  // 检查模板是否配置
-  if (!isTemplateConfigured.value) {
-    uni.showToast({
-      title: '暂未配置微信提醒，请先在本地配置哦',
-      icon: 'none'
-    })
-    return
-  }
-
-  uni.showLoading({ title: '正在获取授权...' })
-  const authRes = await subscriptionMessageService.requestSubscription()
-  uni.hideLoading()
-
-  if (authRes.success) {
-    const recipientRes = await subscriptionMessageService.registerRecipient()
-    settings.subscribeEnabled = recipientRes.success
-    saveSettings({
-      enabled: recipientRes.success,
-      subscriptionIntent: true,
-      subscriptionLastResult: recipientRes.success ? authRes.result : 'unavailable',
-      subscriptionLastRequestedAt: Date.now(),
-      subscriptionLastErrorCode: recipientRes.success ? null : (recipientRes.errorCode || 'recipient_registration_failed')
-    })
-    if (!recipientRes.success) {
-      uni.showToast({ title: '鎻愰啋鍋忓ソ宸茶涓嬶紝浜戠鎻愰啋杩樺湪鍑嗗', icon: 'none', duration: 2500 })
-      return
-    }
-    uni.showToast({
-      title: '提醒偏好已记下，重要日期会温和地出现',
-      icon: 'none',
-      duration: 2500
-    })
-  } else {
-    settings.subscribeEnabled = false
-    subscriptionMessageService.disableRecipient()
-    saveSettings({
-      enabled: false,
-      subscriptionIntent: true, // 用户是有开启意愿的，但授权可能被拒绝或受限
-      subscriptionLastResult: authRes.result,
-      subscriptionLastRequestedAt: Date.now(),
-      subscriptionLastErrorCode: authRes.errorCode
-    })
-
-    if (authRes.result === 'reject') {
-      uni.showToast({
-        title: '没关系，首页也会继续提醒你',
-        icon: 'none',
-        duration: 2500
-      })
-    } else {
-      uni.showToast({
-        title: '微信提醒暂时不可用，首页仍会替你留意',
-        icon: 'none',
-        duration: 2500
-      })
-    }
-  }
 }
 
 function onToggleInApp() {
@@ -375,12 +263,6 @@ $top-height: 120rpx;
   border-radius: $radius-card;
   box-shadow: $shadow-card;
   overflow: hidden;
-}
-
-/* 微信订阅授权改为在保存具体物品时按需发起；设置页不再展示永久开关。 */
-.settings-card > .settings-item:first-child,
-.settings-card > .settings-item:first-child + .settings-divider {
-  display: none;
 }
 
 .settings-item {

@@ -47,7 +47,9 @@ function determineActiveExpiry(item) {
 }
 
 function getEligibility(item, settings, now, timeZone) {
-  if (!item || !settings || settings.enabled !== true || settings.subscriptionIntent !== true) return { eligible: false, reason: 'preference_disabled' }
+  // One-time send capacity is represented by a matching notification grant,
+  // not by a global setting left behind by an earlier authorization.
+  if (!item || !settings) return { eligible: false, reason: 'settings_missing' }
   if (item.status !== 'pending' && item.status !== 'using') return { eligible: false, reason: 'item_status' }
   if (!Number.isInteger(item.remindDays) || item.remindDays <= 0) return { eligible: false, reason: 'remind_days' }
   const active = determineActiveExpiry(item)
@@ -102,17 +104,21 @@ function fieldType(value) {
 function formatCalendarDate(value) {
   const text = String(value === undefined || value === null ? '' : value).trim()
   const match = text.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+.*)?$/)
-  return match ? `${match[1]}年${match[2]}月${match[3]}日` : text
+  return match && isValidDate(`${match[1]}-${match[2]}-${match[3]}`)
+    ? `${match[1]}-${match[2]}-${match[3]}`
+    : ''
 }
 
 function formatTemplateValue(value, field, fallbackLength) {
   const type = fieldType(field)
-  if (type === 'number') return String(value === undefined || value === null ? 0 : value)
-  if (type === 'date') return textValue(formatCalendarDate(value), 20)
+  if (type === 'number') return Number.isFinite(Number(value)) ? String(value) : ''
+  if (type === 'date') return formatCalendarDate(value)
   if (type === 'time') {
-    const date = String(value === undefined || value === null ? '' : value).trim()
-    const time = date.match(/\s+(\d{1,2}:\d{2})$/)
-    return `${formatCalendarDate(date)} ${time ? time[1] : '00:00'}`
+    const text = String(value === undefined || value === null ? '' : value).trim()
+    const date = formatCalendarDate(text)
+    const time = text.match(/(?:T|\s+)(\d{1,2}):(\d{2})$/)
+    if (!date) return ''
+    return `${date} ${time ? time[1].padStart(2, '0') + ':' + time[2] : '00:00'}`
   }
   return textValue(value, fallbackLength || 20)
 }
@@ -123,7 +129,7 @@ function buildTemplateData(item, eligibility, fields) {
     productionDate: formatTemplateValue(item.productionDate, fields.productionDate, 20),
     daysLeft: formatTemplateValue(eligibility.daysLeft, fields.daysLeft, 10),
     expiryDate: formatTemplateValue(eligibility.activeExpiryDate, fields.expiryDate, 20),
-    note: formatTemplateValue(item.notes || 'Please check', fields.note, 20)
+    note: formatTemplateValue(item.notes || '替你留意这件好物', fields.note, 20)
   }
   return Object.keys(values).reduce((data, key) => {
     data[fieldName(fields[key])] = { value: values[key] }
@@ -131,4 +137,18 @@ function buildTemplateData(item, eligibility, fields) {
   }, {})
 }
 
-module.exports = { isValidDate, localParts, determineActiveExpiry, getEligibility, createDedupeKey, readConfig, buildTemplateData, fieldType, formatTemplateValue, formatCalendarDate }
+function isValidTemplateData(data, fields) {
+  return Object.keys(fields).every((key) => {
+    const field = fields[key]
+    const name = fieldName(field)
+    const value = data[name] && data[name].value
+    const type = fieldType(field)
+    const text = String(value === undefined || value === null ? '' : value).trim()
+    if (type === 'number') return /^\d+(?:\.\d+)?$/.test(text)
+    if (type === 'date') return isValidDate(text)
+    if (type === 'time') return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(text)
+    return Boolean(text)
+  })
+}
+
+module.exports = { isValidDate, localParts, determineActiveExpiry, getEligibility, createDedupeKey, readConfig, buildTemplateData, isValidTemplateData, fieldType, formatTemplateValue, formatCalendarDate }

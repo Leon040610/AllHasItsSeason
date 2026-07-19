@@ -47,7 +47,10 @@ function determineActiveExpiry(item) {
 }
 
 function getEligibility(item, settings, now, timeZone) {
-  if (!item || !settings || settings.enabled !== true || settings.subscriptionIntent !== true) return { eligible: false, reason: 'preference_disabled' }
+  // A one-time subscription grant is evaluated separately. The reminder
+  // settings only provide the user's schedule and must not act as a lasting
+  // platform-send permission after a previous grant has been consumed.
+  if (!item || !settings) return { eligible: false, reason: 'settings_missing' }
   if (item.status !== 'pending' && item.status !== 'using') return { eligible: false, reason: 'item_status' }
   if (!Number.isInteger(item.remindDays) || item.remindDays <= 0) return { eligible: false, reason: 'remind_days' }
   const active = determineActiveExpiry(item)

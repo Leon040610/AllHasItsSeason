@@ -1,5 +1,18 @@
 # Progress Log - P3.1 Implementation
 
+## 2026-07-19: P3.2 real-send permission repair
+- Added `permissions.openapi: ["subscribeMessage.send"]` to `sendReminderNotifications/config.json` while preserving its existing timer trigger.
+- Corrected sender error classification for signed CloudBase error `-604101`; it now records `cloud_api_permission_missing`, leaves the grant available, and avoids the `43101` authorization-loss path.
+- Changed the sender template note fallback to the established gentle Chinese copy and documented deployment/cache/fresh-grant validation requirements in `cloudfunctions/P3.2_DEPLOYMENT.md`.
+
+## 2026-07-19: P3.2 send parameter correction
+- Confirmed from the official global error-code table that `-501007` is a CloudBase parameter error, not a subscription-authority error.
+- Changed sender date/time values to the official sample formats and added pre-send template payload validation so malformed or missing required values fail safely without consuming the matching grant.
+- Classify a returned `-501007` as a non-retryable `cloud_parameter_invalid` while preserving the grant as available for a corrected future scan.
+
+## 2026-07-19: Template time-field display correction
+- A real cloud-call test proved date-only `time8` values produce `-501007`. Reverted the experimental date-only format; `time8` again sends `YYYY-MM-DD HH:mm`, defaulting date-only production records to `00:00`.
+
 - **2026-07-18**: P3.2 preflight completed without code changes. The frontend template ID declaration exists but server-side dry-run/template-field configuration, scheduled functions, reminder collections, and a secure scheduled-message recipient mapping are absent. Stopped as required instead of guessing official API parameters.
 - **2026-07-18**: User supplied a template-detail screenshot. Confirmed the title and five field keys/types, but retained the P3.2 block because field limits/formats, subject qualification, server environment configuration, and recipient mapping remain unverified.
 - **2026-07-18**: User requested implementation. Added server-only encrypted recipient registration, deterministic reminder job scanning, dry-run gating, safe notification logs, bounded retry handling, and the official subscribe-message sender. Wired accepted frontend authorization to recipient registration and documented CloudBase collections, environment variables, trigger setup, dry-run verification, and real-send cutover. Static checks and local eligibility/config assertions passed; deployment and real-device sending remain unverified.
@@ -31,3 +44,10 @@
 - Static verification rerun after the final patch: all six P3.2 JavaScript entry/helper files plus `login`, `syncData`, `imageProcess`, and `logRecognition` pass `node --check`; `git diff --check` passes. Local reminder qualification and template-value formatting assertions pass.
 - Manual local-debug diagnosis found `read_reminder_job` / `-1` on an empty `reminder_jobs` collection. Changed the first-run lookup to a dedupe-key query, which treats an empty result as normal and preserves deterministic document IDs for writes; syntax and whitespace checks pass.
 - The first `ready` task revealed an analogous `notification_logs` empty-document read warning. Changed scanner and sender log upserts to query by `jobId` before updating; both cloud functions pass syntax checks.
+
+## 2026-07-19 - One-Time Subscription Grant Correction
+- Replaced the prior account-wide one-time authorization interpretation with an item-specific `notification_grants` lifecycle. A frontend `accept` creates a grant only for the item being saved and its current `activeExpiryDate`; the server then requires that exact available grant before it can create or send a reminder job.
+- Removed the hidden legacy reminder-settings authorization toggle and its obsolete recipient registration/disable calls. The only authorization entry points are now direct save taps in the add page and qualifying reminder changes in the edit page.
+- Verified JavaScript syntax for all affected cloud functions, supporting utilities, service, and repository; `git diff --check` passes. Focused dual-expiry, template-data, and server error-mapping assertions pass. No uni-app project build script exists in the repository, so Vue SFC compilation was not run from the terminal.
+- Extended `cloudfunctions/P3.2_DEPLOYMENT.md` with the exact JSON shape for field mapping, server-only collection guidance, index suggestions, dry-run-to-real-send switching, and device validation conditions. No cloud function has been deployed, no collection was created, and no real message was sent during this code change.
+- Corrected the trigger deployment method after reviewing the official CloudBase trigger documentation: added one official `config.json` per scheduled function. The scan trigger runs every ten minutes and the sender trigger runs two minutes later; both must be deployed through the Developer Tools “上传触发器” command after the function source is deployed.

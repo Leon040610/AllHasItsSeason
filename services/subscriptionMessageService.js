@@ -84,15 +84,18 @@ class SubscriptionMessageService {
           let result = 'unavailable';
 
           // 判定失败原因
-          if (errMsg.includes('cancel') || errCode === 20005) {
-            // 用户在微信弹窗上层取消或拦截
+          if (errMsg.includes('cancel')) {
+            // 用户在微信弹窗上取消。
             result = 'reject';
             errorCode = null;
+          } else if (errCode === 20005) {
+            result = 'ban';
+            errorCode = 'service_banned';
           } else if (errMsg.includes('deny') || errCode === 20004) {
-            // 微信小程序订阅消息全局总开关关闭
+            // 用户关闭了小程序订阅消息主开关。
             errorCode = 'main_switch_off';
-          } else if (errMsg.includes('invalid') || errMsg.includes('template') || errCode === 20001 || errCode === 20003) {
-            // 模板配置无效
+          } else if (errMsg.includes('invalid') || errMsg.includes('template') || errCode === 20001 || errCode === 20002 || errCode === 20003) {
+            // 模板不存在、类型混用或数量超过上限。
             errorCode = 'invalid_template';
           } else if (errMsg.includes('network') || errMsg.includes('timeout')) {
             // 网络异常
@@ -112,21 +115,12 @@ class SubscriptionMessageService {
     });
   }
 
-  async registerRecipient() {
+  async registerReminderGrant(grant) {
     try {
-      const data = await wechatCloudUserRepository.callRegisterReminderRecipient('register')
+      const data = await wechatCloudUserRepository.callRegisterReminderGrant(grant)
       return { success: true, data }
     } catch (error) {
-      return { success: false, errorCode: error && error.message ? error.message : 'recipient_registration_failed' }
-    }
-  }
-
-  async disableRecipient() {
-    try {
-      await wechatCloudUserRepository.callRegisterReminderRecipient('disable')
-      return { success: true }
-    } catch (error) {
-      return { success: false, errorCode: error && error.message ? error.message : 'recipient_disable_failed' }
+      return { success: false, errorCode: error && error.message ? error.message : 'reminder_grant_registration_failed' }
     }
   }
 }

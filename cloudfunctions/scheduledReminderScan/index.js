@@ -16,21 +16,27 @@ function documentId(dedupeKey) {
   return `reminder_${crypto.createHash('sha256').update(dedupeKey).digest('hex').substring(0, 40)}`
 }
 
+function grantKey(itemId, activeExpiryDate) {
+  return `${itemId}|${activeExpiryDate}|expiry_window`
+}
+
 async function getAll(collection, where) {
-  const result = []
+  const records = []
   let skip = 0
   while (true) {
     const page = await db.collection(collection).where(where || {}).skip(skip).limit(100).get()
-    result.push(...page.data)
-    if (page.data.length < 100) return result
+    records.push(...page.data)
+    if (page.data.length < 100) return records
     skip += page.data.length
   }
 }
 
-async function writeLog(jobId, status, errorCode, retryCount, now) {
-  const id = `notification_${jobId}`
+async function writeLog(job, status, errorCode, retryCount, now) {
+  const jobId = typeof job === 'string' ? job : job.id
   const data = {
     jobId,
+    itemId: typeof job === 'string' ? null : job.itemId || null,
+    grantId: typeof job === 'string' ? null : job.grantId || null,
     status,
     sentAt: status === 'sent' ? now : null,
     errorCode: errorCode || null,
@@ -39,13 +45,9 @@ async function writeLog(jobId, status, errorCode, retryCount, now) {
     updatedAt: now
   }
   try {
-    const existingResult = await db.collection('notification_logs').where({ jobId }).limit(1).get()
-    const existing = existingResult.data[0] || null
-    if (existing) {
-      await db.collection('notification_logs').doc(existing._id || id).update({ data })
-    } else {
-      await db.collection('notification_logs').doc(id).set({ data: { ...data, createdAt: now } })
-    }
+    const existing = await db.collection('notification_logs').where({ jobId }).limit(1).get()
+    if (existing.data[0]) await db.collection('notification_logs').doc(existing.data[0]._id).update({ data })
+    else await db.collection('notification_logs').doc(`notification_${jobId}`).set({ data: { ...data, createdAt: now } })
     return true
   } catch (error) {
     console.error('[scheduledReminderScan] notification log failed', error.errCode || 'unknown')
@@ -55,29 +57,47 @@ async function writeLog(jobId, status, errorCode, retryCount, now) {
 
 function recordSkip(stats, reason) {
   stats.skipped++
-  const key = reason || 'unknown'
-  stats.skipReasons[key] = (stats.skipReasons[key] || 0) + 1
+  stats.skipReasons[reason || 'unknown'] = (stats.skipReasons[reason || 'unknown'] || 0) + 1
 }
 
-async function cancelStaleJobs(ownerKey, items, settings, recipient, config, now, currentDate) {
-  const readyJobs = await getAll('reminder_jobs', { ownerKey, status: 'ready' })
-  const itemMap = new Map(items.map((item) => [item.id, item]))
+async function cancelStaleGrants(ownerKey, itemMap, settings, grants, config, now) {
   let cancelled = 0
-  for (const job of readyJobs) {
-    const item = itemMap.get(job.itemId)
+  for (const grant of grants) {
+    const item = itemMap.get(grant.itemId)
     const eligibility = getEligibility(item, settings, now, config.timeZone)
-    if (!item || !eligibility.eligible || eligibility.activeExpiryDate !== job.activeExpiryDate || !recipient) {
-      await db.collection('reminder_jobs').doc(job._id).update({
-        data: { status: 'cancelled', lastErrorCode: 'stale_job', updatedAt: now }
+    if (!item || !eligibility.eligible || eligibility.activeExpiryDate !== grant.activeExpiryDate) {
+      await db.collection('notification_grants').doc(grant._id).update({
+        data: { status: 'cancelled', cancelledAt: now, lastErrorCode: 'stale_grant', updatedAt: now }
       })
-      await writeLog(job._id, 'cancelled', 'stale_job', job.retryCount, now)
       cancelled++
     }
   }
   return cancelled
 }
 
-exports.main = async (event = {}) => {
+async function cancelStaleJobs(ownerKey, itemMap, settings, grantsById, config, now) {
+  const readyJobs = await getAll('reminder_jobs', { ownerKey, status: 'ready' })
+  let cancelled = 0
+  for (const job of readyJobs) {
+    const item = itemMap.get(job.itemId)
+    const eligibility = getEligibility(item, settings, now, config.timeZone)
+    const grant = grantsById.get(job.grantId)
+    const valid = grant && grant.status === 'available' &&
+      grant.itemId === job.itemId && grant.activeExpiryDate === job.activeExpiryDate &&
+      eligibility.eligible && eligibility.activeExpiryDate === job.activeExpiryDate
+    if (!valid) {
+      const errorCode = job.grantId ? 'stale_job' : 'legacy_grant_missing'
+      await db.collection('reminder_jobs').doc(job._id).update({
+        data: { status: 'cancelled', lastErrorCode: errorCode, updatedAt: now }
+      })
+      await writeLog(job, 'cancelled', errorCode, job.retryCount, now)
+      cancelled++
+    }
+  }
+  return cancelled
+}
+
+exports.main = async () => {
   const config = readConfig()
   const now = Date.now()
   const local = localParts(now, config.timeZone)
@@ -94,15 +114,26 @@ exports.main = async (event = {}) => {
       if (!settings.ownerKey) continue
       stage = 'load_items'
       const items = await getAll('items', { ownerKey: settings.ownerKey })
+      const itemMap = new Map(items.map((item) => [item.id, item]))
       stats.scanned += items.length
-      stage = 'load_recipient'
-      const recipientResult = await db.collection('notification_recipients')
-        .where({ ownerKey: settings.ownerKey, status: 'active' })
-        .limit(1)
-        .get()
-      const recipient = recipientResult.data[0] || null
+
+      stage = 'load_grants'
+      const ownerGrants = await getAll('notification_grants', { ownerKey: settings.ownerKey })
+      const grants = ownerGrants.filter((grant) => grant.status === 'available')
+      stage = 'cancel_stale_grants'
+      stats.cancelled += await cancelStaleGrants(settings.ownerKey, itemMap, settings, grants, config, now)
+      const activeGrants = grants.filter((grant) => {
+        const item = itemMap.get(grant.itemId)
+        const eligibility = getEligibility(item, settings, now, config.timeZone)
+        return item && eligibility.eligible && eligibility.activeExpiryDate === grant.activeExpiryDate
+      })
+      const grantsById = new Map(ownerGrants
+        .filter((grant) => grant.status === 'available' || grant.status === 'sending')
+        .map((grant) => [grant.id, grant]))
+      const grantsByItem = new Map(activeGrants.map((grant) => [grantKey(grant.itemId, grant.activeExpiryDate), grant]))
+
       stage = 'cancel_stale_jobs'
-      stats.cancelled += await cancelStaleJobs(settings.ownerKey, items, settings, recipient, config, now, local.date)
+      stats.cancelled += await cancelStaleJobs(settings.ownerKey, itemMap, settings, grantsById, config, now)
 
       for (const item of items) {
         stage = 'evaluate_item'
@@ -111,9 +142,8 @@ exports.main = async (event = {}) => {
           recordSkip(stats, eligibility.reason)
           continue
         }
-        // A normal subscription authorization grants one send only. The
-        // recipient record is the server-side source of remaining capacity.
-        if (!recipient) {
+        const grant = grantsByItem.get(grantKey(item.id, eligibility.activeExpiryDate))
+        if (!grant) {
           recordSkip(stats, 'authorization_unavailable')
           continue
         }
@@ -127,36 +157,35 @@ exports.main = async (event = {}) => {
           stats.failed++
           continue
         }
+
         const reminderKind = 'expiry_window'
         const dedupeKey = createDedupeKey(settings.ownerKey, item.id, eligibility.activeExpiryDate, reminderKind)
         const id = documentId(dedupeKey)
-        // Some local CloudBase debug runtimes return errCode -1 when
-        // `doc(id).get()` targets a document that does not exist. Querying by
-        // the deterministic dedupe key treats an empty result as the normal
-        // first-run case and remains safe for deployed environments.
         stage = 'query_reminder_job'
-        const existingResult = await db.collection('reminder_jobs')
-          .where({ dedupeKey })
-          .limit(1)
-          .get()
-        const existing = existingResult.data[0] || null
-        if (existing && ['ready', 'sent'].includes(existing.status)) {
+        const result = await db.collection('reminder_jobs').where({ dedupeKey }).limit(1).get()
+        const existing = result.data[0] || null
+        if (existing && existing.status === 'sent') {
+          await db.collection('notification_grants').doc(grant._id).update({
+            data: { status: 'cancelled', cancelledAt: now, lastErrorCode: 'dedupe_already_sent', updatedAt: now }
+          })
           stats.duplicate++
-          const existingJobId = existing.id || existing._id || id
-          if (!await writeLog(existingJobId, existing.status, existing.lastErrorCode || null, existing.retryCount || 0, now)) {
-            stats.logFailed++
-          }
           continue
         }
+        if (existing && existing.status === 'ready' && existing.grantId === grant.id) {
+          stats.duplicate++
+          continue
+        }
+
         const job = {
           id,
           ownerKey: settings.ownerKey,
           itemId: item.id,
+          grantId: grant.id,
           activeExpiryDate: eligibility.activeExpiryDate,
           remindDate: local.date,
           reminderKind,
           status: 'ready',
-          createdAt: existing ? existing.createdAt : now,
+          createdAt: existing && existing.createdAt || now,
           updatedAt: now,
           retryCount: 0,
           lastErrorCode: null,
@@ -164,8 +193,7 @@ exports.main = async (event = {}) => {
         }
         stage = 'write_reminder_job'
         await db.collection('reminder_jobs').doc(id).set({ data: job })
-        stage = 'write_notification_log'
-        if (!await writeLog(id, 'ready', null, 0, now)) stats.logFailed++
+        if (!await writeLog(job, 'ready', null, 0, now)) stats.logFailed++
         stats.created++
       }
     }
@@ -173,6 +201,6 @@ exports.main = async (event = {}) => {
   } catch (error) {
     const detailCode = error && (error.errCode || error.code) ? String(error.errCode || error.code) : 'unknown'
     console.error('[scheduledReminderScan] scan failed', stage, detailCode)
-    return { success: false, dryRun: config.dryRun, errorCode: 'scan_failed', failureStage: stage, detailCode, stats }
+    return { success: false, dryRun: config.dryRun, errorCode: 'scan_failed', failureStage: stage, stats }
   }
 }
