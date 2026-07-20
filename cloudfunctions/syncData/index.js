@@ -38,6 +38,34 @@ function getCloudDocumentId(collection, ownerKey, recordId) {
   }
 }
 
+function getSyncTombstoneId(ownerKey, collection, recordId) {
+  const hash = crypto.createHmac('sha256', ownerKey)
+    .update(`${collection}:${recordId}`)
+    .digest('hex')
+    .substring(0, 32)
+  return `tombstone_${hash}`
+}
+
+function toTombstoneSyncRecord(tombstone) {
+  const updatedAt = normalizeTimestamp(tombstone.updatedAt || tombstone.purgedAt || tombstone.deletedAt, Date.now())
+  const deletedAt = normalizeTimestamp(tombstone.deletedAt, updatedAt)
+  if (tombstone.collection === 'drafts') {
+    return {
+      id: tombstone.recordId,
+      source: 'add',
+      isDeleted: true,
+      deletedAt,
+      updatedAt
+    }
+  }
+  return {
+    id: tombstone.recordId,
+    status: 'deleted',
+    deletedAt,
+    updatedAt
+  }
+}
+
 function extractSafePayload(collection, record, ownerKey) {
   const safeRecord = { ownerKey }
   
@@ -210,6 +238,10 @@ exports.main = async (event, context) => {
       return await handlePreflight(ownerKey)
     }
 
+    if (action === 'pullTombstones') {
+      return await handlePullTombstones(ownerKey, cursor, limit || 100)
+    }
+
     // 兼容P2.4：如果未传 collection 且 action 为 pull/upsert，默认为 items
     const targetCollection = collection || 'items'
 
@@ -260,6 +292,33 @@ async function handlePull(collection, ownerKey, cursor, limit) {
   }
 }
 
+async function handlePullTombstones(ownerKey, cursor, limit) {
+  const safeLimit = Math.max(1, Math.min(Number(limit) || 100, 100))
+  let query = db.collection('sync_tombstones').where({ ownerKey })
+  if (cursor) {
+    query = query.where({ _id: db.command.gt(cursor) })
+  }
+  const res = await query.orderBy('_id', 'asc').limit(safeLimit).get()
+  const docs = res.data || []
+  const records = docs
+    .filter(doc => doc && (doc.collection === 'items' || doc.collection === 'drafts') && doc.recordId)
+    .map(doc => ({
+      collection: doc.collection,
+      recordId: doc.recordId,
+      deletedAt: normalizeTimestamp(doc.deletedAt, 0),
+      purgedAt: normalizeTimestamp(doc.purgedAt, 0),
+      updatedAt: normalizeTimestamp(doc.updatedAt, 0)
+    }))
+  return {
+    success: true,
+    data: {
+      records,
+      nextCursor: docs.length > 0 ? docs[docs.length - 1]._id : null,
+      hasMore: docs.length === safeLimit
+    }
+  }
+}
+
 async function handleUpsert(collection, ownerKey, records) {
   if (!Array.isArray(records) || records.length === 0) {
     return { success: true, data: { results: [] } }
@@ -293,10 +352,31 @@ async function handleUpsert(collection, ownerKey, records) {
 
     try {
       const outcomeRes = await db.runTransaction(async transaction => {
+        if (collection === 'items' || collection === 'drafts') {
+          const tombstoneId = getSyncTombstoneId(ownerKey, collection, recordId)
+          const tombstoneRes = await transaction.collection('sync_tombstones').doc(tombstoneId).get().catch(() => null)
+          if (tombstoneRes && tombstoneRes.data) {
+            return {
+              outcome: 'remote_wins',
+              record: toTombstoneSyncRecord(tombstoneRes.data),
+              conflictCount: 1
+            }
+          }
+        }
         const docRes = await transaction.collection(collection).doc(cloudDocumentId).get().catch(() => null)
         const doc = docRes && docRes.data ? docRes.data : null
 
         if (doc) {
+          const remotelyDeleted = collection === 'items'
+            ? doc.status === 'deleted'
+            : collection === 'drafts' && doc.isDeleted === true
+          if (remotelyDeleted) {
+            return {
+              outcome: 'remote_wins',
+              record: doc,
+              conflictCount: 1
+            }
+          }
           const localTime = safeRecord.updatedAt
           const cloudTime = doc.updatedAt || 0
 

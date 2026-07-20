@@ -48,6 +48,29 @@ class WechatCloudSyncRepository {
     }
   }
 
+  async pullTombstones(cursor = null, limit = 100) {
+    if (!cloudRuntimeService.isReady()) {
+      throw new Error('cloud_not_ready')
+    }
+    try {
+      const res = await wx.cloud.callFunction({
+        name: 'syncData',
+        data: {
+          action: 'pullTombstones',
+          cursor,
+          limit
+        }
+      })
+      if (!res.result || !res.result.success) {
+        throw new Error(res.result ? res.result.message : 'sync_tombstone_pull_failed')
+      }
+      return res.result.data
+    } catch (err) {
+      console.error('[WechatCloudSyncRepository] pullTombstones failed:', err)
+      throw err
+    }
+  }
+
   // 保留旧 API 兼容
   async pullItems(cursor = null, limit = 100) {
     const res = await this.pullData('items', cursor, limit)

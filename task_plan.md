@@ -1,5 +1,27 @@
 # Task Plan - P3.1 & P2 Cleanup Implementation
 
+## Phase 16: P3.3 Cloud File and Deleted-Record Governance
+- [x] Define a 7-day retention model: soft-delete first, then controlled physical cleanup.
+- [x] Preserve a minimal long-lived `sync_tombstones` index so an offline device cannot recreate purged items or drafts.
+- [x] Add dry-run-only cloud-file inventory, candidate audit, controlled file deletion, and deleted-record purge cloud functions.
+- [x] Review the implementation and repair static and safety defects, including authoritative soft-delete handling, failed-candidate retry, and strict Cloud Storage success checks.
+- [x] Add exact CloudBase collection, index, environment-variable, dry-run, and guarded-delete deployment instructions.
+- [x] Run final static checks and complete the P3.3 self-review. No deployment or real deletion is part of this phase.
+- [x] Keep drafts permanently: exclude them from seven-day data purge and preserve their Cloud File ID references during file governance.
+
+## Phase 17: P3.3 Scheduled Governance Automation
+- [x] Register future Cloud File IDs server-side as images and avatars are uploaded, without exposing maintenance credentials to the client.
+- [x] Make file audits read the durable registry and create a weekly audit/cleanup trigger chain.
+- [x] Add weekly audit/execute trigger paths for seven-day deleted item governance with server-only trigger validation.
+- [x] Keep actual automatic deletion disabled by default and document the separate activation switches.
+- [x] Run static, safety, and trigger-configuration checks; do not deploy or enable automatic deletion.
+
+### Phase 17 Decisions
+- Managed automatic cleanup begins only for files registered after this deployment. Historical files without a trusted registry record remain excluded from automatic deletion.
+- All timer paths are limited to unauthenticated CloudBase timer invocations. Mini-program calls must continue to provide the maintenance token for manual operations.
+- The weekly order is audit at 02:00, file cleanup at 02:20, then soft-deleted-item purge at 02:40 every Sunday (CloudBase China standard time).
+- Draft documents and every Cloud File ID reachable from a draft remain permanently protected.
+
 ## Phase 15: P3.2 Real-Send Cloud API Permission Repair
 - [x] Declare the official `subscribeMessage.send` OpenAPI permission on the sender function only.
 - [x] Preserve signed CloudBase platform codes and separate missing cloud-call permission from one-time authorization loss.

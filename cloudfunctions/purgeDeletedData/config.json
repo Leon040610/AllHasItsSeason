@@ -1,0 +1,9 @@
+{
+  "triggers": [
+    {
+      "name": "weeklyDeletedItemPurge",
+      "type": "timer",
+      "config": "0 40 2 * * 0 *"
+    }
+  ]
+}

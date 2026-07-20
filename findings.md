@@ -6,6 +6,12 @@
 - The prior unsigned error-code filter discarded `-604101`, and the generic `permission` keyword classified it as `authorization_unavailable`. That incorrectly consumed an otherwise valid one-time grant.
 - The repair preserves signed platform codes, records permission failure as `cloud_api_permission_missing`, marks the job/log failed, and keeps the grant available. Explicit WeChat `43101` remains the only normal path that marks a current grant unavailable and skips its job.
 
+## 2026-07-20: P3.3 weekly automation design
+- The previous `cloud_file_inventory` snapshot workflow requires a manual Cloud Storage list import, so it is retained only as a historical/manual audit path and is not suitable for routine launch operations.
+- Existing user-image paths are limited to `uploads/`, `processed/`, and `avatars/`. A new private `cloud_file_registry` records only future files in these paths after a successful upload; unregistered historical files remain outside automatic cleanup.
+- CloudBase timer entries have no end-user OPENID. Scheduled maintenance is therefore accepted only when no action is supplied and the invocation has no OPENID; mini-program maintenance calls still require `CLEANUP_ADMIN_TOKEN`.
+- Automatic deletion requires both the pre-existing deletion pair and a separate automatic-delete switch. This makes a deployed weekly timer harmless until a deliberate post-dry-run opt-in is made.
+
 ## 2026-07-19: P3.2 send parameter correction
 - The official WeChat global error-code table defines `-501007` as a CloudBase common parameter error. The observed `ready` job and available grant show that the sender safely retried this generic error rather than consuming the subscription.
 - Official subscription-message examples use `YYYY-MM-DD` for date values and `YYYY-MM-DD HH:mm` for date-time values. The sender now uses those canonical formats instead of Chinese calendar text.
@@ -58,6 +64,20 @@
 - Sender dry-run diagnostics now read a bounded page of `reminder_jobs`, filter `ready` in memory, and return safe `visibleJobs`/`statusCounts` counters. This works around local-debug equality-query inconsistencies and distinguishes an empty view from a status mismatch.
 
 ## Initial Context Analysis
+
+## 2026-07-20: P3.3 retention confirmation
+
+- The supplied WeChat developer-assistant reference confirms that CloudBase does not automatically delete database records or unreferenced cloud-storage files after seven days. Retention must be implemented explicitly by the developer with database/file deletion APIs.
+- P3.3 therefore uses a 7-day **soft-delete retention period**, explicit dry-run functions, explicit environment gates, small bounded batches, and CloudBase manual deployment. It does not introduce automatic irreversible cleanup.
+- A full deleted `items` document cannot simply disappear after seven days: the existing sync upsert path could accept an old offline item and recreate it. The minimal `sync_tombstones` collection must remain after the full record purge to reject that stale upsert without retaining the product's business data.
+- Official API verification: the database guide documents server-side `doc(...).remove()` and `where(...).remove()`; the Cloud Storage HTTPS `deleteTcbCloudFile` endpoint is external-server-only and explicitly does not support OpenAPI cloud calls. The bundled `wx-server-sdk` type declaration confirms the cloud-function storage form `cloud.deleteFile({ fileList })`, returning an item list with numeric `status`; P3.3 accepts only `status === 0` as a deletion success.
+- Product decision: drafts are not deletion candidates. Regardless of their `isDeleted` marker or age, they remain in cloud storage/database retention and all draft Cloud File ID references remain protected from orphan-file cleanup.
+
+## 2026-07-20: P3.3 automation follow-up
+
+- The initial file-audit implementation requires a manually imported Cloud Storage snapshot. It is suitable only for one-off historical dry-run verification and is not suitable as a weekly operational workflow.
+- The sustainable design is a server-owned registry written at upload time, followed by timer-triggered audit and deletion that only operate on registered, controlled-path files. Existing unregistered historical files stay protected until explicitly imported and reviewed; the automated path begins with newly registered files.
+- Automatic deletion must remain separately gated from automatic audit. A weekly trigger may audit safely, but deletion remains disabled until the developer explicitly sets the relevant automatic-delete switch after validation.
 - **SECURITY.md**:
   - `env.js`, `.env`, `project.private.config.json` 等文件均不能提交。
   - `OWNER_KEY_SALT` 必须配置在云开发控制台，不能在代码中硬编码。

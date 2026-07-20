@@ -1,9 +1,9 @@
 {
   "triggers": [
     {
-      "name": "reminderScanEvery10Minutes",
+      "name": "reminderScanEvery30Minutes",
       "type": "timer",
-      "config": "0 */10 * * * * *"
+      "config": "0 */30 * * * * *"
     }
   ]
 }

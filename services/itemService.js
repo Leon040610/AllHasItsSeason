@@ -136,6 +136,29 @@ class ItemService {
     this._save();
   }
 
+  applySyncTombstones(tombstones, lastSyncedAt = Date.now()) {
+    if (!this.initialized) this.init();
+    let changed = false;
+    for (const tombstone of tombstones || []) {
+      if (!tombstone || !tombstone.recordId) continue;
+      const index = this.items.findIndex(item => item.id === tombstone.recordId);
+      if (index === -1) continue;
+      const current = this.items[index];
+      const deletedAt = normalizeTimestamp(tombstone.deletedAt, Date.now());
+      this.items[index] = {
+        ...current,
+        status: 'deleted',
+        deletedAt,
+        updatedAt: Math.max(normalizeTimestamp(current.updatedAt, 0), normalizeTimestamp(tombstone.updatedAt, deletedAt)),
+        syncStatus: 'synced',
+        lastSyncedAt
+      };
+      changed = true;
+    }
+    if (changed) this._save();
+    return changed;
+  }
+
   addItem(itemData) {
     if (!this.initialized) this.init();
     const newItem = createItem(itemData);

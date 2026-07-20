@@ -6,6 +6,7 @@
 //   - 不传 ownerKey/openid 给云函数
 
 import { wechatCloudUserRepository } from '../repositories/wechatCloudUserRepository.js'
+import { wechatCloudStorageRepository } from '../repositories/wechatCloudStorageRepository.js'
 import { cloudRuntimeService } from './cloudRuntimeService.js'
 import { storageScopeService } from '../utils/storageScopeService.js'
 import { guestMigrationService } from './guestMigrationService.js'
@@ -177,6 +178,13 @@ class AuthService {
         fail: reject
       })
     })
+
+    try {
+      await wechatCloudStorageRepository.registerFileMetadata(uploadRes.fileID, cloudPath, 'avatar')
+    } catch (_) {
+      // A successful profile update must not depend on maintenance registration.
+      console.warn('[AuthService] avatar registry unavailable')
+    }
 
     // 2. 调云函数更新档案
     await wechatCloudUserRepository.callLogin({

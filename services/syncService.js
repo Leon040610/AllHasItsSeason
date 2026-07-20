@@ -302,6 +302,7 @@ class SyncService {
       
       totalUnits = 0
       if (!pushOnly) {
+        totalUnits += 1 // tombstone pull
         // pull chunks: each collection takes ceil(count / 100) requests
         totalUnits += Math.ceil((stats['items'] || 0) / 100) || 1
         totalUnits += Math.ceil((stats['categories'] || 0) / 100) || 1
@@ -371,6 +372,27 @@ class SyncService {
     totalUnits += 1 // For log writing
 
     try {
+      if (!pushOnly) {
+        let cursor = null
+        let hasMore = true
+        const tombstones = []
+        while (hasMore) {
+          if (this.cancelRequested) break
+          const result = await wechatCloudSyncRepository.pullTombstones(cursor, 100)
+          assertOperationCurrent()
+          tombstones.push(...(result.records || []))
+          cursor = result.nextCursor
+          hasMore = result.hasMore
+        }
+        if (!this.cancelRequested) {
+          const itemTombstones = tombstones.filter(record => record.collection === 'items')
+          const draftTombstones = tombstones.filter(record => record.collection === 'drafts')
+          if (itemTombstones.length > 0) itemService.applySyncTombstones(itemTombstones, syncStart)
+          if (draftTombstones.length > 0) draftService.applySyncTombstones(draftTombstones, syncStart)
+          completedUnits++
+        }
+      }
+
       for (const col of collections) {
         if (this.cancelRequested) break
 

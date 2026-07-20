@@ -1,5 +1,24 @@
 # Progress Log - P3.1 Implementation
 
+## 2026-07-20: P3.3 implementation review started
+- Resumed the extended P3.3 implementation after the user confirmed execution.
+- Confirmed that the current P3.3 working changes are limited to the sync anti-resurrection layer and three new cloud functions: file audit, controlled file deletion, and 7-day deleted-record purge.
+- Ran `node --check` for `syncData`, `auditCloudFiles`, `cleanupCloudFiles`, and `purgeDeletedData`; all passed with no syntax output.
+- Recorded the supplied platform reference: CloudBase has no automatic seven-day cleanup, so deployment must remain explicit and deletion must remain gated.
+- The first final sensitive-pattern scan used an unsupported `rg` look-ahead and did not run. The check is being retried with a compatible pattern; this did not affect source files or cloud data.
+- Completed the P3.3 local implementation and self-review. Added fixed 7-day retention gates, nested Cloud File ID reference collection, active image-job protection, dry-run inventory/audit/delete functions, guarded deleted-record purge, and minimal sync tombstones.
+- Corrected two safety details during review: failed candidates are eligible for a later manual recheck/retry, and physical item removal is last so an earlier related-record failure retains the soft-deleted source for retry.
+- Verified official deletion API behavior against the supplied documentation and local SDK types. Final checks passed: all four affected cloud functions and the test file pass `node --check`; `node tests/p3.3-safety.test.cjs` passes; all new package JSON parses; `git diff --check` passes; no real environment ID, File ID, maintenance token, openid, or ownerKey was added.
+- No cloud function has been deployed, no collection/index/environment variable has been created, and no file or database record has been deleted. P3.3 stops at the required deployment handoff.
+- Updated P3.3 policy after product clarification: drafts never enter the seven-day physical-deletion sequence. The data-purge function no longer audits or deletes drafts, and file audit/cleanup keep every draft Cloud File ID as an active reference.
+
+## 2026-07-20: P3.3 scheduled automation started
+- User requested an operational weekly automation path before launch. The existing manual `cloud_file_inventory` snapshot model is insufficient for routine use, so the next increment will add server-side registration of future uploads, scheduled audits, and separately gated scheduled deletion.
+- Confirmed the production image path prefixes from the current upload code: `uploads/`, `processed/`, and `avatars/`. The existing manual audit, controlled file cleanup, and seven-day item purge functions are intact and will be extended rather than replaced.
+- Completed Phase 17. Added private `cloud_file_registry` registration for future original/display/cutout/avatar uploads, plus weekly Sunday timer configurations for audit (02:00), file cleanup (02:20), and deleted-item purge (02:40).
+- Automatic deletion remains disabled by default. File deletion additionally requires `CLEANUP_DRY_RUN=false`, `CLEANUP_DELETE_ENABLED=true`, and `CLEANUP_AUTO_DELETE_ENABLED=true`; item physical purge has the equivalent three `RECORD_PURGE_*` gates. Automatic dry-run audit is separately enabled only through its two audit switches.
+- Final validation passed: Node syntax checks for all changed cloud functions and affected frontend service modules, JSON parsing for all timer configs, `node tests/p3.3-safety.test.cjs`, and `git diff --check`. No functions were deployed and no CloudBase environment values, triggers, files, or database records were changed by this local work.
+
 ## 2026-07-19: P3.2 real-send permission repair
 - Added `permissions.openapi: ["subscribeMessage.send"]` to `sendReminderNotifications/config.json` while preserving its existing timer trigger.
 - Corrected sender error classification for signed CloudBase error `-604101`; it now records `cloud_api_permission_missing`, leaves the grant available, and avoids the `43101` authorization-loss path.

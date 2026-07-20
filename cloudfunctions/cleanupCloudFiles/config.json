@@ -1,0 +1,9 @@
+{
+  "triggers": [
+    {
+      "name": "weeklyCloudFileCleanup",
+      "type": "timer",
+      "config": "0 20 2 * * 0 *"
+    }
+  ]
+}

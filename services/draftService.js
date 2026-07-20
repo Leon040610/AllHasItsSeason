@@ -155,6 +155,29 @@ class DraftService {
     localDraftRepository.saveDrafts(this.drafts);
   }
 
+  applySyncTombstones(tombstones, lastSyncedAt = Date.now()) {
+    this.init();
+    let changed = false;
+    for (const tombstone of tombstones || []) {
+      if (!tombstone || !tombstone.recordId) continue;
+      const index = this.drafts.findIndex(draft => draft.id === tombstone.recordId);
+      if (index === -1) continue;
+      const current = this.drafts[index];
+      const deletedAt = normalizeTimestamp(tombstone.deletedAt, Date.now());
+      this.drafts[index] = {
+        ...current,
+        isDeleted: true,
+        deletedAt,
+        updatedAt: Math.max(normalizeTimestamp(current.updatedAt, 0), normalizeTimestamp(tombstone.updatedAt, deletedAt)),
+        syncStatus: 'synced',
+        lastSyncedAt
+      };
+      changed = true;
+    }
+    if (changed) localDraftRepository.saveDrafts(this.drafts);
+    return changed;
+  }
+
   saveDraft(draftData) {
     this.init() // Ensure we have latest data before saving
     const now = Date.now()

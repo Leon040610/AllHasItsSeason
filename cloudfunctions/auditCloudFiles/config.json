@@ -1,0 +1,9 @@
+{
+  "triggers": [
+    {
+      "name": "weeklyCloudFileAudit",
+      "type": "timer",
+      "config": "0 0 2 * * 0 *"
+    }
+  ]
+}

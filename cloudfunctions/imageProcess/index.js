@@ -10,6 +10,29 @@ cloud.init({
 const db = cloud.database();
 const _ = db.command;
 
+function registryDocumentId(fileId) {
+  return `file_${crypto.createHash('sha256').update(String(fileId)).digest('hex').substring(0, 40)}`;
+}
+
+async function registerProcessedFile(fileId, cloudPath, ownerKey) {
+  if (!fileId || !cloudPath || !fileId.startsWith('cloud://') || !cloudPath.startsWith('processed/')) {
+    return;
+  }
+  const now = Date.now();
+  await db.collection('cloud_file_registry').doc(registryDocumentId(fileId)).set({
+    data: {
+      fileId,
+      cloudPath,
+      sourceKind: 'cutout',
+      ownerKey,
+      sizeBytes: null,
+      createdAt: now,
+      registeredAt: now,
+      updatedAt: now
+    }
+  });
+}
+
 // Global cache for Baidu Access Token
 let baiduAccessToken = null;
 let baiduAccessTokenExpiresAt = 0;
@@ -249,6 +272,12 @@ exports.main = async (event, context) => {
           fileContent: cutoutBuffer
         });
         cutoutCloudFileId = uploadRes.fileID;
+        try {
+          await registerProcessedFile(cutoutCloudFileId, cutoutCloudPath, ownerKey);
+        } catch (_) {
+          // image_jobs keeps the file protected even if registry writing fails.
+          console.warn('[imageProcess] processed file registry unavailable');
+        }
       } catch (err) {
         await updateJobError(job._id, 'fallback', 'network_error');
         return { success: true, imageProcessStatus: 'fallback', originalCloudFileId, errorCode: 'network_error' };
