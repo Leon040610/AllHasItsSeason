@@ -193,6 +193,7 @@
         </view>
       </view>
     </view>
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
@@ -206,8 +207,11 @@ import { cloudStorageService } from '../../../services/cloudStorageService.js'
 import { imageCanvasService } from '../../../services/imageCanvasService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, getDaysDifference, getTodayStr, formatDate, determineActiveExpiry } from '../../../utils/dateUtils.js'
 import { isStoredLoggedIn } from '../../../utils/authSessionStore.js'
+import BrandConfirmDialog from '../../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../../utils/useBrandConfirmDialog.js'
 
 const instance = getCurrentInstance()
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
 const item = ref<any>(null)
 let currentId = ''
 const initialRemindDays = ref(0)
@@ -396,7 +400,7 @@ const computedDaysLeftText = computed(() => {
   }
 })
 
-function onBack() {
+async function onBack() {
   // Check if there are unsaved changes
   const original = itemService.getViewItemById(currentId)
   let hasChanges = false
@@ -418,19 +422,13 @@ function onBack() {
   }
 
   if (hasChanges) {
-    uni.showModal({
+    const result = await confirm({
       title: '还没保存修改',
       content: '这件好物的信息还没更新，要先继续看一眼吗？',
       cancelText: '放弃这次',
-      cancelColor: '#A69B8D',
       confirmText: '继续编辑',
-      confirmColor: '#8A9A86',
-      success(res) {
-        if (res.cancel) {
-          uni.navigateBack()
-        }
-      }
     })
+    if (result.cancel) uni.navigateBack()
   } else {
     uni.navigateBack()
   }
@@ -783,26 +781,24 @@ function onSave() {
     })
   }
 
-  const requestImageConsentThenSave = (onSaved = null) => {
+  const requestImageConsentThenSave = async (onSaved = null) => {
   // Handle privacy consent check if there's a new image and we are NOT using the original image
   if (hasPendingImageChange.value && originalImagePath.value && !originalImagePath.value.startsWith('cloud://') && !isUsingOriginal.value) {
     const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
     if (!consent || consent.accepted === undefined) {
-      uni.showModal({
+      const result = await confirm({
         title: '先确认一下图片整理',
         content: '为了生成更清晰的物品贴纸，图片会上传至微信云存储，并提交给百度智能云进行背景处理。你也可以继续使用原图。',
         cancelText: '暂不整理',
         confirmText: '继续整理',
-        success: function(res) {
-          if (res.confirm) {
-            uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: true, policyVersion: 1, acceptedAt: Date.now() })
-            proceedSave(true, onSaved)
-          } else {
-            uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: false, policyVersion: 1, acceptedAt: Date.now() })
-            proceedSave(false, onSaved)
-          }
-        }
       })
+      if (result.confirm) {
+        uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: true, policyVersion: 1, acceptedAt: Date.now() })
+        proceedSave(true, onSaved)
+      } else {
+        uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: false, policyVersion: 1, acceptedAt: Date.now() })
+        proceedSave(false, onSaved)
+      }
       return
     } else {
       proceedSave(consent.accepted, onSaved)

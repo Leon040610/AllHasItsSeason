@@ -228,12 +228,13 @@
     </scroll-view>
     <!-- 隐藏的 Canvas，用于绘制贴纸 -->
     <canvas type="2d" id="stickerCanvas" class="hidden-canvas"></canvas>
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, getCurrentInstance } from 'vue'
-import { onShow, onLoad } from '@dcloudio/uni-app'
+import { onShow, onHide, onLoad } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { settingsService } from '../../services/settingsService.js'
 import { subscriptionMessageService } from '../../services/subscriptionMessageService.js'
@@ -245,9 +246,13 @@ import { imageCanvasService } from '../../services/imageCanvasService.js'
 import { calculateExpiryDate, calculateAfterOpeningDate, determineActiveExpiry } from '../../utils/dateUtils.js'
 import { isStoredLoggedIn } from '../../utils/authSessionStore.js'
 import { generateUUID } from '../../utils/uuid.js'
+import BrandConfirmDialog from '../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../utils/useBrandConfirmDialog.js'
 
 const instance = getCurrentInstance()
 const currentDraftId = ref('')
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
+let reminderGuideTimer: ReturnType<typeof setTimeout> | null = null
 
 const previewImage = ref('/static/icons/add-Yogurt Bottle Cutout.svg')
 const imgRotation = ref(0)
@@ -327,6 +332,36 @@ onLoad((options: any) => {
       }
       form.value.status = 'using' // opened items default to using status
     }
+  }
+})
+
+onShow(() => {
+  if (!isStoredLoggedIn() || reminderGuideTimer || uni.getStorageSync('allhas_reminder_subscription_tip_shown_v1')) return
+
+  reminderGuideTimer = setTimeout(async () => {
+    reminderGuideTimer = null
+    if (!isStoredLoggedIn() || dialog.visible || uni.getStorageSync('allhas_reminder_subscription_tip_shown_v1')) return
+
+    await confirm({
+      title: '持续接受提醒说明',
+      imageSrc: '/static/guide/reminder-subscription_1.png',
+      steps: [
+        '开启通知时，请务必勾选弹窗底部的「总是保持以上选择」。',
+        '否则微信将不会记住授权，导致您只能收到一次通知或每次都需要手动确认。',
+        '勾选并允许后，下次就不会再弹出授权窗口了哦。',
+      ],
+      showCancel: false,
+      confirmText: '我知道了',
+    })
+
+    uni.setStorageSync('allhas_reminder_subscription_tip_shown_v1', true)
+  }, 700)
+})
+
+onHide(() => {
+  if (reminderGuideTimer) {
+    clearTimeout(reminderGuideTimer)
+    reminderGuideTimer = null
   }
 })
 
@@ -473,25 +508,21 @@ function saveAsDraft() {
   })
 }
 
-function onBack() {
+async function onBack() {
   if (isFormDirty()) {
-    uni.showModal({
+    const result = await confirm({
       title: '先留一份草稿吗？',
       content: '这件好物还没收纳完，小管家可以先替你留着。',
       cancelText: '不留了',
-      cancelColor: '#A69B8D',
       confirmText: '存草稿',
-      confirmColor: '#8A9A86',
-      success(res) {
-        if (res.confirm) {
-          saveAsDraft()
-          uni.showToast({ title: '已替你留在草稿箱', icon: 'success' })
-          setTimeout(() => uni.navigateBack(), 1000)
-        } else if (res.cancel) {
-          uni.navigateBack()
-        }
-      }
     })
+    if (result.confirm) {
+      saveAsDraft()
+      uni.showToast({ title: '已替你留在草稿箱', icon: 'success' })
+      setTimeout(() => uni.navigateBack(), 1000)
+    } else {
+      uni.navigateBack()
+    }
   } else {
     uni.navigateBack()
   }
@@ -859,26 +890,24 @@ function onSave() {
     })
   }
 
-  const requestImageConsentThenSave = (onSaved = null) => {
+  const requestImageConsentThenSave = async (onSaved = null) => {
   // Handle privacy consent check if there's a new image and we are NOT using the original image
   if (currentImageRevision.value > 0 && originalImagePath.value && !originalImagePath.value.startsWith('cloud://') && !isUsingOriginal.value) {
     const consent = uni.getStorageSync('allhas_image_processing_consent_v1')
     if (!consent || consent.accepted === undefined) {
-      uni.showModal({
+      const result = await confirm({
         title: '先确认一下图片整理',
         content: '为了生成更清晰的物品贴纸，图片会上传至微信云存储，并提交给百度智能云进行背景处理。你也可以继续使用原图。',
         cancelText: '暂不整理',
         confirmText: '继续整理',
-        success: function(res) {
-          if (res.confirm) {
-            uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: true, policyVersion: 1, acceptedAt: Date.now() })
-            proceedSave(true, onSaved)
-          } else {
-            uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: false, policyVersion: 1, acceptedAt: Date.now() })
-            proceedSave(false, onSaved)
-          }
-        }
       })
+      if (result.confirm) {
+        uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: true, policyVersion: 1, acceptedAt: Date.now() })
+        proceedSave(true, onSaved)
+      } else {
+        uni.setStorageSync('allhas_image_processing_consent_v1', { accepted: false, policyVersion: 1, acceptedAt: Date.now() })
+        proceedSave(false, onSaved)
+      }
       return
     } else {
       proceedSave(consent.accepted, onSaved)

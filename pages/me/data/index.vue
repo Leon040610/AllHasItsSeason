@@ -79,6 +79,7 @@
 
       <view class="safe-bottom" />
     </scroll-view>
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
@@ -89,6 +90,8 @@ import { itemService } from '../../../services/itemService.js'
 import { categoryService } from '../../../services/categoryService.js'
 import { syncService } from '../../../services/syncService.js'
 import { cacheService } from '../../../services/cacheService.js'
+import BrandConfirmDialog from '../../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../../utils/useBrandConfirmDialog.js'
 
 interface DataStats {
   itemCount: number
@@ -101,6 +104,7 @@ const stats = reactive<DataStats>({
   categoryCount: 0,
   draftCount: 0,
 })
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
 
 const syncStatusText = computed(() => {
   const syncSet = syncService.getSettings()
@@ -162,34 +166,32 @@ async function onClearCache() {
   }
 
   const sizeMb = (totalSize / 1024 / 1024).toFixed(2)
-  uni.showModal({
+  const confirmation = await confirm({
     title: '清理本地图片缓存？',
     content: `已同步的图片需要时会重新取回，物品记录不会受影响。(当前可清理大小: ${sizeMb} MB)`,
     cancelText: '再想想',
     confirmText: '清理',
-    confirmColor: '#D98A6C',
-    success: async (res) => {
-      if (res.confirm) {
-        uni.showLoading({ title: '清理中...', mask: true })
-        try {
-          const result = await cacheService.clearCache()
-          uni.hideLoading()
-          uni.showToast({
-            title: `成功清理 ${result.successCount} 个文件 (${(result.clearedSize / 1024 / 1024).toFixed(2)} MB)`,
-            icon: 'success',
-            duration: 3000
-          })
-        } catch (err) {
-          uni.hideLoading()
-          uni.showModal({
-            title: '提示',
-            content: '这次没有整理好，稍后再试一下',
-            showCancel: false
-          })
-        }
-      }
-    }
+    destructive: true,
   })
+  if (!confirmation.confirm) return
+
+  uni.showLoading({ title: '清理中...', mask: true })
+  try {
+    const result = await cacheService.clearCache()
+    uni.hideLoading()
+    uni.showToast({
+      title: `成功清理 ${result.successCount} 个文件 (${(result.clearedSize / 1024 / 1024).toFixed(2)} MB)`,
+      icon: 'success',
+      duration: 3000
+    })
+  } catch (err) {
+    uni.hideLoading()
+    uni.showModal({
+      title: '提示',
+      content: '这次没有整理好，稍后再试一下',
+      showCancel: false
+    })
+  }
 }
 </script>
 

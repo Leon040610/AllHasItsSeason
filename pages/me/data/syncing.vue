@@ -72,6 +72,7 @@
         <text class="btn-cancel__text">取消当前同步</text>
       </view>
     </view>
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
@@ -79,6 +80,8 @@
 import { ref, onUnmounted } from 'vue'
 import { onLoad } from '@dcloudio/uni-app'
 import { syncService } from '../../../services/syncService.js'
+import BrandConfirmDialog from '../../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../../utils/useBrandConfirmDialog.js'
 
 const syncProgress = ref(0)
 const syncMessage = ref('准备同步')
@@ -86,6 +89,7 @@ const dotsText = ref('')
 let dotsTimer: ReturnType<typeof setInterval> | null = null
 let currentOperationId: string | null = null
 let isCancelled = false
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
 
 onLoad(async (options) => {
   dotsTimer = setInterval(() => {
@@ -154,22 +158,20 @@ function onCancelSync() {
   requestCancel()
 }
 
-function requestCancel() {
-  uni.showModal({
+async function requestCancel() {
+  const result = await confirm({
     title: '确认暂停同步？',
     content: '暂停后已同步的部分会保留，剩余部分可以稍后继续。',
     confirmText: '暂停同步',
-    confirmColor: '#D98A6C',
     cancelText: '继续同步',
-    success(res) {
-      if (res.confirm) {
-        if (currentOperationId) {
-          syncService.cancelSync(currentOperationId)
-        }
-        uni.navigateBack()
-      }
-    }
+    destructive: true,
   })
+  if (!result.confirm) return
+
+  if (currentOperationId) {
+    syncService.cancelSync(currentOperationId)
+  }
+  uni.navigateBack()
 }
 </script>
 

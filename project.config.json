@@ -4,7 +4,7 @@
   "appid": "wx0b856ea61cc9fde1",
   "setting": {
     "es6": false,
-    "minified": false,
+    "minified": true,
     "postcss": false,
     "compileWorklet": false,
     "uglifyFileName": false,

@@ -12,6 +12,12 @@
 - CloudBase timer entries have no end-user OPENID. Scheduled maintenance is therefore accepted only when no action is supplied and the invocation has no OPENID; mini-program maintenance calls still require `CLEANUP_ADMIN_TOKEN`.
 - Automatic deletion requires both the pre-existing deletion pair and a separate automatic-delete switch. This makes a deployed weekly timer harmless until a deliberate post-dry-run opt-in is made.
 
+## 2026-07-20: Usage guide source review
+- The supplied Markdown is the authoritative source for the user-facing manual. It has sections for onboarding, adding items, expiry modes, reminders, home, library, detail/editing, tools, My page, sticker images, FAQ, and contact.
+- Its three `Pasted image` references cannot be resolved from the Markdown directory, so the first page revision will retain documented image slots rather than write local absolute paths into the mini program.
+- The development-process, third-party service cost, future monetization, and operations commentary in the Markdown postscript is intentionally excluded from the user-facing page. It is not usage guidance and conflicts with the product's public copy constraints.
+- The exported PDF has ten pages. It contains one embedded image in the functional guide, placed after the reminder-subscription explanation, and two images on the excluded development postscript page. The functional image is represented by a stable in-app placeholder until the user supplies a project asset.
+
 ## 2026-07-19: P3.2 send parameter correction
 - The official WeChat global error-code table defines `-501007` as a CloudBase common parameter error. The observed `ready` job and available grant show that the sender safely retried this generic error rather than consuming the subscription.
 - Official subscription-message examples use `YYYY-MM-DD` for date values and `YYYY-MM-DD HH:mm` for date-time values. The sender now uses those canonical formats instead of Chinese calendar text.
@@ -163,4 +169,10 @@
 - **New One-time Subscribe Message (新版一次性订阅)**:
   - This is a Beta feature that bypasses the conventional popup selection.
   - It relies on specific triggers such as Wechat Pay transactions (using payment transaction ID as a code) or button actions utilizing `open-type="liveActivity"` (real-time activities).
-  - Since our reminder settings page does not involve transaction checkouts or live activities, and requires a traditional user permission intent opt-in, the **Old (Conventional) One-time Subscribe popup is the correct choice**.
+- Since our reminder settings page does not involve transaction checkouts or live activities, and requires a traditional user permission intent opt-in, the **Old (Conventional) One-time Subscribe popup is the correct choice**.
+
+## 2026-07-20: Brand confirmation scope
+- The reusable dialog must remain limited to double-button business decisions. Toasts, editable `uni.showModal` inputs, single-button error prompts, action sheets, pickers, WeChat/system authorization dialogs, and the guest-data migration confirmation intentionally remain native.
+- The homepage welcome guide waits for the normal home view/data load path and then delays 700ms. If another branded dialog is already active, it leaves its storage flag unset so the welcome guide can still show on a later visit.
+- The add-page reminder explanation only appears for a stored logged-in session. It is a local usage tip, not a substitute for the WeChat one-time authorization prompt.
+- Simple regular-expression tag counters are unsuitable for these Vue templates because they contain both self-closing and same-line `<view>…</view>` elements. Use the installed Vue SFC compiler parser for final template validation.

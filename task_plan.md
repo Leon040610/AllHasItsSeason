@@ -22,6 +22,23 @@
 - The weekly order is audit at 02:00, file cleanup at 02:20, then soft-deleted-item purge at 02:40 every Sunday (CloudBase China standard time).
 - Draft documents and every Cloud File ID reachable from a draft remain permanently protected.
 
+## Phase 18: Usage Guide Entry and Page
+- [x] Add the usage-guide entry above About in the existing connected Me-page settings group.
+- [x] Add an independent guide page using the existing About-page top-bar pattern and category icon asset.
+- [x] Verify the new route, icon paths, Vue structure, and affected diff without altering existing workspace changes.
+- [x] Review the supplied Markdown manual and PDF layout, including the one user-flow screenshot position.
+- [x] Replace the short guide content with the complete user-facing manual and a stable image placeholder.
+- [x] Verify the expanded page structure and preserve the supplied Markdown content, with image locations left empty until project-local assets are provided.
+- [x] Add the `mp-html` renderer and a repeatable `marked` build command for the supplied Markdown source.
+- [x] Apply the PDF-inspired title, body, table, quote, and emphasis typography through `mp-html` tag styles.
+
+## Phase 19: Brand Confirmation Dialogs and First-Use Guides
+- [x] Add a reusable branded confirmation dialog with normal and destructive double-button variants.
+- [x] Migrate only the scoped double-button business confirmations; preserve Toasts, editable inputs, single-button alerts, action sheets, and system authorization flows.
+- [x] Keep the guest-data migration confirmation as its existing native dialog.
+- [x] Add the delayed, once-only homepage welcome guide and the logged-in add-page reminder-subscription guide.
+- [x] Run focused structure, JavaScript syntax, asset, storage-key, and whitespace checks.
+
 ## Phase 15: P3.2 Real-Send Cloud API Permission Repair
 - [x] Declare the official `subscribeMessage.send` OpenAPI permission on the sender function only.
 - [x] Preserve signed CloudBase platform codes and separate missing cloud-call permission from one-time authorization loss.

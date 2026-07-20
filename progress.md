@@ -19,6 +19,18 @@
 - Automatic deletion remains disabled by default. File deletion additionally requires `CLEANUP_DRY_RUN=false`, `CLEANUP_DELETE_ENABLED=true`, and `CLEANUP_AUTO_DELETE_ENABLED=true`; item physical purge has the equivalent three `RECORD_PURGE_*` gates. Automatic dry-run audit is separately enabled only through its two audit switches.
 - Final validation passed: Node syntax checks for all changed cloud functions and affected frontend service modules, JSON parsing for all timer configs, `node tests/p3.3-safety.test.cjs`, and `git diff --check`. No functions were deployed and no CloudBase environment values, triggers, files, or database records were changed by this local work.
 
+## 2026-07-20: Usage guide page implementation
+- Added the `使用说明` row above `关于万物有期` within the same existing Me-page settings card. It reuses `/static/icons/me-category-fenlei7.svg` and the existing row/arrow styles.
+- Added `/pages/me/guide/index`, with the same fixed secondary-page top-bar layout as the About page and a focused five-step usage guide.
+- A first PowerShell JSON validation used the shell default encoding and mis-decoded this existing UTF-8 `pages.json`, causing a false parse error. No source file was changed by that failed read; validation is being rerun with explicit UTF-8 decoding.
+- UTF-8 validation passed for the `pages/me/guide/index` route, custom navigation style, requested icon asset, and required Vue SFC sections. `git diff --check` also passed. The root has no project-managed frontend build command, so no terminal SFC compilation or emulator screenshot was available for this focused UI addition.
+- Began replacing the short guide with the supplied full Markdown manual. The first PDF rendering attempt could not resolve the supplied Desktop PDF path through PowerShell's current encoded path handling, and the optional `pdfimages` utility is not installed. No source file was changed; the PDF will be located with a filesystem enumeration and rendered using the available `pdftoppm` tool.
+- Replaced the short guide by rendering the supplied Markdown manual in full, including every main section, emphasized note, FAQ, contact content, and the original afterword, cost list, and upgrade-plan checklist. All three Obsidian image references are represented by empty in-page placeholders until project-local image assets are supplied.
+- Verified the route with explicit UTF-8 JSON parsing, the Vue SFC and script syntax, absence of local/Obsidian image paths, and `git diff --check`.
+- Replaced the direct rich-text rendering with `mp-html` v2.5.2 and added `marked` v18.0.6 as the Markdown build dependency. `pages/me/guide/index.vue` now imports the generated `utils/usageGuideHtml.js` module and applies the project typography to headings, paragraphs, tables, quotes, and emphasis through `tag-style`.
+- Added `scripts/build-usage-guide.mjs`. It converts the supplied Markdown with `marked`, turns each Obsidian image embed into a stable empty placeholder, normalizes the source's Obsidian emphasis syntax, and keeps task-list items visible in `mp-html`. It was run successfully against the supplied Markdown file to generate the checked-in module.
+- Final validation passed: `npm ls --depth=0`, package JSON parsing, route and component-import assertions, generated HTML content assertions, JavaScript syntax checks for the script and generated module, and `git diff --check`. The bundled Poppler wrapper was unavailable in this runtime, so the PDF was used as a layout reference without an automated rendered screenshot comparison.
+
 ## 2026-07-19: P3.2 real-send permission repair
 - Added `permissions.openapi: ["subscribeMessage.send"]` to `sendReminderNotifications/config.json` while preserving its existing timer trigger.
 - Corrected sender error classification for signed CloudBase error `-604101`; it now records `cloud_api_permission_missing`, leaves the grant available, and avoids the `43101` authorization-loss path.
@@ -31,6 +43,18 @@
 
 ## 2026-07-19: Template time-field display correction
 - A real cloud-call test proved date-only `time8` values produce `-501007`. Reverted the experimental date-only format; `time8` again sends `YYYY-MM-DD HH:mm`, defaulting date-only production records to `00:00`.
+
+## 2026-07-20: Brand confirmation dialog implementation
+- Added `components/BrandConfirmDialog.vue` and `utils/useBrandConfirmDialog.js` for scoped, reusable business confirmations. The card uses the requested oatmeal `#F4EFEA` background, sage primary action, terracotta destructive action, muted cancel action, and `Noto Serif SC` typography.
+- Replaced the requested double-button business confirmations on the home, add, recognition, detail, edit, category, draft, profile, local-data, and syncing pages. Each migrated call now awaits the shared callback and preserves its original confirm/cancel business action.
+- Preserved every explicitly excluded native interaction: all Toasts, reminder custom-day editable input, single-button failure prompts, action sheets, pickers, WeChat/system authorization prompts, and the guest-data migration dialog.
+- Added the 700ms once-only homepage welcome guide (`allhas_guide_shown_v1`) and the logged-in add-page reminder explanation (`allhas_reminder_subscription_tip_shown_v1`). Both cancel pending timers when their page hides.
+- Initial structural inspection incorrectly counted self-closing `<view />` elements as ordinary opening tags. The project files were not changed by that check; a self-closing-aware validation is used for the final check.
+- A follow-up generic line scanner also misread inline `<view>…</view>` pairs as a closing-tag underflow. This is a limitation of the ad-hoc text parser, not an observed Vue template defect; final SFC validation must use the Vue compiler parser instead.
+- The repository does not have `@vue/compiler-sfc` installed, so terminal-level SFC compilation is unavailable without changing dependency scope. The add-page template passed the earlier direct line-by-line tag-stack inspection; final visual and compiler validation remains a HBuilderX/微信开发者工具 task.
+- The first native-modal scope assertion compared Windows `\\` paths to slash-normalized expectations and therefore false-failed. It did not change source files; the final assertion normalizes separators before comparison.
+- Final executable checks passed: `node --check` for the shared helper and preserved guest-migration service; exact native-modal scope; reminder-guide image and both storage-key/timing guards; all ten shared-dialog hosts; and `git diff --check`.
+- Follow-up visual correction: the image-based reminder guide now uses a fixed viewport-bounded flex card with a shrinkable, scrollable body, preventing its step text from extending beneath the fixed action button. The homepage welcome copy no longer passes the italic-content flag. Focused layout/typography assertions and `git diff --check` pass.
 
 - **2026-07-18**: P3.2 preflight completed without code changes. The frontend template ID declaration exists but server-side dry-run/template-field configuration, scheduled functions, reminder collections, and a secure scheduled-message recipient mapping are absent. Stopped as required instead of guessing official API parameters.
 - **2026-07-18**: User supplied a template-detail screenshot. Confirmed the title and five field keys/types, but retained the P3.2 block because field limits/formats, subject qualification, server environment configuration, and recipient mapping remain unverified.

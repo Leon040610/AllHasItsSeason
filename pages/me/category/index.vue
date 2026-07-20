@@ -72,6 +72,7 @@
         <text class="btn-save__text">保存设置</text>
       </view>
     </view>
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
@@ -79,8 +80,11 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { categoryService } from '../../../services/categoryService.js'
+import BrandConfirmDialog from '../../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../../utils/useBrandConfirmDialog.js'
 
 const categoryList = ref<any[]>([])
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
 
 // 拖拽相关状态
 const dragIndex = ref(-1)
@@ -152,23 +156,21 @@ function onEditCategory(cat: any) {
   uni.navigateTo({ url: `/pages/me/category/edit?id=${cat.id}&name=${encodeURIComponent(cat.name)}` })
 }
 
-function onDeleteCategory(cat: any) {
-  uni.showModal({
+async function onDeleteCategory(cat: any) {
+  const result = await confirm({
     title: '确认删除',
     content: `确定要删除分类“${cat.name}”吗？`,
-    confirmColor: '#D98A6C',
-    success: (res) => {
-      if (res.confirm) {
-        const result = categoryService.deleteCategory(cat.id)
-        if (result.success) {
-          uni.showToast({ title: '已删除', icon: 'success' })
-          loadCategories()
-        } else {
-          uni.showToast({ title: result.message, icon: 'none' })
-        }
-      }
-    }
+    destructive: true,
   })
+  if (!result.confirm) return
+
+  const deleteResult = categoryService.deleteCategory(cat.id)
+  if (deleteResult.success) {
+    uni.showToast({ title: '已删除', icon: 'success' })
+    loadCategories()
+  } else {
+    uni.showToast({ title: deleteResult.message, icon: 'none' })
+  }
 }
 
 function onAddCategory() {

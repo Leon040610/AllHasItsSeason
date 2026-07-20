@@ -102,6 +102,7 @@
         <text class="batch-bar__btn-text batch-bar__btn-text--primary">清理所选 ({{ selectedIds.length }})</text>
       </view>
     </view>
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
@@ -111,10 +112,13 @@ import { onShow } from '@dcloudio/uni-app'
 import { draftService } from '../../../services/draftService.js'
 import { dateUtils } from '../../../utils/dateUtils.js'
 import { cloudStorageService } from '../../../services/cloudStorageService.js'
+import BrandConfirmDialog from '../../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../../utils/useBrandConfirmDialog.js'
 
 const drafts = ref<any[]>([])
 const isBatchMode = ref(false)
 const selectedIds = ref<string[]>([])
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
 
 onShow(() => {
   isBatchMode.value = false
@@ -163,55 +167,49 @@ function onToggleSelect(id: string) {
   }
 }
 
-function onBatchDelete() {
+async function onBatchDelete() {
   if (selectedIds.value.length === 0) {
     return uni.showToast({ title: '先选一下要清理的草稿', icon: 'none' })
   }
-  uni.showModal({
+  const result = await confirm({
     title: '清理这些草稿吗？',
     content: '清理后就不能从草稿箱找回了。',
     cancelText: '再想想',
-    cancelColor: '#8A9A86',
     confirmText: '清理',
-    confirmColor: '#D98A6C',
-    success(res) {
-      if (res.confirm) {
-        let allSuccess = true
-        selectedIds.value.forEach(id => {
-          const result = draftService.deleteDraft(id)
-          if (!result.success) allSuccess = false
-        })
-        if (allSuccess) {
-          uni.showToast({ title: '清理成功', icon: 'success' })
-        } else {
-          uni.showToast({ title: '草稿暂时没清理成功，再试一下', icon: 'none' })
-        }
-        selectedIds.value = []
-        loadDrafts()
-        if (drafts.value.length === 0) {
-          isBatchMode.value = false
-        }
-      }
-    }
+    destructive: true,
   })
+  if (!result.confirm) return
+
+  let allSuccess = true
+  selectedIds.value.forEach(id => {
+    const deleteResult = draftService.deleteDraft(id)
+    if (!deleteResult.success) allSuccess = false
+  })
+  if (allSuccess) {
+    uni.showToast({ title: '清理成功', icon: 'success' })
+  } else {
+    uni.showToast({ title: '草稿暂时没清理成功，再试一下', icon: 'none' })
+  }
+  selectedIds.value = []
+  loadDrafts()
+  if (drafts.value.length === 0) {
+    isBatchMode.value = false
+  }
 }
 
-function onDelete(draft: any) {
-  uni.showModal({
+async function onDelete(draft: any) {
+  const result = await confirm({
     title: '删除这份草稿吗？',
     content: '删除后，小管家就不再替你保留这次填写啦。',
     cancelText: '再想想',
-    cancelColor: '#8A9A86',
     confirmText: '删除',
-    confirmColor: '#D98A6C',
-    success(res) {
-      if (res.confirm) {
-        draftService.deleteDraft(draft.id)
-        loadDrafts()
-        uni.showToast({ title: '已清理这份草稿', icon: 'none' })
-      }
-    },
+    destructive: true,
   })
+  if (!result.confirm) return
+
+  draftService.deleteDraft(draft.id)
+  loadDrafts()
+  uni.showToast({ title: '已清理这份草稿', icon: 'none' })
 }
 
 function onContinueEdit(draft: any) {

@@ -1,0 +1,13 @@
+{
+  "name": "all-has-its-season",
+  "private": true,
+  "scripts": {
+    "build:usage-guide": "node scripts/build-usage-guide.mjs"
+  },
+  "dependencies": {
+    "mp-html": "^2.5.2"
+  },
+  "devDependencies": {
+    "marked": "^18.0.6"
+  }
+}

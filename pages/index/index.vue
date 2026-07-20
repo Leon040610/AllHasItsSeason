@@ -156,18 +156,22 @@
         <text class="tab-bar__label">我的</text>
       </view>
     </view>
+
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onHide } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { categoryService } from '../../services/categoryService.js'
 import { syncService } from '../../services/syncService.js'
 import { recognitionService } from '../../services/recognitionService.js'
 import { cloudStorageService } from '../../services/cloudStorageService.js'
 import { isStoredLoggedIn } from '../../utils/authSessionStore.js'
+import BrandConfirmDialog from '../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../utils/useBrandConfirmDialog.js'
 
 const focusItems = ref<any[]>([])
 const categories = ref<any[]>([])
@@ -176,6 +180,8 @@ const nearExpireCount = ref(0)
 const expiredCount = ref(0)
 const isRefreshing = ref(false)
 const isSyncEnabled = ref(false)
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
+let welcomeTimer: ReturnType<typeof setTimeout> | null = null
 
 const greetingText = computed(() => {
   const hour = new Date().getHours()
@@ -192,7 +198,39 @@ onShow(() => {
   }
   isSyncEnabled.value = syncService.getSettings().syncEnabled
   loadData()
+  scheduleWelcomeGuide()
 })
+
+onHide(() => {
+  if (welcomeTimer) {
+    clearTimeout(welcomeTimer)
+    welcomeTimer = null
+  }
+})
+
+function scheduleWelcomeGuide() {
+  if (welcomeTimer || uni.getStorageSync('allhas_guide_shown_v1')) return
+
+  welcomeTimer = setTimeout(async () => {
+    welcomeTimer = null
+    if (uni.getStorageSync('allhas_guide_shown_v1') || dialog.visible) return
+
+    const result = await confirm({
+      title: '欢迎来到万物有期',
+      paragraphs: [
+        '我是你的物品效期小管家。拍下家里的好物，我会帮你记着每一个重要的日子。',
+        '第一次使用？花 1 分钟看看使用说明，上手更快哦。',
+      ],
+      cancelText: '先逛逛',
+      confirmText: '去看看',
+    })
+
+    uni.setStorageSync('allhas_guide_shown_v1', true)
+    if (result.confirm) {
+      uni.navigateTo({ url: '/pages/me/guide/index' })
+    }
+  }, 700)
+}
 
 function loadData() {
   // 从服务层获取最新数据
@@ -342,7 +380,7 @@ function onFabTouchEnd() {
   }, 300)
 }
 
-function onPhotoScan() {
+async function onPhotoScan() {
   if (!isStoredLoggedIn()) {
     uni.showToast({
       title: '登录后可拍照识字',
@@ -356,24 +394,23 @@ function onPhotoScan() {
   if (consent && consent.accepted) {
     executePhotoScan();
   } else {
-    uni.showModal({
+    const result = await confirm({
       title: '先确认一下拍照识字',
       content: '为了识别包装上的效期信息，拍下的标签照片会提交给微信服务市场的文字识别服务处理。识别结果只会帮你填写表单。',
       cancelText: '手动填写',
       confirmText: '开始识别',
-      success: (res) => {
-        if (res.confirm) {
-          uni.setStorageSync('allhas_ocr_consent_v1', {
-            accepted: true,
-            policyVersion: 1,
-            acceptedAt: Date.now()
-          });
-          executePhotoScan();
-        } else {
-          uni.navigateTo({ url: '/pages/add/index?mode=manual' });
-        }
-      }
     });
+
+    if (result.confirm) {
+      uni.setStorageSync('allhas_ocr_consent_v1', {
+        accepted: true,
+        policyVersion: 1,
+        acceptedAt: Date.now()
+      });
+      executePhotoScan();
+    } else {
+      uni.navigateTo({ url: '/pages/add/index?mode=manual' });
+    }
   }
 }
 

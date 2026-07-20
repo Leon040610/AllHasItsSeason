@@ -66,6 +66,7 @@
         <text class="btn-save__text">保存修改</text>
       </view>
     </view>
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
@@ -73,11 +74,14 @@
 import { ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { authService } from '../../../services/authService.js'
+import BrandConfirmDialog from '../../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../../utils/useBrandConfirmDialog.js'
 
 const form = ref({
   avatarUrl: '',
   nickname: ''
 })
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
 
 onShow(() => {
   const user = authService.getUser()
@@ -99,24 +103,21 @@ function onNicknameBlur() {
 }
 
 async function onLogout() {
-  uni.showModal({
+  const result = await confirm({
     title: '提示',
     content: '确定要退出登录吗？',
-    confirmColor: '#536251',
-    success: async (res) => {
-      if (res.confirm) {
-        try {
-          await authService.logout()
-        uni.showToast({ title: '已退出', icon: 'success' })
-        setTimeout(() => {
-          uni.switchTab({ url: '/pages/me/index' })
-        }, 600)
-        } catch (err) {
-          uni.showToast({ title: '退出没有完成，请稍后再试', icon: 'none' })
-        }
-      }
-    }
   })
+  if (!result.confirm) return
+
+  try {
+    await authService.logout()
+    uni.showToast({ title: '已退出', icon: 'success' })
+    setTimeout(() => {
+      uni.switchTab({ url: '/pages/me/index' })
+    }, 600)
+  } catch (err) {
+    uni.showToast({ title: '退出没有完成，请稍后再试', icon: 'none' })
+  }
 }
 
 async function onSave() {

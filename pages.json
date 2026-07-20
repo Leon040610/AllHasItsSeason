@@ -78,6 +78,13 @@
 			}
 		},
 		{
+			"path": "pages/me/guide/index",
+			"style": {
+				"navigationBarTitleText": "使用说明",
+				"navigationStyle": "custom"
+			}
+		},
+		{
 			"path": "pages/me/reminder/index",
 			"style": {
 				"navigationBarTitleText": "提醒设置",

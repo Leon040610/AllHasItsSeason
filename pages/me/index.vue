@@ -127,6 +127,16 @@
       <!-- 关于和联系 -->
       <view class="settings-group">
         <view class="settings-group__card">
+          <view class="settings-item" @tap="onUsageGuide">
+            <view class="settings-item__left">
+              <view class="settings-item__icon-wrap">
+                <image class="settings-item__icon-img" src="/static/icons/me-category-fenlei7.svg" mode="aspectFit" />
+              </view>
+              <text class="settings-item__label">使用说明</text>
+            </view>
+            <image class="settings-item__arrow-icon" src="/static/icons/me-tiaozhuan.svg" mode="aspectFit" />
+          </view>
+          <view class="settings-divider" />
           <view class="settings-item" @tap="onAbout">
             <view class="settings-item__left">
               <view class="settings-item__icon-wrap">
@@ -278,6 +288,10 @@ function onDraftBox() {
 
 function onAbout() {
   uni.navigateTo({ url: '/pages/me/about/index' })
+}
+
+function onUsageGuide() {
+  uni.navigateTo({ url: '/pages/me/guide/index' })
 }
 
 function onTabTap(tab: string) {

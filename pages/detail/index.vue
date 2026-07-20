@@ -166,6 +166,7 @@
         </view>
       </view>
     </view>
+    <BrandConfirmDialog :dialog="dialog" @confirm="onDialogConfirm" @cancel="onDialogCancel" />
   </view>
 </template>
 
@@ -174,9 +175,12 @@ import { ref, computed } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { itemService } from '../../services/itemService.js'
 import { cloudStorageService } from '../../services/cloudStorageService.js'
+import BrandConfirmDialog from '../../components/BrandConfirmDialog.vue'
+import { useBrandConfirmDialog } from '../../utils/useBrandConfirmDialog.js'
 
 const item = ref<any>(null)
 let currentId = ''
+const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
 
 const pureStatusLabel = computed(() => {
   if (!item.value) return ''
@@ -231,47 +235,43 @@ function onEdit() {
   }
 }
 
-function onMarkUsed() {
+async function onMarkUsed() {
   if (!item.value) return
-  uni.showModal({
+  const result = await confirm({
     title: '确认已用完？',
     content: '小管家会将此物品标记为已完成使命～',
     confirmText: '确认',
     cancelText: '取消',
-    success(res) {
-      if (res.confirm) {
-        const success = itemService.markItemDone(item.value.id)
-        if (success) {
-          uni.showToast({ title: '已记录，好物完成使命！', icon: 'none' })
-          setTimeout(() => loadItem(), 1200)
-        } else {
-          uni.showToast({ title: '更新失败', icon: 'none' })
-        }
-      }
-    },
   })
+  if (!result.confirm) return
+
+  const success = itemService.markItemDone(item.value.id)
+  if (success) {
+    uni.showToast({ title: '已记录，好物完成使命！', icon: 'none' })
+    setTimeout(() => loadItem(), 1200)
+  } else {
+    uni.showToast({ title: '更新失败', icon: 'none' })
+  }
 }
 
-function onDelete() {
+async function onDelete() {
   if (!item.value) return
-  uni.showModal({
+  const result = await confirm({
     title: '确认删除？',
     content: '删除后无法恢复，请确认。',
     confirmText: '删除',
-    confirmColor: '#D98A6C',
     cancelText: '取消',
-    success(res) {
-      if (res.confirm) {
-        const success = itemService.softDeleteItem(item.value.id)
-        if (success) {
-          uni.showToast({ title: '已删除', icon: 'none' })
-          setTimeout(() => uni.navigateBack(), 800)
-        } else {
-          uni.showToast({ title: '删除失败', icon: 'none' })
-        }
-      }
-    },
+    destructive: true,
   })
+  if (!result.confirm) return
+
+  const success = itemService.softDeleteItem(item.value.id)
+  if (success) {
+    uni.showToast({ title: '已删除', icon: 'none' })
+    setTimeout(() => uni.navigateBack(), 800)
+  } else {
+    uni.showToast({ title: '删除失败', icon: 'none' })
+  }
 }
 </script>
 
