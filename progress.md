@@ -56,6 +56,33 @@
 - Final executable checks passed: `node --check` for the shared helper and preserved guest-migration service; exact native-modal scope; reminder-guide image and both storage-key/timing guards; all ten shared-dialog hosts; and `git diff --check`.
 - Follow-up visual correction: the image-based reminder guide now uses a fixed viewport-bounded flex card with a shrinkable, scrollable body, preventing its step text from extending beneath the fixed action button. The homepage welcome copy no longer passes the italic-content flag. Focused layout/typography assertions and `git diff --check` pass.
 
+## 2026-07-21: Agreement and privacy policy access started
+- Confirmed that the existing usage-guide page provides the approved `mp-html` rendering structure and brand tag styles for both legal-content pages.
+- Confirmed that the supplied legal Markdown source files are Desktop files and that no configured developer contact email exists. On direct source review, both Markdown documents already contain an explicit contact email, so the generated modules preserve it verbatim without a placeholder replacement or TODO note.
+- Generated `utils/userAgreementHtml.js` and `utils/privacyPolicyHtml.js` from the supplied Markdown using the installed `marked` renderer. The source terms and the explicit contact email remain unchanged.
+- Added custom-navigation agreement and privacy pages by reusing the complete `mp-html` structure, return icon, scroll behavior, and `customStyles` from the usage-guide page.
+- Registered both routes and connected all four launch/about-page legal links. The launch-page checkbox now starts unchecked and retains the existing login-blocking Toast until the user actively agrees.
+- Final validation passed: both generated modules pass `node --check`; routes parse with the correct title/custom-navigation styles; headings/contact details are present in both rendered modules; all four links, page renderer contracts, and login agreement state are present; `git diff --check` passes.
+
+## 2026-07-21: Legal document source refresh and typography correction
+- Replaced the one-off Desktop-source generation with `scripts/build-legal-pages.mjs` and the `npm run build:legal-pages -- --source-dir <目录>` command. The new Obsidian-Vault legal Markdown directory is passed at execution time and is not hard-coded into the project.
+- Regenerated both HTML modules from the moved sources, including the newly updated privacy-policy wording.
+- Changed only the legal-page h1 treatment to a 32rpx, zero-letter-spacing, no-wrap specification so the privacy-policy title stays on one line.
+- Converted the leading update/effective dates into a standalone left-aligned metadata block so they no longer inherit body paragraphs' two-character first-line indentation.
+- Validation passed: generator/module syntax, updated privacy source content, metadata-block output, legal h1 layout declarations, and `git diff --check`.
+
+## 2026-07-21: Detail processed-image scale correction
+- Exposed `imageProcessStatus` in `DataConverter.toItemViewModel()` so the detail page can distinguish a successfully processed sticker from an original photo.
+- The detail hero now applies a 1.4x CSS scale only to processed stickers, composed with the existing sticker rotation. Original-photo sizing and all image-generation canvas behavior remain unchanged.
+- Matched the add-item preview: it now applies the same 1.4x scale only after successful sticker generation and only while the user has not selected the original image.
+- Matched the home-page "Today's focus" cards: processed stickers now use the same 1.4x scale while images selected as originals remain at their existing size.
+- Validation passed: `node --check models/DataConverter.js` and `git diff --check`.
+
+## 2026-07-21: Voluntary login entry correction
+- Changed the first route from the login page to the home page, so a newly opened Mini Program enters the usable home screen as a guest rather than requesting WeChat login.
+- Removed the redundant app-launch re-entry redirect. Persisted sessions continue to be read by `authService` and the existing page `onShow` handlers, so returning users still enter the home page in their signed-in state.
+- Changed the Me-page WeChat-login button into a navigation action to `/pages/launch/index`; the login page retains its unchecked agreement box, explicit user action, guest exit, migration, and post-login home return.
+
 - **2026-07-18**: P3.2 preflight completed without code changes. The frontend template ID declaration exists but server-side dry-run/template-field configuration, scheduled functions, reminder collections, and a secure scheduled-message recipient mapping are absent. Stopped as required instead of guessing official API parameters.
 - **2026-07-18**: User supplied a template-detail screenshot. Confirmed the title and five field keys/types, but retained the P3.2 block because field limits/formats, subject qualification, server environment configuration, and recipient mapping remain unverified.
 - **2026-07-18**: User requested implementation. Added server-only encrypted recipient registration, deterministic reminder job scanning, dry-run gating, safe notification logs, bounded retry handling, and the official subscribe-message sender. Wired accepted frontend authorization to recipient registration and documented CloudBase collections, environment variables, trigger setup, dry-run verification, and real-send cutover. Static checks and local eligibility/config assertions passed; deployment and real-device sending remain unverified.

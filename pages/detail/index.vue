@@ -21,7 +21,7 @@
             class="hero-img"
             :src="item.displayImageUrl || item.imageUrl"
             mode="aspectFit"
-            :style="{ transform: `rotate(${item.rotation}deg)` }"
+            :style="{ transform: heroImageTransform }"
           />
         </view>
       </view>
@@ -190,6 +190,23 @@ const pureStatusLabel = computed(() => {
   if (item.value.status === 'done') return '已用完'
   if (item.value.status === 'deleted') return '已删除'
   return '待取用'
+})
+
+const heroImageTransform = computed(() => {
+  if (!item.value) return ''
+
+  const scale = isShowingProcessedSticker.value ? 'scale(1.4) ' : ''
+  return `${scale}rotate(${item.value.rotation || 0}deg)`
+})
+
+const isShowingProcessedSticker = computed(() => {
+  if (!item.value || item.value.imageProcessStatus !== 'success') return false
+
+  const { displayImageCloudFileId, originalImageCloudFileId } = item.value
+  return Boolean(
+    displayImageCloudFileId &&
+    (!originalImageCloudFileId || displayImageCloudFileId !== originalImageCloudFileId)
+  )
 })
 
 onLoad((options: any) => {

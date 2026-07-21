@@ -18,7 +18,7 @@
         >
           <text v-if="agreed" class="agreement__check">✓</text>
         </view>
-        <text class="agreement__text">登录即同意</text>
+        <text class="agreement__text">我已阅读并同意</text>
         <text class="agreement__link" @tap="onUserAgreement">用户协议</text>
         <text class="agreement__text"> 与 </text>
         <text class="agreement__link" @tap="onPrivacyPolicy">隐私政策</text>
@@ -32,7 +32,7 @@ import { ref } from 'vue'
 import { authService } from '../../services/authService.js'
 import { guestMigrationService } from '../../services/guestMigrationService.js'
 
-const agreed = ref(true)
+const agreed = ref(false)
 
 function onToggleAgreement() {
   agreed.value = !agreed.value
@@ -66,8 +66,13 @@ function onGuest() {
   uni.reLaunch({ url: '/pages/index/index' })
 }
 
-function onUserAgreement() {}
-function onPrivacyPolicy() {}
+function onUserAgreement() {
+  uni.navigateTo({ url: '/pages/agreement/index' })
+}
+
+function onPrivacyPolicy() {
+  uni.navigateTo({ url: '/pages/privacy/index' })
+}
 </script>
 
 <style lang="scss" scoped>

@@ -39,6 +39,27 @@
 - [x] Add the delayed, once-only homepage welcome guide and the logged-in add-page reminder-subscription guide.
 - [x] Run focused structure, JavaScript syntax, asset, storage-key, and whitespace checks.
 
+## Phase 20: User Agreement and Privacy Policy Access
+- [x] Verify the supplied Markdown sources, current `mp-html` page convention, and configured developer contact information.
+- [x] Generate the user-agreement and privacy-policy HTML modules directly from the supplied Markdown without altering their terms.
+- [x] Add the two custom-navigation policy pages by reusing the usage-guide page structure and styles.
+- [x] Register both routes, wire both launch/about-page links, and require explicit agreement before WeChat login.
+- [x] Run focused module, routing, navigation, and whitespace checks.
+
+## Phase 21: Detail Sticker Presentation Scale
+- [x] Expose the existing image-processing state in the item view model.
+- [x] Scale only successfully processed sticker images in the item-detail hero while preserving their rotation and original-photo sizing.
+- [x] Apply the same processed-sticker-only scale in the add-item preview while retaining the original-image toggle behavior.
+- [x] Apply the same processed-sticker-only scale in the home-page focus cards without changing card layout or original-photo sizing.
+- [x] Run focused syntax and whitespace checks.
+
+## Phase 22: Voluntary Login Entry for Review Compliance
+- [x] Make the home page the first application route so a fresh launch enters the app as a guest.
+- [x] Remove the startup redirect that could interrupt the initial home-page experience.
+- [x] Change the Me-page WeChat login button from immediate authorization to navigation to the existing agreement-confirmed login page.
+- [x] Preserve the existing persisted-login session and post-login return-to-home behavior.
+- [x] Run focused route, login-entry, and whitespace checks.
+
 ## Phase 15: P3.2 Real-Send Cloud API Permission Repair
 - [x] Declare the official `subscribeMessage.send` OpenAPI permission on the sender function only.
 - [x] Preserve signed CloudBase platform codes and separate missing cloud-call permission from one-time authorization loss.

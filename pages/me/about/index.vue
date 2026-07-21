@@ -102,11 +102,11 @@ function onBack() {
 }
 
 function onUserAgreement() {
-  uni.showToast({ title: '用户协议即将上线', icon: 'none' })
+  uni.navigateTo({ url: '/pages/agreement/index' })
 }
 
 function onPrivacyPolicy() {
-  uni.showToast({ title: '隐私政策即将上线', icon: 'none' })
+  uni.navigateTo({ url: '/pages/privacy/index' })
 }
 </script>
 

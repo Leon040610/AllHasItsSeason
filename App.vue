@@ -109,18 +109,6 @@ export default {
       if (runtime.status === 'ready') loadCustomFont()
     })
 
-    const userRaw = uni.getStorageSync('allhas_user_v1')
-    let isLoggedIn = false
-    if (userRaw) {
-      try {
-        const user = JSON.parse(userRaw)
-        isLoggedIn = user.isLoggedIn === true
-      } catch (e) { /* ignore */ }
-    }
-
-    if (isLoggedIn) {
-      uni.reLaunch({ url: '/pages/index/index' })
-    }
   },
   onShow() {
     syncService.scheduleAutoSync({ reason: 'app_onshow' })

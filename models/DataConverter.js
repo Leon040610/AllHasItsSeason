@@ -85,6 +85,7 @@ export const DataConverter = {
       stickerImageCloudFileId: safeItem.stickerImageCloudFileId || '',
       cardBg: safeItem.imageBackgroundColor,
       rotation: safeItem.stickerRotation,
+      imageProcessStatus: safeItem.imageProcessStatus || 'idle',
       status: safeItem.status,
       statusLabel: statusLabel,
       displayStatus: displayStatus,

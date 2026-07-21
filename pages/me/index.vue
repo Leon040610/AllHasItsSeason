@@ -201,7 +201,6 @@ import { onShow } from '@dcloudio/uni-app'
 import { authService } from '../../services/authService.js'
 import { draftService } from '../../services/draftService.js'
 import { syncService } from '../../services/syncService.js'
-import { guestMigrationService } from '../../services/guestMigrationService.js'
 
 const user = reactive({
   isLoggedIn: false,
@@ -223,29 +222,8 @@ onShow(() => {
   draftCount.value = draftService.getDrafts().length
 })
 
-const isLoggingIn = ref(false)
-
-async function onWxLogin() {
-  if (isLoggingIn.value) return
-  isLoggingIn.value = true
-  try {
-    const loggedInUser = await authService.login()
-    user.isLoggedIn = loggedInUser.isLoggedIn
-    user.nickname = loggedInUser.nickname
-    user.uid = loggedInUser.uid
-    user.avatarUrl = loggedInUser.avatarUrl
-
-    await guestMigrationService.checkAndPromptMerge(loggedInUser.uid, () => {
-      draftCount.value = draftService.getDrafts().length
-    })
-  } catch (err: any) {
-    const msg = err.message === 'login_in_progress'
-      ? '登录中，请稍候'
-      : (err.message || '暂时没登录成功，也可以先逛逛')
-    uni.showToast({ title: msg, icon: 'none' })
-  } finally {
-    isLoggingIn.value = false
-  }
+function onWxLogin() {
+  uni.navigateTo({ url: '/pages/launch/index' })
 }
 
 function onReminderSettings() {

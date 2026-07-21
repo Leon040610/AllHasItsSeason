@@ -23,7 +23,7 @@
             class="img-preview__img"
             :src="isUsingOriginal ? originalImagePath : previewImage"
             mode="aspectFit"
-            :style="{ transform: `rotate(${isUsingOriginal ? 0 : imgRotation}deg)` }"
+            :style="{ transform: previewImageTransform }"
           />
           <view v-else class="img-preview__empty">
             <image class="img-preview__empty-icon-img" src="/static/icons/index-paizhao.svg" mode="aspectFit" />
@@ -268,6 +268,12 @@ const processStatus = ref<'idle' | 'success' | 'fallback' | 'error' | 'uploading
 const currentImageRevision = ref(0)
 const localImageExt = ref('jpg')
 const hasManuallyChangedMode = ref(false)
+
+const previewImageTransform = computed(() => {
+  const scale = processStatus.value === 'success' && !isUsingOriginal.value ? 'scale(1.4) ' : ''
+  const rotation = isUsingOriginal.value ? 0 : imgRotation.value
+  return `${scale}rotate(${rotation}deg)`
+})
 
 const form = ref({
   name: '',

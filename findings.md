@@ -176,3 +176,11 @@
 - The homepage welcome guide waits for the normal home view/data load path and then delays 700ms. If another branded dialog is already active, it leaves its storage flag unset so the welcome guide can still show on a later visit.
 - The add-page reminder explanation only appears for a stored logged-in session. It is a local usage tip, not a substitute for the WeChat one-time authorization prompt.
 - Simple regular-expression tag counters are unsuitable for these Vue templates because they contain both self-closing and same-line `<view>…</view>` elements. Use the installed Vue SFC compiler parser for final template validation.
+
+## 2026-07-21: Agreement and Privacy Policy Access
+- The established rich-text convention is `mp-html` with the `customStyles` object from `pages/me/guide/index.vue`; agreement and privacy pages should reuse it exactly.
+- The supplied Markdown documents are currently at `C:\\Users\\yuleo\\Desktop\\`, not inside the repository. They remain the source used for this generation; the generated JavaScript modules are the packaged app assets.
+- No developer contact email was found in `env.js`, `env.example.js`, manifest/project configuration, pages, services, or utilities. However, both supplied Markdown sources already contain the explicit contact email `yuleon0406@163.com`; it is preserved verbatim in the generated content modules, with no replacement or TODO inserted.
+- The legal Markdown sources now live in `C:\\Users\\yuleo\\Documents\\Obsidian Vault\\“万物有期”小程序`. `scripts/build-legal-pages.mjs` receives that directory through `--source-dir`, so no personal absolute path is stored in project source.
+- The date lines were originally rendered in one Markdown paragraph. The shared paragraph tag style has `text-indent: 2em`, which indented only the first line. The legal-page generator converts the two leading date lines into an independent left-aligned metadata block while leaving all legal terms unchanged.
+- The privacy title contains 15 Chinese characters. The usage-guide h1 treatment (`44rpx`, `2rpx` letter spacing) exceeds the legal page content width. Both legal pages use `32rpx`, zero letter spacing, and `white-space: nowrap` only for h1, which fits the title in one line without changing document body typography.

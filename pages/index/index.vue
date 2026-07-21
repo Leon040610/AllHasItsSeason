@@ -72,7 +72,7 @@
                   class="focus-card__img"
                   :src="item.displayImageUrl || item.imageUrl"
                   mode="aspectFit"
-                  :style="{ transform: `rotate(${item.rotation}deg)` }"
+                  :style="{ transform: getFocusImageTransform(item) }"
                 />
                 <!-- 临期 / 使用中角标 -->
                 <view
@@ -180,6 +180,15 @@ const nearExpireCount = ref(0)
 const expiredCount = ref(0)
 const isRefreshing = ref(false)
 const isSyncEnabled = ref(false)
+
+function getFocusImageTransform(item: any) {
+  const isShowingProcessedSticker =
+    item.imageProcessStatus === 'success' &&
+    item.displayImageCloudFileId &&
+    (!item.originalImageCloudFileId || item.displayImageCloudFileId !== item.originalImageCloudFileId)
+  const scale = isShowingProcessedSticker ? 'scale(1.4) ' : ''
+  return `${scale}rotate(${item.rotation || 0}deg)`
+}
 const { dialog, confirm, onConfirm: onDialogConfirm, onCancel: onDialogCancel } = useBrandConfirmDialog()
 let welcomeTimer: ReturnType<typeof setTimeout> | null = null
 

@@ -1,16 +1,16 @@
 {
 	"pages": [
 		{
-			"path": "pages/launch/index",
+			"path": "pages/index/index",
 			"style": {
-				"navigationBarTitleText": "万物有期",
+				"navigationBarTitleText": "首页",
 				"navigationStyle": "custom"
 			}
 		},
 		{
-			"path": "pages/index/index",
+			"path": "pages/launch/index",
 			"style": {
-				"navigationBarTitleText": "首页",
+				"navigationBarTitleText": "万物有期",
 				"navigationStyle": "custom"
 			}
 		},
@@ -81,6 +81,20 @@
 			"path": "pages/me/guide/index",
 			"style": {
 				"navigationBarTitleText": "使用说明",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/agreement/index",
+			"style": {
+				"navigationBarTitleText": "用户服务协议",
+				"navigationStyle": "custom"
+			}
+		},
+		{
+			"path": "pages/privacy/index",
+			"style": {
+				"navigationBarTitleText": "隐私政策",
 				"navigationStyle": "custom"
 			}
 		},
